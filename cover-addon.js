@@ -6,8 +6,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 });
 
 const app = document.querySelector('#app');
-const FAILURE_KEY = 'librariangpt-cover-failures-v1';
-const FAILURE_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
+const FAILURE_KEY = 'librariangpt-cover-failures-v2';
+const FAILURE_RETRY_MS = 15 * 60 * 1000;
 const failures = loadFailures();
 const knownCovers = new Map();
 const booksById = new Map();
@@ -19,38 +19,23 @@ function loadFailures() {
   try { return JSON.parse(localStorage.getItem(FAILURE_KEY) || '{}'); }
   catch { return {}; }
 }
-
 function saveFailures() {
   try { localStorage.setItem(FAILURE_KEY, JSON.stringify(failures)); } catch {}
 }
-
 function recentlyFailed(id) {
   const stamp = Number(failures[id] || 0);
   return Boolean(stamp && Date.now() - stamp < FAILURE_RETRY_MS);
 }
-
-function markFailed(id) {
-  failures[id] = Date.now();
-  saveFailures();
-}
-
-function clearFailed(id) {
-  if (failures[id]) {
-    delete failures[id];
-    saveFailures();
-  }
-}
-
+function markFailed(id) { failures[id] = Date.now(); saveFailures(); }
+function clearFailed(id) { if (failures[id]) { delete failures[id]; saveFailures(); } }
 function escSelector(value) {
   return window.CSS?.escape ? CSS.escape(String(value)) : String(value).replace(/["\\]/g, '\\$&');
 }
-
 function registerCover(bookId, title, url) {
   if (!url) return;
   knownCovers.set(bookId, { title, url });
   paintCover(bookId, title, url);
 }
-
 function paintCover(bookId, title, url) {
   if (!url || !app) return;
   const covers = new Set();
@@ -62,7 +47,6 @@ function paintCover(bookId, title, url) {
       if (cover) covers.add(cover);
     }
   });
-
   covers.forEach(cover => {
     let img = cover.querySelector('img');
     if (!img) {
@@ -75,16 +59,14 @@ function paintCover(bookId, title, url) {
     img.onerror = () => {
       img.remove();
       knownCovers.delete(bookId);
-      repairCover(bookId);
+      setTimeout(() => repairCover(bookId), 1000);
     };
     if (img.src !== url) img.src = url;
   });
 }
-
 function applyKnownCovers() {
   knownCovers.forEach(({ title, url }, id) => paintCover(id, title, url));
 }
-
 async function edgeError(error, fallback) {
   if (!error) return fallback;
   try {
@@ -95,14 +77,12 @@ async function edgeError(error, fallback) {
   } catch {}
   return error.message || fallback;
 }
-
 async function invoke(name, body) {
   const { data, error } = await supabase.functions.invoke(name, { body });
   if (error) throw new Error(await edgeError(error, `${name} failed`));
   if (data?.error) throw new Error(data.error);
   return data;
 }
-
 async function refreshOwnedCover(book) {
   const isbn = book.isbn13 || book.isbn10;
   if (!isbn || recentlyFailed(book.id) || repairing.has(book.id)) return false;
@@ -120,11 +100,8 @@ async function refreshOwnedCover(book) {
     console.info(`[LibrarianGPT] Exact cover unavailable for ${book.title}:`, error.message);
     markFailed(book.id);
     return false;
-  } finally {
-    repairing.delete(book.id);
-  }
+  } finally { repairing.delete(book.id); }
 }
-
 async function enrichReferenceCover(book) {
   if (recentlyFailed(book.id) || repairing.has(book.id)) return false;
   repairing.add(book.id);
@@ -148,42 +125,32 @@ async function enrichReferenceCover(book) {
     console.info(`[LibrarianGPT] Reference cover unavailable for ${book.title}:`, error.message);
     markFailed(book.id);
     return false;
-  } finally {
-    repairing.delete(book.id);
-  }
+  } finally { repairing.delete(book.id); }
 }
-
 function repairCover(bookId) {
   const book = booksById.get(bookId);
   if (!book || recentlyFailed(bookId) || repairing.has(bookId)) return;
-  if (book.ownership_status === 'Owned' && (book.isbn13 || book.isbn10)) {
-    refreshOwnedCover(book);
-  } else if (book.ownership_status !== 'Owned' && ['Recommended', 'Wishlist'].includes(book.overall_status)) {
-    enrichReferenceCover(book);
-  }
+  if (book.ownership_status === 'Owned' && (book.isbn13 || book.isbn10)) refreshOwnedCover(book);
+  else if (book.ownership_status !== 'Owned' && ['Recommended', 'Wishlist'].includes(book.overall_status)) enrichReferenceCover(book);
 }
-
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-async function runQueue(items, worker, concurrency = 2) {
+async function runQueue(items, worker, concurrency = 3) {
   let cursor = 0;
   async function next() {
     while (cursor < items.length) {
       const index = cursor++;
       await worker(items[index]);
-      await sleep(180);
+      await sleep(220);
     }
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, next));
 }
-
 async function enrichCovers() {
-  if (running) return;
+  if (running || document.hidden || !navigator.onLine) return;
   running = true;
   try {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
-
     const { data: books, error } = await supabase.from('v_library')
       .select('id,title,authors,ownership_status,overall_status,isbn10,isbn13,cover_url,cover_source,cover_verified,reference_edition_id');
     if (error || !books?.length) return;
@@ -195,44 +162,26 @@ async function enrichCovers() {
     });
     applyKnownCovers();
 
-    const owned = books.filter(book =>
-      book.ownership_status === 'Owned' &&
-      (book.isbn13 || book.isbn10) &&
-      (!book.cover_url || !book.cover_verified)
-    );
+    const owned = books.filter(book => book.ownership_status === 'Owned' && (book.isbn13 || book.isbn10) && (!book.cover_url || !book.cover_verified));
+    await runQueue(owned, refreshOwnedCover, 2);
 
-    for (const book of owned) {
-      await refreshOwnedCover(book);
-      await sleep(120);
-    }
-
-    const references = books.filter(book =>
-      book.ownership_status !== 'Owned' &&
-      ['Recommended', 'Wishlist'].includes(book.overall_status) &&
-      !book.cover_url
-    );
-
-    await runQueue(references, enrichReferenceCover, 2);
+    const references = books.filter(book => book.ownership_status !== 'Owned' && ['Recommended', 'Wishlist'].includes(book.overall_status) && !book.cover_url);
+    await runQueue(references, enrichReferenceCover, 3);
   } catch (error) {
     console.info('[LibrarianGPT] Cover enrichment paused:', error.message);
-  } finally {
-    running = false;
-  }
+  } finally { running = false; }
 }
 
 if (app) {
   new MutationObserver(() => {
     if (observerScheduled) return;
     observerScheduled = true;
-    requestAnimationFrame(() => {
-      observerScheduled = false;
-      applyKnownCovers();
-    });
+    requestAnimationFrame(() => { observerScheduled = false; applyKnownCovers(); });
   }).observe(app, { childList: true, subtree: true });
 }
 
-window.addEventListener('load', () => setTimeout(enrichCovers, 900));
-
-supabase.auth.onAuthStateChange((_event, session) => {
-  if (session) setTimeout(enrichCovers, 700);
-});
+window.addEventListener('load', () => setTimeout(enrichCovers, 700));
+window.addEventListener('online', () => setTimeout(enrichCovers, 500));
+document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(enrichCovers, 500); });
+setInterval(() => { if (!document.hidden) enrichCovers(); }, 5 * 60 * 1000);
+supabase.auth.onAuthStateChange((_event, session) => { if (session) setTimeout(enrichCovers, 500); });
