@@ -1,4 +1,4 @@
-const CACHE = 'librariangpt-shell-v4';
+const CACHE = 'librariangpt-shell-v5';
 const ASSETS = [
   './',
   './index.html',
