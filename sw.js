@@ -1,6 +1,6 @@
-const SHELL='librariangpt-shell-v12';
+const SHELL='librariangpt-shell-v13';
 const COVERS='librariangpt-covers-v1';
-const ASSETS=['./','./index.html','./styles.css?v=12','./ui-v3.css?v=12','./data-cache.js?v=12','./app.js?v=12','./cover-addon.js?v=12','./cache-hooks.js?v=12','./ui-v3.js?v=12','./supabase-config.js','./manifest.webmanifest?v=12','./icons/icon-192.png','./icons/icon-512.png','./assets/goodreads.svg','./assets/google-books.svg','./assets/open-library.svg'];
+const ASSETS=['./','./index.html','./styles.css?v=13','./ui-v3.css?v=13','./chapter.css?v=13','./data-cache.js?v=13','./app.js?v=13','./cover-addon.js?v=13','./cache-hooks.js?v=13','./ui-v3.js?v=13','./chapter-addon.js?v=13','./supabase-config.js','./manifest.webmanifest?v=13','./icons/icon-192.png','./icons/icon-512.png','./assets/goodreads.svg','./assets/google-books.svg','./assets/open-library.svg'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(SHELL).then(c=>c.addAll(ASSETS)));self.skipWaiting();});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('librariangpt-shell-')&&k!==SHELL).map(k=>caches.delete(k)))));self.clients.claim();});
 function isCover(url,request){if(request.destination!=='image')return false;return url.hostname==='covers.openlibrary.org'||url.hostname.endsWith('googleusercontent.com')||url.hostname==='books.google.com'||url.hostname.endsWith('.supabase.co');}
