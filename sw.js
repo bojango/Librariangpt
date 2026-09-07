@@ -1,15 +1,15 @@
-const CACHE = 'librariangpt-shell-v8';
+const CACHE = 'librariangpt-shell-v9';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v=8',
-  './detail-v2.css?v=8',
-  './app.js?v=8',
-  './metadata-addon.js?v=8',
-  './cover-addon.js?v=8',
-  './detail-v2.js?v=8',
+  './styles.css?v=9',
+  './detail-v2.css?v=9',
+  './app.js?v=9',
+  './metadata-addon.js?v=9',
+  './cover-addon.js?v=9',
+  './detail-v2.js?v=9',
   './supabase-config.js',
-  './manifest.webmanifest?v=8',
+  './manifest.webmanifest?v=9',
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];
