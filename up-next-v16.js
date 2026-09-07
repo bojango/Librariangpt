@@ -37,7 +37,10 @@ function renderShelf(){
  const owned=findOwnedSection();if(!owned)return;
  let section=document.querySelector('#up-next-section');
  if(!section){section=document.createElement('section');section.id='up-next-section';section.className='section up-next-section';owned.parentNode.insertBefore(section,owned);}
- section.innerHTML=`<div class="section-header"><div><h2>Up Next</h2><p class="upnext-subtitle">A mix of your locked plans and librarian-managed picks.</p></div><button class="upnext-manage" id="manage-up-next" type="button">Manage</button></div>${queue.length?`<div class="upnext-row">${queue.map(queueCard).join('')}</div>`:'<div class="empty-shelf">Nothing queued yet.</div>'}`;
+ const markup=`<div class="section-header"><div><h2>Up Next</h2><p class="upnext-subtitle">A mix of your locked plans and librarian-managed picks.</p></div><button class="upnext-manage" id="manage-up-next" type="button">Manage</button></div>${queue.length?`<div class="upnext-row">${queue.map(queueCard).join('')}</div>`:'<div class="empty-shelf">Nothing queued yet.</div>'}`;
+ const signature=queue.map(x=>`${x.queue_id}:${x.position}:${x.locked}:${x.source}:${x.cover_url||''}:${x.reason||''}`).join('|');
+ if(section.dataset.signature===signature)return;
+ section.dataset.signature=signature;section.innerHTML=markup;
  section.querySelector('#manage-up-next')?.addEventListener('click',openManager);
  section.querySelectorAll('[data-upnext-book]').forEach(card=>card.addEventListener('click',()=>openBook(card.dataset.upnextBook)));
 }
