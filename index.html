@@ -27,6 +27,14 @@
   <script type="module" src="./cover-addon.js?v=8"></script>
   <script type="module" src="./detail-v2.js?v=8"></script>
   <script>
+    document.addEventListener('click', event => {
+      if (event.target.closest('#refresh')) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        location.reload();
+      }
+    }, true);
+
     if ('serviceWorker' in navigator) {
       let reloadingForUpdate = false;
       window.addEventListener('load', async () => {
