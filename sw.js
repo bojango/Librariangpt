@@ -1,10 +1,11 @@
-const CACHE = 'librariangpt-shell-v3';
+const CACHE = 'librariangpt-shell-v4';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
   './metadata-addon.js',
+  './cover-addon.js',
   './supabase-config.js',
   './manifest.webmanifest',
   './icons/icon-192.png',
