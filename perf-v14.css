@@ -1,0 +1,7 @@
+/* v14 performance overrides: never hide a page while metadata services work. */
+.detail-header:not([data-library-detail="ready"]){visibility:visible!important;opacity:1!important}
+.detail-header[data-library-detail="loading"]{visibility:visible!important}
+.metadata-background-note{font-size:11px;color:var(--muted,#656158);margin:8px 0 0}
+.cover-picker-toolbar{display:flex;justify-content:space-between;gap:8px;align-items:center;margin:12px 0}
+.cover-picker-status{font-size:11px;color:var(--muted,#656158)}
+.cover-picker-toolbar .btn{white-space:nowrap}
