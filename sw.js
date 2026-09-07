@@ -1,6 +1,6 @@
-const SHELL='librariangpt-shell-v16';
+const SHELL='librariangpt-shell-v17';
 const COVERS='librariangpt-covers-v1';
-const ASSETS=['./','./index.html','./styles.css?v=16','./ui-v3.css?v=16','./chapter.css?v=16','./perf-v14.css?v=16','./book-admin-v15.css?v=16','./up-next-v16.css?v=16','./data-cache.js?v=16','./app.js?v=16','./perf-v14.js?v=16','./cache-hooks.js?v=16','./ui-v3.js?v=16','./chapter-addon.js?v=16','./book-admin-v15.js?v=16','./up-next-v16.js?v=16','./supabase-config.js','./manifest.webmanifest?v=16','./icons/icon-192.png','./icons/icon-512.png','./assets/goodreads.svg','./assets/google-books.svg','./assets/open-library.svg'];
+const ASSETS=['./','./index.html','./styles.css?v=17','./ui-v3.css?v=17','./chapter.css?v=17','./perf-v14.css?v=17','./book-admin-v15.css?v=17','./up-next-v16.css?v=17','./data-cache.js?v=17','./app.js?v=17','./perf-v14.js?v=17','./cache-hooks.js?v=17','./ui-v3.js?v=17','./chapter-addon.js?v=17','./book-admin-v15.js?v=17','./up-next-v16.js?v=17','./supabase-config.js','./manifest.webmanifest?v=17','./icons/icon-192.png','./icons/icon-512.png','./assets/goodreads.svg','./assets/google-books.svg','./assets/open-library.svg'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(SHELL).then(c=>c.addAll(ASSETS)));self.skipWaiting();});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('librariangpt-shell-')&&k!==SHELL).map(k=>caches.delete(k)))));self.clients.claim();});
 function isCover(url,request){if(request.destination!=='image')return false;return url.hostname==='covers.openlibrary.org'||url.hostname.endsWith('googleusercontent.com')||url.hostname==='books.google.com'||url.hostname.endsWith('.supabase.co');}
