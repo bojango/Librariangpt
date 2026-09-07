@@ -1,14 +1,26 @@
 (() => {
-  const CACHE_NAME = 'librariangpt-data-v2';
+  const CACHE_NAME = 'librariangpt-data-v3';
   const nativeFetch = window.fetch.bind(window);
   const MINUTE = 60 * 1000;
   const HOUR = 60 * MINUTE;
 
-  const isSupabaseRest = url => {
+  const urlOf = input => {
+    try { return new URL(typeof input === 'string' ? input : input.url); }
+    catch { return null; }
+  };
+
+  const isSupabaseRest = request => {
+    const u = urlOf(request);
+    return Boolean(u && u.hostname.endsWith('.supabase.co') && u.pathname.startsWith('/rest/v1/'));
+  };
+
+  const isRoutineEnrichment = async request => {
+    const u = urlOf(request);
+    if (!u || request.method !== 'POST' || !u.hostname.endsWith('.supabase.co') || !u.pathname.endsWith('/functions/v1/content-enrichment')) return null;
     try {
-      const u = new URL(typeof url === 'string' ? url : url.url);
-      return u.hostname.endsWith('.supabase.co') && u.pathname.startsWith('/rest/v1/');
-    } catch { return false; }
+      const body = await request.clone().json();
+      return body?.force === true ? null : body;
+    } catch { return null; }
   };
 
   function ttlFor(request) {
@@ -42,6 +54,21 @@
 
   window.fetch = async (input, init = {}) => {
     const request = input instanceof Request ? input : new Request(input, init);
+
+    const routine = await isRoutineEnrichment(request);
+    if (routine) {
+      nativeFetch(request.clone()).then(async response => {
+        if (response.ok) {
+          await clear();
+          window.dispatchEvent(new CustomEvent('library-enrichment-complete', { detail: { bookId: routine.book_id || null } }));
+        }
+      }).catch(() => {});
+      return new Response(JSON.stringify({ ok: true, background: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     if (!isSupabaseRest(request)) return nativeFetch(input, init);
 
     if (request.method !== 'GET') {
@@ -59,7 +86,6 @@
         const ttl = ttlFor(request);
         if (age < ttl) return cached.clone();
 
-        // Stale-while-revalidate: return known library data immediately, refresh quietly.
         nativeFetch(input, init).then(response => store(cache, request, response)).catch(() => {});
         return cached.clone();
       }
