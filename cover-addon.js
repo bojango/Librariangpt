@@ -9,7 +9,11 @@ const app = document.querySelector('#app');
 const FAILURE_KEY = 'librariangpt-cover-failures-v1';
 const FAILURE_RETRY_MS = 7 * 24 * 60 * 60 * 1000;
 const failures = loadFailures();
+const knownCovers = new Map();
+const booksById = new Map();
+const repairing = new Set();
 let running = false;
+let observerScheduled = false;
 
 function loadFailures() {
   try { return JSON.parse(localStorage.getItem(FAILURE_KEY) || '{}'); }
@@ -22,7 +26,7 @@ function saveFailures() {
 
 function recentlyFailed(id) {
   const stamp = Number(failures[id] || 0);
-  return stamp && Date.now() - stamp < FAILURE_RETRY_MS;
+  return Boolean(stamp && Date.now() - stamp < FAILURE_RETRY_MS);
 }
 
 function markFailed(id) {
@@ -39,6 +43,12 @@ function clearFailed(id) {
 
 function escSelector(value) {
   return window.CSS?.escape ? CSS.escape(String(value)) : String(value).replace(/["\\]/g, '\\$&');
+}
+
+function registerCover(bookId, title, url) {
+  if (!url) return;
+  knownCovers.set(bookId, { title, url });
+  paintCover(bookId, title, url);
 }
 
 function paintCover(bookId, title, url) {
@@ -62,9 +72,17 @@ function paintCover(bookId, title, url) {
       const fallback = cover.querySelector('.cover-fallback');
       cover.insertBefore(img, fallback || cover.firstChild);
     }
-    img.onerror = () => img.remove();
+    img.onerror = () => {
+      img.remove();
+      knownCovers.delete(bookId);
+      repairCover(bookId);
+    };
     if (img.src !== url) img.src = url;
   });
+}
+
+function applyKnownCovers() {
+  knownCovers.forEach(({ title, url }, id) => paintCover(id, title, url));
 }
 
 async function edgeError(error, fallback) {
@@ -87,21 +105,29 @@ async function invoke(name, body) {
 
 async function refreshOwnedCover(book) {
   const isbn = book.isbn13 || book.isbn10;
-  if (!isbn || recentlyFailed(book.id)) return false;
+  if (!isbn || recentlyFailed(book.id) || repairing.has(book.id)) return false;
+  repairing.add(book.id);
   try {
     const result = await invoke('cover-refresh', { book_id: book.id, isbn });
-    if (result?.cover_url) paintCover(book.id, book.title, result.cover_url);
+    if (result?.cover_url) {
+      book.cover_url = result.cover_url;
+      book.cover_verified = true;
+      registerCover(book.id, book.title, result.cover_url);
+    }
     clearFailed(book.id);
     return Boolean(result?.cover_url);
   } catch (error) {
     console.info(`[LibrarianGPT] Exact cover unavailable for ${book.title}:`, error.message);
     markFailed(book.id);
     return false;
+  } finally {
+    repairing.delete(book.id);
   }
 }
 
 async function enrichReferenceCover(book) {
-  if (recentlyFailed(book.id)) return false;
+  if (recentlyFailed(book.id) || repairing.has(book.id)) return false;
+  repairing.add(book.id);
   try {
     const result = await invoke('book-metadata', {
       book_id: book.id,
@@ -110,13 +136,30 @@ async function enrichReferenceCover(book) {
       author: String(book.authors || '').split(',')[0].trim() || null
     });
     const url = result?.metadata?.cover_url;
-    if (url) paintCover(book.id, book.title, url);
+    if (url) {
+      book.cover_url = url;
+      book.cover_verified = true;
+      book.reference_edition_id = result.edition_id || book.reference_edition_id;
+      registerCover(book.id, book.title, url);
+    }
     clearFailed(book.id);
     return Boolean(url);
   } catch (error) {
     console.info(`[LibrarianGPT] Reference cover unavailable for ${book.title}:`, error.message);
     markFailed(book.id);
     return false;
+  } finally {
+    repairing.delete(book.id);
+  }
+}
+
+function repairCover(bookId) {
+  const book = booksById.get(bookId);
+  if (!book || recentlyFailed(bookId) || repairing.has(bookId)) return;
+  if (book.ownership_status === 'Owned' && (book.isbn13 || book.isbn10)) {
+    refreshOwnedCover(book);
+  } else if (book.ownership_status !== 'Owned' && ['Recommended', 'Wishlist'].includes(book.overall_status)) {
+    enrichReferenceCover(book);
   }
 }
 
@@ -145,6 +188,13 @@ async function enrichCovers() {
       .select('id,title,authors,ownership_status,overall_status,isbn10,isbn13,cover_url,cover_source,cover_verified,reference_edition_id');
     if (error || !books?.length) return;
 
+    booksById.clear();
+    books.forEach(book => {
+      booksById.set(book.id, book);
+      if (book.cover_url) knownCovers.set(book.id, { title: book.title, url: book.cover_url });
+    });
+    applyKnownCovers();
+
     const owned = books.filter(book =>
       book.ownership_status === 'Owned' &&
       (book.isbn13 || book.isbn10) &&
@@ -170,24 +220,18 @@ async function enrichCovers() {
   }
 }
 
-function refreshVisibleVerifiedCovers() {
-  supabase.from('v_library')
-    .select('id,title,cover_url')
-    .not('cover_url', 'is', null)
-    .then(({ data }) => data?.forEach(book => paintCover(book.id, book.title, book.cover_url)))
-    .catch(() => {});
-}
-
 if (app) {
-  new MutationObserver(() => refreshVisibleVerifiedCovers()).observe(app, { childList: true, subtree: true });
+  new MutationObserver(() => {
+    if (observerScheduled) return;
+    observerScheduled = true;
+    requestAnimationFrame(() => {
+      observerScheduled = false;
+      applyKnownCovers();
+    });
+  }).observe(app, { childList: true, subtree: true });
 }
 
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    refreshVisibleVerifiedCovers();
-    enrichCovers();
-  }, 900);
-});
+window.addEventListener('load', () => setTimeout(enrichCovers, 900));
 
 supabase.auth.onAuthStateChange((_event, session) => {
   if (session) setTimeout(enrichCovers, 700);
