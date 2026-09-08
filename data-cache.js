@@ -1,5 +1,5 @@
 (() => {
-  const CACHE_NAME = 'librariangpt-data-v5';
+  const CACHE_NAME = 'librariangpt-data-v6';
   const nativeFetch = window.fetch.bind(window);
   const MINUTE = 60 * 1000;
   const HOUR = 60 * MINUTE;
@@ -23,14 +23,13 @@
     } catch { return null; }
   };
 
-  function isVolatile(request) {
+  function isCanonicalLibraryRequest(request) {
     const path = new URL(request.url).pathname;
     return path.includes('/v_library') || path.includes('/v_library_chapters') || path.includes('/library_entries') || path.includes('/reading_sessions') || path.includes('/progress_logs') || path.includes('/up_next_queue');
   }
 
   function ttlFor(request) {
     const path = new URL(request.url).pathname;
-    if (path.includes('/v_library') || path.includes('/v_library_chapters') || path.includes('/library_entries') || path.includes('/reading_sessions') || path.includes('/progress_logs') || path.includes('/up_next_queue')) return 45 * 1000;
     if (path.includes('/recommendations') || path.includes('/v_ai_recommendations')) return 10 * MINUTE;
     if (path.includes('/public_ratings')) return 7 * 24 * HOUR;
     if (path.includes('/book_cover_candidates')) return 30 * 24 * HOUR;
@@ -55,12 +54,6 @@
   async function store(cache, request, response) {
     if (!response?.ok) return;
     try { await cache.put(request, await stampedResponse(response)); } catch {}
-  }
-
-  async function networkAndStore(cache, input, init, request) {
-    const response = await nativeFetch(input, init);
-    await store(cache, request, response);
-    return response;
   }
 
   window.LibraryDataCache = { clear, name: CACHE_NAME, ttlFor };
@@ -90,24 +83,24 @@
       return response;
     }
 
+    // Canonical reading/library state is tiny (currently ~40 books) and changes frequently.
+    // Never cache it. This removes an entire class of "database says yes, UI says no" bugs.
+    if (isCanonicalLibraryRequest(request)) return nativeFetch(input, init);
+
     try {
       const cache = await caches.open(CACHE_NAME);
       const cached = await cache.match(request);
-      if (!cached) return networkAndStore(cache, input, init, request);
+      if (!cached) {
+        const response = await nativeFetch(input, init);
+        await store(cache, request, response);
+        return response;
+      }
 
       const savedAt = Number(cached.headers.get('x-library-cached-at') || 0);
       const age = savedAt ? Date.now() - savedAt : Infinity;
       const ttl = ttlFor(request);
       if (age < ttl) return cached.clone();
 
-      // Reading/library state must be fresh once its short TTL expires. The old cache returned stale data
-      // and only refreshed behind the scenes, which made newly-added books appear to vanish.
-      if (isVolatile(request)) {
-        try { return await networkAndStore(cache, input, init, request); }
-        catch { return cached.clone(); }
-      }
-
-      // Long-lived metadata can safely use stale-while-revalidate for speed.
       nativeFetch(input, init).then(response => store(cache, request, response)).catch(() => {});
       return cached.clone();
     } catch {
