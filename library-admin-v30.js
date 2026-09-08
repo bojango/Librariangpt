@@ -69,35 +69,27 @@ function renderResults(ctx){
  modalRoot.querySelectorAll('[data-add30-result]').forEach(b=>b.addEventListener('click',()=>addSelected(ctx,results[Number(b.dataset.add30Result)],b)));
 }
 
-async function findExistingCanonical(result){
- const title=String(result.title||'').trim(); if(!title)return null;
- const {data:books,error}=await supabase.from('books').select('id,title').ilike('title',title).limit(10); if(error||!books?.length)return null;
- const exact=books.filter(b=>String(b.title||'').trim().toLowerCase()===title.toLowerCase()); if(!exact.length)return null;
- const authors=(result.authors||[]).map(x=>String(x).trim()).filter(Boolean); if(!authors.length)return exact.length===1?exact[0]:null;
- const {data:authorRows}=await supabase.from('authors').select('id,name').in('name',authors);
- const authorIds=(authorRows||[]).map(a=>a.id); if(!authorIds.length)return exact.length===1?exact[0]:null;
- const {data:links}=await supabase.from('book_authors').select('book_id,author_id').in('book_id',exact.map(b=>b.id)).in('author_id',authorIds);
- const hit=(links||[])[0]; return hit?exact.find(b=>b.id===hit.book_id)||null:(exact.length===1?exact[0]:null);
-}
-
 async function addSelected(ctx,result,button){
  if(addBusy||!result||result.already_in_library)return; addBusy=true;
  modalRoot.querySelectorAll('[data-add30-result]').forEach(b=>b.disabled=true); button.classList.add('is-adding');
- const status=ctx.addAs==='owned'?'Owned - Unread':'Wishlist'; const ownership=ctx.addAs==='owned'?'Owned':'Not Owned'; const isbn=result.isbn13||result.isbn10;
+ const status=ctx.addAs==='owned'?'Owned - Unread':'Wishlist';
+ const ownership=ctx.addAs==='owned'?'Owned':'Not Owned';
  try{
-  if(!isbn)throw new Error('That result has no usable ISBN. Choose another edition.');
-  let existingId=result.existing_book_id||null;
-  if(!existingId){const canonical=await findExistingCanonical(result);existingId=canonical?.id||null;}
-  let bookId=existingId;
-  if(existingId){
-   const {error:addError}=await supabase.rpc('library_add_existing_book',{p_book_id:existingId,p_status:status,p_ownership:ownership,p_source:'frontend-search-select'});if(addError)throw addError;
-   await fn('book-metadata',{book_id:existingId,isbn,owned:ctx.addAs==='owned',set_preferred:ctx.addAs==='owned'});
-  }else{
-   const created=await fn('book-metadata',{isbn,owned:ctx.addAs==='owned',set_preferred:ctx.addAs==='owned',overall_status:status});bookId=created.book_id;
-  }
-  await fn('content-enrichment',{book_id:bookId,force:true}).catch(()=>null);
-  await clearCaches(); closeModal(); toast(`${result.title} added to ${ctx.addAs==='owned'?'your library':'your wishlist'}.`); window.dispatchEvent(new CustomEvent('library-data-updated')); setTimeout(()=>location.reload(),180);
- }catch(err){toast(err.message||'Could not add that book',true);addBusy=false;modalRoot.querySelectorAll('[data-add30-result]').forEach(b=>{if(!b.classList.contains('is-existing'))b.disabled=false;});button.classList.remove('is-adding');}
+  if(!result.isbn13&&!result.isbn10)throw new Error('That result has no usable ISBN. Choose another edition.');
+  const {data,error}=await supabase.rpc('library_add_selected_result',{p_result:result,p_status:status,p_ownership:ownership});
+  if(error)throw error;
+  if(data?.already_in_library){throw new Error('That exact edition is already in your library.');}
+  await clearCaches();
+  closeModal();
+  toast(`${result.title} added to ${ctx.addAs==='owned'?'your library':'your wishlist'}.`);
+  window.dispatchEvent(new CustomEvent('library-data-updated'));
+  setTimeout(()=>location.reload(),180);
+ }catch(err){
+  toast(err.message||'Could not add that book',true);
+  addBusy=false;
+  modalRoot.querySelectorAll('[data-add30-result]').forEach(b=>{if(!b.classList.contains('is-existing'))b.disabled=false;});
+  button.classList.remove('is-adding');
+ }
 }
 
 function currentBookId(){return app?.querySelector('.detail-header[data-book-id]')?.dataset.bookId||null;}
@@ -116,7 +108,6 @@ function injectDelete(){
  });
 }
 
-// Replace the old one-step Add Book handler before its bubble-phase listener runs.
 document.addEventListener('click',e=>{
  const target=e.target.closest('[data-add-book-v24],[data-sidebar-add]');
  if(!target)return;
