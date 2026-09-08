@@ -9,6 +9,6 @@
   "theme_color": "#f1eee5",
   "orientation": "portrait-primary",
   "icons": [
-    {"src": "./assets/reading-room-mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
+    {"src": "./assets/reading-room-app-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
   ]
 }
