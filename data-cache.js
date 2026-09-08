@@ -1,5 +1,5 @@
 (() => {
-  const CACHE_NAME = 'librariangpt-data-v3';
+  const CACHE_NAME = 'librariangpt-data-v4';
   const nativeFetch = window.fetch.bind(window);
   const MINUTE = 60 * 1000;
   const HOUR = 60 * MINUTE;
@@ -26,16 +26,20 @@
   function ttlFor(request) {
     const u = new URL(request.url);
     const path = u.pathname;
-    if (path.includes('/v_library')) return 12 * HOUR;
-    if (path.includes('/recommendations')) return 24 * HOUR;
+    // Reading state changes frequently. Keep it responsive and rely on database writes to clear it immediately.
+    if (path.includes('/v_library') || path.includes('/v_library_chapters') || path.includes('/reading_sessions') || path.includes('/progress_logs')) return 5 * MINUTE;
+    if (path.includes('/recommendations') || path.includes('/v_ai_recommendations')) return 30 * MINUTE;
     if (path.includes('/public_ratings')) return 7 * 24 * HOUR;
     if (path.includes('/book_cover_candidates')) return 30 * 24 * HOUR;
-    if (path.includes('/books') || path.includes('/editions') || path.includes('/authors') || path.includes('/series')) return 24 * HOUR;
-    return 2 * HOUR;
+    if (path.includes('/books') || path.includes('/editions') || path.includes('/authors') || path.includes('/series')) return 2 * HOUR;
+    return 30 * MINUTE;
   }
 
   async function clear() {
-    try { await caches.delete(CACHE_NAME); } catch {}
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter(k => k.startsWith('librariangpt-data-')).map(k => caches.delete(k)));
+    } catch {}
   }
 
   async function stampedResponse(response) {
