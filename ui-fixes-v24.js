@@ -72,8 +72,18 @@ function openAddBook(){
     result=await fn('book-metadata',{isbn,owned,set_preferred:owned,overall_status:owned?'Owned - Unread':'Wishlist'});
    }else{
     const title=e.currentTarget['v24-title'].value.trim();const author=e.currentTarget['v24-author'].value.trim()||null;if(!title)throw new Error('Enter a book title.');
-    result=await fn('book-metadata',{title,author,owned:false,set_preferred:false,overall_status:owned?'Owned - Unread':'Wishlist'});
-    if(owned&&result?.book_id){const {error}=await supabase.rpc('set_library_status',{p_book_id:result.book_id,p_status:'Owned - Unread',p_ownership:'Owned',p_priority:null,p_source:'frontend-title-add'});if(error)throw error;}
+    // Reuse an existing canonical book record where possible, including AI recommendation candidates that are not yet in the Library.
+    const {data:existing,error:existingError}=await supabase.from('books').select('id,title').ilike('title',title).limit(5);if(existingError)throw existingError;
+    const exact=(existing||[]).find(b=>String(b.title||'').trim().toLowerCase()===title.toLowerCase())||null;
+    if(exact){
+     const {error:addError}=await supabase.rpc('library_add_existing_book',{p_book_id:exact.id,p_status:owned?'Owned - Unread':'Wishlist',p_ownership:owned?'Owned':'Not Owned',p_source:'frontend-title-add'});if(addError)throw addError;
+     result={book_id:exact.id,reused:true};
+     await clearCaches();
+     await fn('content-enrichment',{book_id:exact.id,force:true}).catch(()=>null);
+    }else{
+     result=await fn('book-metadata',{title,author,owned:false,set_preferred:false,overall_status:owned?'Owned - Unread':'Wishlist'});
+     if(owned&&result?.book_id){const {error}=await supabase.rpc('set_library_status',{p_book_id:result.book_id,p_status:'Owned - Unread',p_ownership:'Owned',p_priority:null,p_source:'frontend-title-add'});if(error)throw error;}
+    }
    }
    await clearCaches();closeModal();toast('Book added with catalogue data.');window.dispatchEvent(new CustomEvent('library-data-updated'));setTimeout(()=>location.reload(),180);
   }catch(err){toast(err.message||'Could not add book',true);submit.disabled=false;submit.textContent='Search & add';}
@@ -105,7 +115,7 @@ async function syncFreshProgress(){
   const pct=Number(data.progress_percent);if(spans[1])spans[1].textContent=Number.isFinite(pct)?`${Math.round(pct)}%`:'';
   const fill=block.querySelector('.progress-fill');if(fill&&Number.isFinite(pct))fill.style.setProperty('--progress',`${Math.max(0,Math.min(100,pct))}%`);
   detail.dataset.progressV24='1';
- }finally{if(detail.dataset.progressV24==='loading')detail.dataset.progressV24='retry';}
+ }finally{if(detail.dataset.progressV24==='loading')delete detail.dataset.progressV24;}
 }
 
 function applyAll(){patchHeader();patchAdminStatus();patchAddButtons();syncFreshProgress();}
@@ -123,10 +133,10 @@ document.addEventListener('click',e=>{
  requestAnimationFrame(()=>{app.querySelector(`.filter[data-filter="${CSS.escape(wanted)}"]`)?.click();scrollTopNow();});
 },{capture:true});
 
-// Ensure all SPA destinations open at the top instead of inheriting the previous scroll position.
+// Ensure SPA destinations open at the top instead of inheriting the previous scroll position.
 document.addEventListener('click',e=>{
- const book=e.target.closest('[data-book-id]');
- if(book&&!e.target.closest('[data-progress],[data-start],[data-finish],[data-pause],[data-dnf]'))scrollTopNow();
+ const openingBook=e.target.closest('.book-card,.hero[data-book-id]');
+ if(openingBook&&!e.target.closest('[data-progress],[data-start],[data-finish],[data-pause],[data-dnf]'))scrollTopNow();
  if(e.target.closest('[data-nav]'))scrollTopNow();
  if(e.target.closest('#recommended-see-more'))setTimeout(()=>{const layer=document.querySelector('#recommended-page-layer');if(layer)layer.scrollTop=0;},30);
 });
