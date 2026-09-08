@@ -10,6 +10,7 @@ let activeFilter='All';
 
 const esc=(v='')=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
 const fmtDate=v=>{if(!v)return null;try{return new Intl.DateTimeFormat('en-GB',{day:'numeric',month:'short',year:'numeric'}).format(new Date(v));}catch{return String(v)}};
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 function toast(message,error=false){if(!toastNode)return;toastNode.textContent=message;toastNode.className=`toast show${error?' error':''}`;clearTimeout(toastNode._editions);toastNode._editions=setTimeout(()=>toastNode.className='toast',3600);}
 function cover(book,e){const src=e?.cover_url||book?.cover_url||'';return `<div class="edition-cover">${src?`<img src="${esc(src)}" alt="Cover of ${esc(book.title)}" loading="lazy" onerror="this.remove()">`:''}<div class="edition-cover-fallback"><strong>${esc(book.title)}</strong></div></div>`;}
 function formatGroup(format=''){const f=String(format).toLowerCase();if(/hard/.test(f))return 'Hardcover';if(/paper|soft/.test(f))return 'Paperback';if(/kindle|ebook|e-book|electronic/.test(f))return 'eBook';if(/audio/.test(f))return 'Audiobook';return 'Other';}
@@ -54,9 +55,50 @@ function bindBrowser(bundle){
  modalRoot.querySelectorAll('[data-edition-own]').forEach(b=>b.addEventListener('click',()=>chooseEdition(bundle,b.dataset.editionOwn,true)));
 }
 
+async function pollRefresh(bookId,before,{attempts=15,delay=2000}={}){
+ const oldCount=before.editions.length;
+ const oldStamp=before.state?.editions_last_refreshed_at||null;
+ for(let i=0;i<attempts;i++){
+  await sleep(delay);
+  const next=await fetchBundle(bookId).catch(()=>null);
+  if(!next)continue;
+  const newStamp=next.state?.editions_last_refreshed_at||null;
+  const finished=next.state?.editions_status!=='refreshing';
+  const changed=next.editions.length!==oldCount||newStamp!==oldStamp;
+  if(finished&&changed)return next;
+  if(finished&&next.state?.editions_status==='failed')return next;
+ }
+ return await fetchBundle(bookId).catch(()=>null);
+}
+
 async function discover(bookId,force=false){
- try{const before=await fetchBundle(bookId);renderBrowser(before,{searching:true});const {data,error}=await supabase.functions.invoke('edition-options',{body:{book_id:bookId,force}});if(error)throw error;if(data?.error)throw new Error(data.error);const after=await fetchBundle(bookId);renderBrowser(after);if(data?.inserted||data?.updated)toast(`Edition catalogue updated: ${data.inserted||0} added, ${data.updated||0} improved.`);else if(data?.message)toast(data.message,true);}
- catch(err){const bundle=await fetchBundle(bookId).catch(()=>null);if(bundle)renderBrowser(bundle);toast(err.message||'Could not refresh editions',true);}
+ let before=null;
+ try{
+  before=await fetchBundle(bookId);renderBrowser(before,{searching:true});
+  let data=null,invokeError=null;
+  try{const result=await supabase.functions.invoke('edition-options',{body:{book_id:bookId,force}});data=result.data;invokeError=result.error;if(data?.error)invokeError=new Error(data.error);}catch(err){invokeError=err;}
+  let after=await fetchBundle(bookId).catch(()=>null);
+  if(after?.state?.editions_status==='refreshing'||(invokeError&&after&&after.editions.length<=before.editions.length)){
+   renderBrowser(after||before,{searching:true});
+   after=await pollRefresh(bookId,before);
+  }
+  if(after){
+   const added=Math.max(0,after.editions.length-before.editions.length);
+   const completed=after.state?.editions_status==='ready'||after.state?.editions_status==='partial';
+   if(completed&&after.editions.length>before.editions.length){renderBrowser(after);toast(`Edition catalogue updated: ${added} added.`);return;}
+   if(completed&&!invokeError){renderBrowser(after);if(data?.message)toast(data.message,after.state?.editions_status!=='ready');return;}
+   if(after.state?.editions_status==='failed'){renderBrowser(after);throw new Error(after.state?.editions_error||'Edition search failed');}
+  }
+  if(invokeError)throw invokeError;
+  if(after)renderBrowser(after);else renderBrowser(before);
+ }catch(err){
+  const bundle=await fetchBundle(bookId).catch(()=>null);
+  if(bundle){
+   if(bundle.state?.editions_status==='refreshing'){renderBrowser(bundle,{searching:true});toast('Edition search is still running in the background.');return;}
+   renderBrowser(bundle);
+  }
+  toast(err.message||'Could not refresh editions',true);
+ }
 }
 function progressChoice(bundle,e,markOwned){const {book}=bundle;const oldTotal=Number(book.total_pages||0),newTotal=Number(e.page_count||0),page=Number(book.current_page||0);if(!oldTotal||!newTotal||oldTotal===newTotal)return applyEdition(bundle,e,markOwned,'page');const percent=Math.round((page/oldTotal)*100);const converted=Math.min(newTotal,Math.max(0,Math.round(page/oldTotal*newTotal)));
  modalRoot.innerHTML=`<div class="modal-backdrop edition-progress-backdrop"><div class="modal edition-progress-modal"><h2>Switch reading edition?</h2><p>You are on page <strong>${page}</strong> of ${oldTotal} (${percent}%). The selected edition has ${newTotal} pages.</p><div class="edition-progress-options"><button class="btn btn-primary" type="button" data-progress-mode="percentage">Keep my place · page ${converted}</button><button class="btn" type="button" data-progress-mode="page">Keep page ${Math.min(page,newTotal)}</button><button class="btn" type="button" data-progress-cancel>Cancel</button></div></div></div>`;
