@@ -51,7 +51,11 @@ function openAddBook(){
    const author=mode==='title'?e.currentTarget['add30-author'].value.trim():'';
    if(!query)throw new Error(mode==='isbn'?'Enter an ISBN.':'Enter a book title.');
    const addAs=e.currentTarget['add30-state'].value;
-   const result=await fn('book-search',{query,author:author||null});
+   let result=await fn('book-search',{query,author:author||null});
+   if(mode==='title'&&!(result.results||[]).length){
+    const fallback=await fn('book-search-fallback',{query,author:author||null}).catch(err=>{console.info('[Reading Room] Crossref fallback unavailable',err?.message||err);return null;});
+    if(fallback?.results?.length)result=fallback;
+   }
    renderResults({query,author,mode,addAs,results:result.results||[]});
   }catch(err){toast(err.message||'Could not search for books',true);submit.disabled=false;submit.textContent='Search';}
  });
