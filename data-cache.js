@@ -1,5 +1,5 @@
 (() => {
-  const CACHE_NAME = 'librariangpt-data-v6';
+  const CACHE_NAME = 'librariangpt-data-v7';
   const nativeFetch = window.fetch.bind(window);
   const MINUTE = 60 * 1000;
   const HOUR = 60 * MINUTE;
@@ -14,26 +14,20 @@
     return Boolean(u && u.hostname.endsWith('.supabase.co') && u.pathname.startsWith('/rest/v1/'));
   };
 
-  const isRoutineEnrichment = async request => {
-    const u = urlOf(request);
-    if (!u || request.method !== 'POST' || !u.hostname.endsWith('.supabase.co') || !u.pathname.endsWith('/functions/v1/content-enrichment')) return null;
-    try {
-      const body = await request.clone().json();
-      return body?.force === true ? null : body;
-    } catch { return null; }
-  };
-
-  function isCanonicalLibraryRequest(request) {
+  function isLiveLibraryRequest(request) {
     const path = new URL(request.url).pathname;
-    return path.includes('/v_library') || path.includes('/v_library_chapters') || path.includes('/library_entries') || path.includes('/reading_sessions') || path.includes('/progress_logs') || path.includes('/up_next_queue');
+    return path.includes('/v_library') || path.includes('/v_library_chapters') ||
+      path.includes('/library_entries') || path.includes('/reading_sessions') ||
+      path.includes('/progress_logs') || path.includes('/up_next_queue') ||
+      path.includes('/books') || path.includes('/editions');
   }
 
   function ttlFor(request) {
     const path = new URL(request.url).pathname;
     if (path.includes('/recommendations') || path.includes('/v_ai_recommendations')) return 10 * MINUTE;
-    if (path.includes('/public_ratings')) return 7 * 24 * HOUR;
-    if (path.includes('/book_cover_candidates')) return 30 * 24 * HOUR;
-    if (path.includes('/books') || path.includes('/editions') || path.includes('/authors') || path.includes('/series')) return 2 * HOUR;
+    if (path.includes('/public_ratings')) return 30 * MINUTE;
+    if (path.includes('/book_cover_candidates')) return 24 * HOUR;
+    if (path.includes('/authors') || path.includes('/series')) return 2 * HOUR;
     return 20 * MINUTE;
   }
 
@@ -60,21 +54,6 @@
 
   window.fetch = async (input, init = {}) => {
     const request = input instanceof Request ? input : new Request(input, init);
-
-    const routine = await isRoutineEnrichment(request);
-    if (routine) {
-      nativeFetch(request.clone()).then(async response => {
-        if (response.ok) {
-          await clear();
-          window.dispatchEvent(new CustomEvent('library-enrichment-complete', { detail: { bookId: routine.book_id || null } }));
-        }
-      }).catch(() => {});
-      return new Response(JSON.stringify({ ok: true, background: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
-
     if (!isSupabaseRest(request)) return nativeFetch(input, init);
 
     if (request.method !== 'GET') {
@@ -83,9 +62,9 @@
       return response;
     }
 
-    // Canonical reading/library state is tiny (currently ~40 books) and changes frequently.
-    // Never cache it. This removes an entire class of "database says yes, UI says no" bugs.
-    if (isCanonicalLibraryRequest(request)) return nativeFetch(input, init);
+    // Book identity, edition discovery and reading state can change while the app is open.
+    // They are small queries, so correctness beats pretending two-hour-old data is a performance feature.
+    if (isLiveLibraryRequest(request)) return nativeFetch(input, init);
 
     try {
       const cache = await caches.open(CACHE_NAME);
@@ -95,12 +74,9 @@
         await store(cache, request, response);
         return response;
       }
-
       const savedAt = Number(cached.headers.get('x-library-cached-at') || 0);
       const age = savedAt ? Date.now() - savedAt : Infinity;
-      const ttl = ttlFor(request);
-      if (age < ttl) return cached.clone();
-
+      if (age < ttlFor(request)) return cached.clone();
       nativeFetch(input, init).then(response => store(cache, request, response)).catch(() => {});
       return cached.clone();
     } catch {
