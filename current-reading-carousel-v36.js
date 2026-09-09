@@ -43,7 +43,7 @@ function updateHero(hero,book){
  hero.querySelectorAll('.chapter-progress-line').forEach(x=>x.remove());
  const progress=hero.querySelector('[data-progress]');if(progress)progress.dataset.progress=book.id;
  const open=hero.querySelector('.hero-actions [data-book-id]');if(open)open.dataset.bookId=book.id;
- hero.querySelectorAll('[data-book-id]').forEach((node,i)=>{if(i===0&&node===hero)return;node.dataset.bookId=book.id;});
+ hero.querySelectorAll('[data-book-id]').forEach(node=>node.dataset.bookId=book.id);
  return hero;
 }
 
@@ -101,9 +101,9 @@ function bindCarousel(wrapper){
  let raf=0;track.addEventListener('scroll',()=>{if(raf)return;raf=requestAnimationFrame(()=>{raf=0;activeFromScroll(wrapper);});},{passive:true});
  wrapper.querySelectorAll('[data-current-dot]').forEach(dot=>dot.addEventListener('click',()=>{
    const index=Number(dot.dataset.currentDot),card=track.querySelectorAll('.hero')[index];if(!card)return;
-   card.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});setActive(wrapper,index);
+   track.scrollTo({left:card.offsetLeft,behavior:'smooth'});setActive(wrapper,index);
  }));
- window.addEventListener('resize',()=>setActive(wrapper,Number(wrapper.dataset.currentIndex||0),{persist:false}),{passive:true});
+ if('ResizeObserver'in window){const ro=new ResizeObserver(()=>setActive(wrapper,Number(wrapper.dataset.currentIndex||0),{persist:false}));ro.observe(wrapper);}
 }
 
 async function enhance(){
@@ -131,7 +131,7 @@ async function enhance(){
    currentBooks.forEach((book,index)=>{const dot=document.createElement('button');dot.type='button';dot.className='current-reading-dot-v36';dot.dataset.currentDot=String(index);dot.setAttribute('aria-label',`Show ${book.title}`);rail.appendChild(dot);});
    const indicator=document.createElement('span');indicator.className='current-reading-indicator-v36';indicator.setAttribute('aria-hidden','true');rail.appendChild(indicator);dots.appendChild(rail);wrapper.appendChild(dots);
    bindCarousel(wrapper);
-   const remembered=savedActive();const start=Math.max(0,currentBooks.findIndex(b=>b.id===remembered));
+   const remembered=savedActive();const found=currentBooks.findIndex(b=>b.id===remembered),start=found>=0?found:0;
    requestAnimationFrame(()=>{
      const card=track.querySelectorAll('.hero')[start];if(start>0&&card)track.scrollLeft=card.offsetLeft;
      setActive(wrapper,start,{persist:false});
