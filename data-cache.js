@@ -1,5 +1,5 @@
 (() => {
-  const CACHE_NAME = 'librariangpt-data-v7';
+  const CACHE_NAME = 'librariangpt-data-v8';
   const nativeFetch = window.fetch.bind(window);
   const MINUTE = 60 * 1000;
   const HOUR = 60 * MINUTE;
@@ -19,13 +19,13 @@
     return path.includes('/v_library') || path.includes('/v_library_chapters') ||
       path.includes('/library_entries') || path.includes('/reading_sessions') ||
       path.includes('/progress_logs') || path.includes('/up_next_queue') ||
-      path.includes('/books') || path.includes('/editions');
+      path.includes('/books') || path.includes('/editions') ||
+      path.includes('/public_ratings') || path.includes('/book_quotes');
   }
 
   function ttlFor(request) {
     const path = new URL(request.url).pathname;
     if (path.includes('/recommendations') || path.includes('/v_ai_recommendations')) return 10 * MINUTE;
-    if (path.includes('/public_ratings')) return 30 * MINUTE;
     if (path.includes('/book_cover_candidates')) return 24 * HOUR;
     if (path.includes('/authors') || path.includes('/series')) return 2 * HOUR;
     return 20 * MINUTE;
@@ -62,8 +62,7 @@
       return response;
     }
 
-    // Book identity, edition discovery and reading state can change while the app is open.
-    // They are small queries, so correctness beats pretending two-hour-old data is a performance feature.
+    // Canonical library state is small and changes while the app is open. Always read it live.
     if (isLiveLibraryRequest(request)) return nativeFetch(input, init);
 
     try {
