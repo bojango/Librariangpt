@@ -1,2 +1,3 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Generated/vendor-derived artifacts can contain meaningful whitespace in literals.
+dist/** -whitespace
+supabase/migrations/** -whitespace

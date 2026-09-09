@@ -1,57 +1,65 @@
-# LibrarianGPT
+# Reading Room
 
-A private, single-user personal library and reading tracker backed by Supabase.
+Reading Room is a private personal-library and reading-tracking PWA backed by Supabase.
 
 ## Architecture
 
-- Static HTML/CSS/JavaScript frontend, suitable for GitHub Pages.
-- Supabase Auth for sign-in.
-- Supabase PostgreSQL is the canonical library database.
-- Row Level Security restricts data to the claimed owner.
-- Reading actions use database RPC functions so start/finish timestamps and progress logs are server-side.
-- Installable PWA for iPhone/iPad/desktop.
+The browser runtime is deliberately small and framework-free:
 
-## First deployment
+```text
+Supabase
+  -> src/data (one client, repositories, in-flight request dedupe)
+  -> src/state.js (authoritative loaded UI state)
+  -> src/router.js (GitHub Pages-safe hash routes)
+  -> src/views (single-pass route markup)
+  -> src/features (explicit actions and modal workflows)
+```
 
-1. Publish this repository with GitHub Pages from the repository root on `main`.
-2. Open the deployed site and create the single owner account.
-3. If Supabase asks for email confirmation, confirm the address and sign in.
-4. Enter the one-time library claim code supplied separately during migration.
-5. Once claimed, the code is invalidated in the database.
-6. On iPhone, open the site in Safari, Share → Add to Home Screen.
+`index.html` loads one stylesheet and one bundled ES module. Feature markup is rendered into explicit route layouts; there are no MutationObservers, forced reloads, or global Supabase-response caches in the production runtime.
 
-## Supabase configuration
-
-Public client configuration lives in `supabase-config.js`. The value is a Supabase **publishable key**, which is intended for client-side use. Database access is protected by Supabase Auth and RLS. Never add secret/service-role keys to this repository.
-
-## App features
-
-- Home shelves: currently reading, owned/unread, recommendations, wishlist, recently read.
-- Library search and filters.
-- Book detail pages.
-- Start/resume reading.
-- Page progress updates with automatic progress-log entries.
-- Automatic started/finished timestamps.
-- Pause and DNF actions.
-- Basic reading stats.
-- PWA manifest, service worker, and iOS home-screen support.
-
-## Files
-
-- `index.html`: app shell
-- `styles.css`: responsive Plex-like library UI
-- `app.js`: Supabase auth/data/actions and UI rendering
-- `supabase-config.js`: public Supabase URL + publishable key
-- `manifest.webmanifest`: PWA manifest
-- `sw.js`: app-shell cache/service worker
-- `icons/`: PWA icons
+Supabase remains canonical for books, editions, collection state, reading sessions, progress, ratings, recommendations, quotes, and queue state. Static assets and covers are the only application-managed persistent caches.
 
 ## Development
 
-Because ES modules and service workers require HTTP, use a local web server rather than opening `index.html` directly. Example:
+Requires Node.js 22 or later.
 
 ```bash
-python -m http.server 8080
+npm ci
+npm run build
+npm test
+npm run check
+npm run test:e2e
 ```
 
-Then visit `http://localhost:8080`.
+The E2E suite uses Chromium and WebKit. Install their local binaries once if needed:
+
+```bash
+npx playwright install chromium webkit
+```
+
+For manual development:
+
+```bash
+node scripts/serve.mjs
+```
+
+Then open <http://127.0.0.1:4173>.
+
+## Deployment
+
+1. Run `npm ci && npm run build`.
+2. Commit `dist/app.js` and `dist/app.js.map`.
+3. Publish the repository root with GitHub Pages.
+4. No database migration or Edge Function deployment is required for this frontend refactor.
+
+The service worker uses a versioned application-shell cache, network-first navigation, release-bounded cover caches, and never caches canonical Supabase API responses.
+
+## Supabase source control
+
+Current deployed database migration statements and all current deployed Edge Function sources were exported read-only into `supabase/`. Deployment metadata beside each function records the deployed version, JWT setting, and checksum. Secrets are referenced only through runtime environment variables.
+
+Review `supabase/README.md` before any backend deployment. Never place service-role keys or provider secrets in this repository.
+
+## Security
+
+The browser contains only the public Supabase project URL and publishable key. Access is enforced by Supabase Auth and RLS. A final read-only advisor audit found outstanding remote configuration findings documented in `REFACTOR_STATUS.md`; this branch intentionally does not mutate production schema or Auth settings.
