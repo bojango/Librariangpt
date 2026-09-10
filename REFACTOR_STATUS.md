@@ -2,7 +2,7 @@
 
 Branch: `refactor/architecture-foundation`
 
-Last updated: 2026-09-09
+Last updated: 2026-09-10
 
 ## Completed phases
 
@@ -30,7 +30,7 @@ Last updated: 2026-09-09
 | Navigation | In-memory navigation plus reload/back patches | One GitHub Pages-safe hash router in `src/router.js` |
 | Rendering | Base DOM followed by observers/injectors | Single-pass route views with explicit feature slots |
 | Writes | Local patches, duplicated invalidation, reloads | Service writes followed by scoped state refresh/rerender |
-| PWA cache | Versioned patch-file shell | Clean v42 shell; network-first HTML; bounded cover cache; Supabase API bypass |
+| PWA cache | Versioned patch-file shell | Clean v43 shell; network-first HTML; bounded cover cache; Supabase API bypass |
 
 Runtime flow:
 
@@ -48,6 +48,30 @@ Supabase -> src/data -> src/state -> src/router -> src/views -> src/features
 - `src/features/`: add-book, reading updates, current-reading/queue/recommendations, quotes/local OCR, editions, exact-copy tools, and admin workflows.
 - `src/ui/`: stable navigation/chrome, formatting, modals, and toast feedback.
 - `src/utils/`: tested identity, matching, metadata confidence, rating, cover, and progress logic.
+
+## Post-refactor iPhone QA fixes
+
+### Same-route refresh scroll reset
+
+- Root cause: `refresh()` reused the route-entry renderer. Home/Library therefore scheduled saved-scroll restoration after every background data refresh, and the stored value could still be `0` while the user had already begun scrolling.
+- Contributing cause: token refresh/repeated `SIGNED_IN` events were treated as a changed session because access tokens changed, causing unnecessary snapshot loads and route renders.
+- Fix: navigation and same-route refresh are explicit modes. Route-entry scrolling runs only for navigation. Refresh captures the live viewport, skips repaint when the relevant data fingerprint is unchanged, and preserves the current viewport when changed data requires a repaint. Concurrent snapshot requests now share one promise.
+
+### Cover snap/flicker
+
+- Root cause: image elements were visible as soon as the network decoded them, and every full repaint destroyed unchanged cover nodes.
+- Fix: `src/ui/cover.js` reserves a 2:3 fallback box, defers image reveal until load/decode, leaves failures on the fallback, rejects disconnected/stale loads, and reuses in-flight or decoded image nodes when book identity and URL are unchanged.
+- The first Currently Reading cover and first visible catalogue rows are promoted to eager/high priority; remaining covers stay lazy.
+
+### Edition update leaving the book
+
+- Root cause: edition completion dispatched the undifferentiated global library refresh, which discarded detail state and re-entered the full snapshot/route lifecycle.
+- Fix: a refresh raised while a book is active is now book-scoped by default. It invalidates/refetches that book detail, patches the matching central-state row, preserves the book route and scroll position, and never runs Home route entry.
+
+### Home incomplete until scrolling
+
+- Root cause: the same unnecessary full route rebuild could leave Safari repainting a newly replaced document while covers and carousel work were reinitialized.
+- Fix: unchanged data performs no DOM write; changed data reuses covers, all Home shelves remain synchronously present in `homeView`, and explicit CSS prevents content-visibility from deferring core sections. No primary rendering is scroll-driven.
 
 ## Removed obsolete production modules
 
@@ -82,30 +106,33 @@ These findings need a development Supabase branch and explicit backend review. N
 - `requestAnimationFrame` is limited to one-time scroll restoration and carousel paint/scroll coordination.
 - There are no frontend `MutationObserver` or `location.reload` calls.
 - The only frontend `createClient(` is the shared client. Edge Functions create server-side clients per invocation for authenticated/user and service-role scopes.
+- Scroll restoration now runs once for actual route navigation. Same-route refresh uses the live viewport and never reads route-entry scroll state.
 
 ## Tests run and results
 
 Final clean-install run on Node 24.15.0:
 
 - `npm ci`: passed; 20 packages installed.
-- `npm run build`: passed; `dist/app.js` 216.6 kB and source map 760.1 kB.
-- `npm test`: passed, 14/14 unit tests.
-- `npm run check`: passed; 23 runtime modules, zero observers/reloads, exactly one browser client.
-- `npm run test:e2e -- --reporter=line`: passed, 16/16 across desktop Chromium and iPhone 13 WebKit profiles.
+- `npm run build`: passed; `dist/app.js` 220.1 kB and source map 772.3 kB.
+- `npm test`: passed, 17/17 unit tests.
+- `npm run check`: passed; 25 runtime modules, zero observers/reloads, exactly one browser client.
+- `npm run test:e2e -- --reporter=line`: passed, 32/32 across desktop Chromium and iPhone 13 WebKit profiles.
+- `npm run test:e2e -- --project=iphone --reporter=line`: passed, 16/16.
 - `npm audit`: passed; 0 known vulnerabilities.
 - `git diff --check`: passed.
 - Service-worker asset resolution: passed in both browser projects.
 - Production Supabase inspection and advisor checks were read-only.
 
-Unit coverage includes ISBN normalization/exact mismatch rejection, result deduplication, title/author matching, metadata-confidence ordering, trusted-data preservation, provider-ID reuse, independent ratings, edition progress conversion, cover priority, route parsing/round-tripping, independent scroll state, and stale-render rejection.
+Unit coverage includes ISBN normalization/exact mismatch rejection, result deduplication, title/author matching, metadata-confidence ordering, trusted-data preservation, provider-ID reuse, independent ratings, edition progress conversion, cover priority, route parsing/round-tripping, independent scroll state, stale-render rejection, route identity, and snapshot/detail change detection.
 
-Browser coverage includes cold unauthenticated launch, auth-mode lifecycle, direct Home rendering, Home/Library/Wishlist navigation, filtering, book open/back, filter-state preservation, rapid route changes, current-reading carousel markup, rating/quote/detail rendering, failed-cover geometry/fallback, mobile overflow, and PWA shell assets. Authenticated flows use deterministic fixtures and do not write production data.
+Browser coverage includes cold unauthenticated launch, auth-mode lifecycle, direct Home rendering without scroll, Home/Library/Wishlist navigation, rapid Home→Library→Home, filtering, book open/back, filter-state preservation, same-route refresh at scroll depth, unchanged-refresh repaint suppression, delayed and failed covers, stale-cover rejection, first-viewport priority, edition mutation preserving the exact book route, Home structure after that mutation, mobile overflow, and PWA shell assets. Authenticated flows use mocked Supabase responses and do not write production data.
 
 ## Remaining work / known issues
 
-- Perform a manual authenticated smoke test against the owner's real library; no credentials were available to automate this safely.
-- Check install/update behavior, safe areas, carousel swipe, camera/file OCR, cover upload/crop, and scroll restoration on a physical iPhone in standalone PWA mode.
-- Verify each production write workflow manually with a disposable test book or a future isolated Supabase branch: progress, status, review, quote, edition switch, cover selection/upload, add, and delete.
+- Re-run the focused lifecycle checklist on a real iPhone/4G. Playwright passing does not establish physical-device behavior.
+- Quotes/OCR still need their first post-refactor manual test with a physical book; camera capture and copyrighted page images must remain local/temporary.
+- Check install/update behavior, safe areas, carousel swipe, camera/file OCR, cover upload/crop, and background/foreground restoration on a physical iPhone in standalone PWA mode.
+- Progress, add-book, enrichment, and edition selection were reported working in owner QA. Continue using a disposable test book for any destructive/manual write checks.
 - Provider failure/slow-network behavior is covered at pure-logic and deterministic-view boundaries, but not by live third-party fault injection.
 - The consolidated CSS intentionally retains some legacy selector-level rules to preserve the computed design. Semantic pruning is optional and should follow screenshot baselines, not be mixed into this refactor.
 - The four Supabase advisor findings above remain unresolved until a safe backend branch exists.
@@ -118,5 +145,18 @@ Browser coverage includes cold unauthenticated launch, auth-mode lifecycle, dire
 4. Provision a Supabase development branch before changing backend security, indexes, migrations, or deployed functions.
 5. Compare the exported backend snapshot to that branch, replace the redacted bootstrap value through a reviewed environment/deployment mechanism if a full fresh replay is ever required, then test before deployment.
 6. For future frontend work: change `src/`, run `npm run build`, `npm test`, `npm run check`, and `npm run test:e2e`, then commit `dist/`.
+
+### Real iPhone checklist
+
+1. Cold-launch the installed PWA.
+2. Open Home and immediately scroll.
+3. Wait 5–10 seconds; confirm there is no snap to top.
+4. Open Wishlist over 4G; observe covers decoding over stable fallbacks.
+5. Navigate Home → Library → Book → Back and confirm scroll restoration.
+6. Change an edition and confirm the same book remains open.
+7. Return Home and do not touch the screen for several seconds.
+8. Confirm Currently Reading, Up Next, recommendations, and all other structural shelves are present.
+9. Navigate rapidly for roughly 30 seconds.
+10. Background and foreground the PWA; confirm the active route and viewport remain sensible.
 
 The branch is intended to remain review-only until the manual authenticated checks are complete.

@@ -1,9 +1,12 @@
+import { activateCovers } from './cover.js';
+
 const modalRoot = document.querySelector('#modal-root');
 const toastNode = document.querySelector('#toast');
 let toastTimer = 0;
 
 export function showModal(html, className = '') {
   modalRoot.innerHTML = `<div class="modal-backdrop ${className}"><div class="modal">${html}</div></div>`;
+  activateCovers(modalRoot);
   modalRoot.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', closeModal));
   modalRoot.querySelector('.modal-backdrop')?.addEventListener('click', event => { if (event.target.classList.contains('modal-backdrop')) closeModal(); });
   return modalRoot;

@@ -1,7 +1,8 @@
 import { supabase } from './data/supabase.js';
-import { invoke, loadBookDetail, refreshLibrary, rpc } from './data/library.js';
+import { clearRequestDedupe, invoke, loadBookDetail, refreshLibrary, rpc } from './data/library.js';
 import { createAppState } from './state.js';
 import { createRouter } from './router.js';
+import { detailFingerprint, sameRoute, snapshotFingerprint } from './lifecycle.js';
 import { authView, claimView, errorView } from './views/auth.js';
 import { homeView } from './views/home.js';
 import { libraryView } from './views/library.js';
@@ -16,6 +17,7 @@ import { openBookAdmin } from './features/book-admin.js';
 import { openEditionBrowser } from './features/editions.js';
 import { handleExactCopyAction } from './features/exact-copy.js';
 import { handleQuoteAction } from './features/quotes.js';
+import { activateCovers, collectCoverImages, reuseCoverImages } from './ui/cover.js';
 
 const app = document.querySelector('#app');
 const store = createAppState();
@@ -23,6 +25,9 @@ let router;
 let previousRoute = 'home';
 let bookHasReturnRoute = false;
 let dataLoad = null;
+let libraryLoaded = false;
+let scrollRestoreFrame = null;
+let sessionBootstrapUser = null;
 
 function currentBook(id = store.value.route.bookId) {
   return store.value.detail?.book?.id === id ? store.value.detail.book : store.value.books.find(book => book.id === id);
@@ -33,14 +38,33 @@ function saveCurrentScroll() {
   if (['home', 'library', 'wishlist'].includes(name)) store.saveScroll(name, window.scrollY);
 }
 
-function paint(html, { restore = false } = {}) {
+function paint(html, { restore = false, preserveScroll = null, reuseCovers = false } = {}) {
+  if (scrollRestoreFrame !== null) {
+    cancelAnimationFrame(scrollRestoreFrame);
+    scrollRestoreFrame = null;
+  }
+  const coverPool = reuseCovers ? collectCoverImages(app) : null;
   app.innerHTML = html;
-  app.querySelectorAll('img').forEach(image => image.addEventListener('error', () => { image.hidden = true; }, { once: true }));
+  app.dataset.routeView = store.value.route.name;
+  if (coverPool) reuseCoverImages(app, coverPool);
+  else activateCovers(app);
+  app.querySelectorAll('img:not(.cover-image)').forEach(image => image.addEventListener('error', () => { image.hidden = true; }, { once: true }));
   initialiseCarousel(app);
-  if (restore) requestAnimationFrame(() => window.scrollTo({ top: store.scrollFor(store.value.route.name), left: 0, behavior: 'instant' }));
+  if (restore) {
+    const route = { ...store.value.route };
+    const y = store.scrollFor(route.name);
+    scrollRestoreFrame = requestAnimationFrame(() => {
+      scrollRestoreFrame = null;
+      if (sameRoute(store.value.route, route)) window.scrollTo({ top: y, left: 0, behavior: 'instant' });
+    });
+  }
+  else if (Number.isFinite(preserveScroll)) window.scrollTo({ top: preserveScroll, left: 0, behavior: 'instant' });
 }
 
-async function renderRoute(route) {
+async function renderRoute(route, { mode = 'navigation', detail = null } = {}) {
+  const priorRoute = { ...store.value.route };
+  const routeChanged = !sameRoute(priorRoute, route);
+  const preservedY = mode === 'refresh' ? window.scrollY : null;
   const version = store.beginRender();
   store.setRoute(route);
   if (!store.value.session) { paint(authView(store.value.authMode)); return; }
@@ -49,15 +73,15 @@ async function renderRoute(route) {
   if (route.name === 'book') {
     const seed = currentBook(route.bookId);
     if (!seed) { router.navigate({ name: 'library' }, { replace: true }); return; }
-    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-    if (store.value.detail?.book?.id !== route.bookId) paint(loadingBookView(seed));
+    if (mode === 'navigation' && routeChanged) window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    if (!detail && store.value.detail?.book?.id !== route.bookId && mode === 'navigation') paint(loadingBookView(seed));
     try {
-      const detail = await loadBookDetail(route.bookId);
+      const nextDetail = detail || await loadBookDetail(route.bookId);
       if (!store.isCurrent(version) || store.value.route.name !== 'book' || store.value.route.bookId !== route.bookId) return;
-      store.value.detail = detail;
+      store.value.detail = nextDetail;
       store.value.route.returnTo = previousRoute;
-      paint(bookDetailView(store.value));
-      maybeEnrich(detail, version);
+      paint(bookDetailView(store.value), { preserveScroll: preservedY, reuseCovers: mode === 'refresh' });
+      maybeEnrich(nextDetail, version);
     } catch (error) {
       if (store.isCurrent(version)) paint(errorView(error.message || 'Could not load this book'));
     }
@@ -65,23 +89,42 @@ async function renderRoute(route) {
   }
 
   store.value.detail = null;
-  if (route.name === 'home') paint(homeView(store.value), { restore: true });
-  else if (route.name === 'library' || route.name === 'wishlist') paint(libraryView(store.value, route.name), { restore: true });
-  else paint(statsView(store.value));
+  const options = mode === 'navigation'
+    ? { restore: true }
+    : { preserveScroll: preservedY, reuseCovers: true };
+  if (route.name === 'home') paint(homeView(store.value), options);
+  else if (route.name === 'library' || route.name === 'wishlist') paint(libraryView(store.value, route.name), options);
+  else paint(statsView(store.value), options);
 }
 
-async function loadSnapshot({ force = false } = {}) {
+async function loadSnapshot() {
   if (!store.value.session) return;
-  if (dataLoad && !force) return dataLoad;
-  dataLoad = refreshLibrary().then(snapshot => { store.update(snapshot); return snapshot; }).finally(() => { dataLoad = null; });
+  if (dataLoad) return dataLoad;
+  dataLoad = refreshLibrary().then(snapshot => {
+    store.update(snapshot);
+    libraryLoaded = true;
+    return snapshot;
+  }).finally(() => { dataLoad = null; });
   return dataLoad;
 }
 
-async function refresh({ quiet = false } = {}) {
+async function refresh({ quiet = false, scope = 'library', bookId = null } = {}) {
+  const routeAtStart = { ...store.value.route };
   try {
-    await loadSnapshot({ force: true });
-    if (store.value.route.name === 'book') store.value.detail = null;
-    await renderRoute({ ...store.value.route });
+    if (scope === 'book' && routeAtStart.name === 'book' && routeAtStart.bookId === bookId) {
+      const before = detailFingerprint(store.value.detail);
+      clearRequestDedupe();
+      const detail = await loadBookDetail(bookId);
+      if (!sameRoute(store.value.route, routeAtStart)) return;
+      store.value.detail = detail;
+      store.value.books = store.value.books.map(book => book.id === bookId ? detail.book : book);
+      if (before !== detailFingerprint(detail)) await renderRoute(routeAtStart, { mode: 'refresh', detail });
+    } else {
+      const before = snapshotFingerprint(store.value);
+      await loadSnapshot();
+      if (!sameRoute(store.value.route, routeAtStart)) return;
+      if (before !== snapshotFingerprint(store.value)) await renderRoute(routeAtStart, { mode: 'refresh' });
+    }
     if (!quiet) toast('Library refreshed.');
   } catch (error) { toast(error.message || 'Could not refresh library', true); }
 }
@@ -95,8 +138,7 @@ function maybeEnrich(detail, renderVersion) {
   sessionStorage.setItem(key, String(Date.now()));
   invoke('book-background-enrich', { book_id: book.id }).then(async () => {
     if (!store.isCurrent(renderVersion) || store.value.route.bookId !== book.id) return;
-    store.value.detail = null;
-    await renderRoute({ ...store.value.route });
+    await refresh({ quiet: true, scope: 'book', bookId: book.id });
   }).catch(error => console.info('[Reading Room] background enrichment deferred:', error?.message || error));
 }
 
@@ -214,7 +256,11 @@ function openMenu() {
   });
 }
 
-window.addEventListener('reading-room:refresh', () => refresh({ quiet: true }));
+window.addEventListener('reading-room:refresh', event => refresh({
+  quiet: true,
+  scope: event.detail?.scope || (store.value.route.name === 'book' ? 'book' : 'library'),
+  bookId: event.detail?.bookId || (store.value.route.name === 'book' ? store.value.route.bookId : null)
+}));
 
 async function init() {
   router = createRouter(route => renderRoute(route));
@@ -226,10 +272,27 @@ async function init() {
   }
   router.start();
   supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-    const changed = store.value.session?.access_token !== nextSession?.access_token;
+    const previousUserId = store.value.session?.user?.id || null;
+    const nextUserId = nextSession?.user?.id || null;
+    const enteringSession = !store.value.session && Boolean(nextSession);
     store.value.session = nextSession;
-    if (!nextSession) { store.update({ books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], detail: null }); paint(authView(store.value.authMode)); return; }
-    if (changed || !store.value.books.length) { try { await loadSnapshot({ force: true }); await renderRoute({ ...store.value.route }); } catch (error) { paint(errorView(error.message)); } }
+    if (!nextSession) {
+      libraryLoaded = false;
+      sessionBootstrapUser = null;
+      store.update({ books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], detail: null });
+      paint(authView(store.value.authMode));
+      return;
+    }
+    if (previousUserId !== nextUserId || !libraryLoaded) {
+      if (sessionBootstrapUser === nextUserId) return;
+      sessionBootstrapUser = nextUserId;
+      try {
+        await loadSnapshot();
+        if (store.value.session?.user?.id !== nextUserId) return;
+        await renderRoute({ ...store.value.route }, { mode: enteringSession ? 'navigation' : 'refresh' });
+      } catch (error) { paint(errorView(error.message)); }
+      finally { if (sessionBootstrapUser === nextUserId) sessionBootstrapUser = null; }
+    }
   });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(error => console.info('[Reading Room] service worker unavailable:', error?.message || error));
 }

@@ -496,3 +496,11 @@ html,body{max-width:100%;overflow-x:hidden}
 .detail-header[data-library-detail="ready"]{display:grid;grid-template-columns:minmax(150px,240px) minmax(0,1fr);gap:clamp(24px,5vw,56px);align-items:start}
 .detail-header[data-library-detail="ready"]>.cover{width:100%;max-width:230px;justify-self:center}
 @media(max-width:700px){.detail-header[data-library-detail="ready"]{grid-template-columns:1fr;gap:22px}.detail-header[data-library-detail="ready"]>.cover{width:min(46vw,205px)}}
+
+/* QA stability: fallback and decoded artwork share one immutable cover box. */
+.cover>.cover-fallback{z-index:0}
+.cover>.cover-image{position:absolute!important;inset:0;width:100%!important;height:100%!important;display:block;object-fit:cover;z-index:1;opacity:0;transition:none!important}
+.cover.cover-loaded>.cover-image{opacity:1}
+.cover.cover-failed>.cover-image{display:none}
+.book-card{contain:layout}
+.library-grid,.shelf,.section,.hero,.recommended-row,.upnext-row{content-visibility:visible!important}

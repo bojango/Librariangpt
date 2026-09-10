@@ -17,7 +17,7 @@ test('auth mode changes without navigation or duplicate forms', async ({ page })
 });
 
 test('authenticated fixture supports route, filter and detail lifecycles', async ({ page }) => {
-  await page.goto('/tests/e2e/fixture.html');
+  await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('heading', { name: 'Currently One' })).toBeVisible();
   await page.locator('[data-route="library"]').first().click();
   await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
@@ -32,7 +32,7 @@ test('authenticated fixture supports route, filter and detail lifecycles', async
 });
 
 test('currently-reading carousel and wishlist render directly', async ({ page }) => {
-  await page.goto('/tests/e2e/fixture.html');
+  await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('[data-current-card]')).toHaveCount(2);
   await expect(page.locator('[data-carousel-dot]')).toHaveCount(2);
   await page.locator('[data-route="wishlist"]').first().click();
@@ -66,12 +66,100 @@ test('rapid route changes only leave the final route rendered', async ({ page })
   await expect(page.locator('.page-heading h1')).toHaveCount(1);
 });
 
+test('rapid Home to Library to Home navigation renders Home completely', async ({ page }) => {
+  await page.goto('/tests/e2e/fixture.html');
+  await page.locator('[data-route="library"]').first().click();
+  await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
+  await page.locator('[data-route="home"]').first().click();
+  await expect(page.locator('[data-carousel]')).toBeVisible();
+  await expect(page.locator('#up-next-section')).toBeVisible();
+  await expect(page.locator('#ai-recommended-section')).toBeVisible();
+  await expect(page).toHaveURL(/#\/home$/);
+});
+
 test('a failed cover keeps its reserved geometry and fallback', async ({ page }) => {
   await page.goto('/tests/e2e/fixture.html');
-  const cover = page.locator('[data-current-card="current-1"] .cover');
+  const cover = page.locator('[data-current-card="current-2"] .cover');
   await expect(cover).toBeVisible();
   await expect(cover.locator('.cover-fallback')).toBeVisible();
   const box = await cover.boundingBox();
   expect(box.height).toBeGreaterThan(100);
   expect(Math.abs((box.width / box.height) - (2 / 3))).toBeLessThan(0.03);
+});
+
+test('same-route refresh preserves exact Home scroll and skips unchanged paints', async ({ page }) => {
+  await page.goto('/tests/e2e/fixture.html');
+  await page.evaluate(() => window.scrollTo(0, 1000));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(800);
+  const before = await page.evaluate(() => ({ y: window.scrollY, paints: window.fixturePaints, hash: location.hash }));
+  await page.locator('[data-current-card="current-1"] .cover-image').evaluate(image => { image.dataset.instanceMarker = 'preserve-me'; });
+
+  await page.evaluate(() => window.fixtureRefresh({}));
+  expect(await page.evaluate(() => window.fixturePaints)).toBe(before.paints);
+
+  await page.evaluate(() => window.fixtureRefresh({ upNext: [{ queue_id: 'queue-1', id: 'wish-1', title: 'Wish Book', authors: 'Future Author', position: 1, source: 'Manual', locked: true, reason: 'Updated in the background.' }] }));
+  const after = await page.evaluate(() => ({ y: window.scrollY, paints: window.fixturePaints, hash: location.hash }));
+  expect(Math.abs(after.y - before.y)).toBeLessThanOrEqual(2);
+  expect(after.paints).toBe(before.paints + 1);
+  expect(after.hash).toBe(before.hash);
+  await expect(page.locator('[data-current-card="current-1"] .cover-image')).toHaveAttribute('data-instance-marker', 'preserve-me');
+});
+
+test('catalogue cover priority is limited to the visible rows', async ({ page }) => {
+  await page.goto('/tests/e2e/fixture.html#/library');
+  await expect(page.locator('.library-grid .cover-image').first()).toHaveAttribute('loading', 'eager');
+  await expect(page.locator('.library-grid .cover-image').first()).toHaveAttribute('fetchpriority', 'high');
+  await expect(page.locator('[data-open-book="wish-1"] .cover-image')).toHaveAttribute('loading', 'lazy');
+  await page.locator('[data-route="wishlist"]').first().click();
+  await expect(page.locator('[data-open-book="wish-1"] .cover-image')).toHaveAttribute('loading', 'eager');
+  await expect(page.locator('[data-open-book="wish-1"] .cover-image')).toHaveAttribute('fetchpriority', 'high');
+});
+
+test('delayed cover decodes over an invariant fallback box with first-viewport priority', async ({ page }) => {
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  await page.route('**/delayed-cover.svg', async route => {
+    await gate;
+    await route.fulfill({ status: 200, contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600"><rect width="400" height="600" fill="#345"/></svg>' });
+  });
+  await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
+  const cover = page.locator('[data-current-card="current-1"] .cover');
+  const before = await cover.boundingBox();
+  await expect(cover.locator('.cover-fallback')).toBeVisible();
+  await expect(cover.locator('img')).toHaveAttribute('loading', 'eager');
+  await expect(cover.locator('img')).toHaveAttribute('fetchpriority', 'high');
+  release();
+  await expect(cover).toHaveClass(/cover-loaded/);
+  const after = await cover.boundingBox();
+  expect(Math.abs(after.width - before.width)).toBeLessThanOrEqual(1);
+  expect(Math.abs(after.height - before.height)).toBeLessThanOrEqual(1);
+});
+
+test('stale delayed cover cannot replace a newer URL during refresh', async ({ page }) => {
+  let releaseOld;
+  const gate = new Promise(resolve => { releaseOld = resolve; });
+  await page.route('**/delayed-cover.svg', async route => {
+    await gate;
+    await route.fulfill({ status: 200, contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600"><rect width="400" height="600" fill="red"/></svg>' });
+  });
+  await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
+  const stateCover = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="600"%3E%3Crect width="400" height="600" fill="green"/%3E%3C/svg%3E';
+  await page.evaluate(url => window.fixtureSetCover(url), stateCover);
+  const current = page.locator('[data-current-card="current-1"] .cover');
+  await expect(current).toHaveAttribute('data-cover-url', stateCover);
+  await expect(current).toHaveClass(/cover-loaded/);
+  releaseOld();
+  await page.waitForTimeout(100);
+  await expect(current).toHaveAttribute('data-cover-url', stateCover);
+  await expect(current.locator('img')).toHaveAttribute('data-cover-url', stateCover);
+});
+
+test('Home structural shelves render without a scroll event after navigation', async ({ page }) => {
+  await page.goto('/tests/e2e/fixture.html#/book/read-1');
+  await page.locator('[data-route="home"]').first().click();
+  await expect(page.locator('[data-carousel]')).toBeVisible();
+  await expect(page.locator('#up-next-section')).toBeVisible();
+  await expect(page.locator('#ai-recommended-section')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Owned & unread' })).toBeVisible();
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });

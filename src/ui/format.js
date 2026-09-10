@@ -1,4 +1,5 @@
 import { escapeHtml } from '../utils/text.js';
+import { coverMarkup } from './cover.js';
 
 export { escapeHtml as esc };
 
@@ -26,8 +27,7 @@ export function coverPalette(title = '') {
   return palettes[Math.abs(hash) % palettes.length];
 }
 
-export function cover(book, extraClass = '') {
+export function cover(book, extraClass = '', options = {}) {
   const [a, b] = coverPalette(book.title);
-  const image = book.cover_url ? `<img src="${escapeHtml(book.cover_url)}" alt="Cover of ${escapeHtml(book.title)}" loading="lazy" decoding="async">` : '';
-  return `<div class="cover ${extraClass}" style="--cover-a:${a};--cover-b:${b}">${image}<div class="cover-fallback"><small>${escapeHtml(book.primary_genre || 'Library')}</small><strong>${escapeHtml(book.title)}</strong></div></div>`;
+  return coverMarkup(book, extraClass, options).replace('class="cover ', `style="--cover-a:${a};--cover-b:${b}" class="cover `);
 }

@@ -15,6 +15,7 @@ const runtime = (await files('src')).filter(path => path.endsWith('.js'));
 const text = (await Promise.all(runtime.map(path => readFile(path, 'utf8')))).join('\n');
 const assertions = [
   ['MutationObserver', 0],
+  ['IntersectionObserver', 0],
   ['location.reload', 0],
   ['createClient(', 1]
 ];
