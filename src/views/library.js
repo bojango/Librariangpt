@@ -22,8 +22,8 @@ export function filteredBooks(state, routeName) {
   return books.sort((a, b) => a.title.localeCompare(b.title));
 }
 
-function card(book) {
-  return `<article class="book-card" data-open-book="${book.id}" tabindex="0" role="button" aria-label="Open ${esc(book.title)}">${cover(book)}<div class="book-title">${esc(book.title)}</div><div class="book-author">${esc(book.authors || 'Unknown author')}</div></article>`;
+function card(book, index) {
+  return `<article class="book-card" data-open-book="${book.id}" tabindex="0" role="button" aria-label="Open ${esc(book.title)}">${cover(book, '', { eager: index < 6, high: index < 3 })}<div class="book-title">${esc(book.title)}</div><div class="book-author">${esc(book.authors || 'Unknown author')}</div></article>`;
 }
 
 export function libraryView(state, routeName) {

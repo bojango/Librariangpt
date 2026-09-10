@@ -19,6 +19,15 @@ export function titleAuthorKey(title, authors) {
   return `${normaliseText(title)}|${normaliseText(author)}`;
 }
 
+export function currentTitleClass(title = '') {
+  const words = String(title).trim().split(/\s+/).filter(Boolean);
+  const characters = words.join(' ').length;
+  const longestWord = words.reduce((longest, word) => Math.max(longest, word.length), 0);
+  if (characters >= 44 || words.length >= 9 || longestWord >= 20) return 'current-title-tight-v37';
+  if (characters >= 28 || words.length >= 6 || longestWord >= 14) return 'current-title-compact-v37';
+  return '';
+}
+
 export function dedupeResults(results = []) {
   const seen = new Set();
   return results.filter(result => {

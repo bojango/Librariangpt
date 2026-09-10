@@ -1,11 +1,11 @@
-const SHELL = 'reading-room-shell-v43';
+const SHELL = 'reading-room-shell-v44';
 const COVERS = 'reading-room-covers-v3';
 const APP_SHELL = [
   './',
   './index.html',
-  './manifest.webmanifest?v=43',
-  './src/styles/app.css?v=43',
-  './dist/app.js?v=43',
+  './manifest.webmanifest?v=44',
+  './src/styles/app.css?v=44',
+  './dist/app.js?v=44',
   './dist/app.js.map',
   './supabase-config.js',
   './assets/reading-room-mark.svg',

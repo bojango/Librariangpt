@@ -1,6 +1,8 @@
 import { chrome } from '../ui/chrome.js';
-import { cover, esc, fmtDate, progressPct, progressText } from '../ui/format.js';
+import { cover as baseCover, esc, fmtDate, progressPct, progressText } from '../ui/format.js';
 import { selectPrimaryRating } from '../utils/metadata.js';
+
+const cover = book => baseCover(book, '', { eager: true, high: true });
 
 const fmtRating = value => value == null ? '—' : Number(value).toFixed(2);
 const fmtCount = value => value == null ? '' : new Intl.NumberFormat('en-GB', { notation: Number(value) >= 100000 ? 'compact' : 'standard', maximumFractionDigits: 1 }).format(Number(value));

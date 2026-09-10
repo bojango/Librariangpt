@@ -8,7 +8,7 @@ export function coverMarkup(book, extraClass = '', { eager = false, high = false
   const url = String(book.cover_url || '');
   const key = identity(book);
   const image = url
-    ? `<img class="cover-image" data-cover-src="${escapeHtml(url)}" data-cover-url="${escapeHtml(url)}" data-cover-eager="${eager ? '1' : '0'}" data-cover-high="${high ? '1' : '0'}" alt="Cover of ${escapeHtml(book.title)}" loading="lazy" fetchpriority="auto" decoding="async" width="400" height="600">`
+    ? `<img class="cover-image" src="${escapeHtml(url)}" data-cover-url="${escapeHtml(url)}" alt="Cover of ${escapeHtml(book.title)}" loading="${eager || high ? 'eager' : 'lazy'}" fetchpriority="${high ? 'high' : 'auto'}" decoding="async" width="400" height="600">`
     : '';
   return `<div class="cover ${extraClass}" data-cover-key="${escapeHtml(key)}" data-cover-url="${escapeHtml(url)}"><div class="cover-fallback"><small>${escapeHtml(book.primary_genre || 'Library')}</small><strong>${escapeHtml(book.title)}</strong></div>${image}</div>`;
 }
@@ -34,28 +34,15 @@ function fail(image) {
 
 export function activateCovers(root = document) {
   root.querySelectorAll('.cover-image').forEach(image => {
-    const priorityHigh = image.dataset.coverHigh === '1'
-      || Boolean(image.closest('.detail-header'))
-      || Boolean(image.closest('.current-reading-card-v36:first-child'))
-      || Boolean(image.closest('.library-grid .book-card:nth-child(-n+3)'));
-    const priorityEager = priorityHigh
-      || image.dataset.coverEager === '1'
-      || Boolean(image.closest('.library-grid .book-card:nth-child(-n+6)'));
-    image.loading = priorityEager ? 'eager' : 'lazy';
-    image.fetchPriority = priorityHigh ? 'high' : 'auto';
     if (!image.dataset.coverBound) {
       image.dataset.coverBound = '1';
-      image.addEventListener('load', async () => {
-        try { await image.decode?.(); } catch {}
-        reveal(image);
-      });
+      image.addEventListener('load', () => reveal(image));
       image.addEventListener('error', () => fail(image));
     }
     if (image.complete) {
-      if (image.naturalWidth > 0) Promise.resolve(image.decode?.()).catch(() => {}).then(() => reveal(image));
+      if (image.naturalWidth > 0) reveal(image);
       else fail(image);
     }
-    if (!image.getAttribute('src')) image.src = image.dataset.coverSrc;
   });
 }
 

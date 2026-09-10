@@ -18,7 +18,7 @@ test('auth mode changes without navigation or duplicate forms', async ({ page })
 
 test('authenticated fixture supports route, filter and detail lifecycles', async ({ page }) => {
   await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('heading', { name: 'Currently One' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'The Unfinished Works of Harauld Hughes' })).toBeVisible();
   await page.locator('[data-route="library"]').first().click();
   await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
   await page.locator('[data-filter="Read"]').click();
@@ -38,6 +38,21 @@ test('currently-reading carousel and wishlist render directly', async ({ page })
   await page.locator('[data-route="wishlist"]').first().click();
   await expect(page.getByRole('heading', { name: 'Wishlist' })).toBeVisible();
   await expect(page.locator('.book-card')).toHaveCount(1);
+});
+
+test('long current title has its final class in initial markup and never mutates later', async ({ page }) => {
+  await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
+  const title = page.locator('[data-current-card="current-1"] h1');
+  await expect(title).toHaveClass('current-title-compact-v37');
+  const initial = await title.getAttribute('class');
+  const mutations = await title.evaluate(element => new Promise(resolve => {
+    let count = 0;
+    const observer = new MutationObserver(records => { count += records.filter(record => record.attributeName === 'class').length; });
+    observer.observe(element, { attributes: true, attributeFilter: ['class'] });
+    requestAnimationFrame(() => requestAnimationFrame(() => { observer.disconnect(); resolve(count); }));
+  }));
+  expect(mutations).toBe(0);
+  await expect(title).toHaveClass(initial);
 });
 
 test('detail and modal layouts do not overflow a mobile viewport', async ({ page }) => {
@@ -81,7 +96,9 @@ test('a failed cover keeps its reserved geometry and fallback', async ({ page })
   await page.goto('/tests/e2e/fixture.html');
   const cover = page.locator('[data-current-card="current-2"] .cover');
   await expect(cover).toBeVisible();
+  await expect(cover).toHaveClass(/cover-failed/);
   await expect(cover.locator('.cover-fallback')).toBeVisible();
+  await expect(cover.locator('.cover-image')).toBeHidden();
   const box = await cover.boundingBox();
   expect(box.height).toBeGreaterThan(100);
   expect(Math.abs((box.width / box.height) - (2 / 3))).toBeLessThan(0.03);
@@ -103,6 +120,7 @@ test('same-route refresh preserves exact Home scroll and skips unchanged paints'
   expect(after.paints).toBe(before.paints + 1);
   expect(after.hash).toBe(before.hash);
   await expect(page.locator('[data-current-card="current-1"] .cover-image')).toHaveAttribute('data-instance-marker', 'preserve-me');
+  await expect(page.locator('[data-current-card="current-1"] .cover-image')).toHaveCSS('opacity', '1');
 });
 
 test('catalogue cover priority is limited to the visible rows', async ({ page }) => {
@@ -115,7 +133,7 @@ test('catalogue cover priority is limited to the visible rows', async ({ page })
   await expect(page.locator('[data-open-book="wish-1"] .cover-image')).toHaveAttribute('fetchpriority', 'high');
 });
 
-test('delayed cover decodes over an invariant fallback box with first-viewport priority', async ({ page }) => {
+test('delayed cover starts from initial markup over an invariant fallback box', async ({ page }) => {
   let release;
   const gate = new Promise(resolve => { release = resolve; });
   await page.route('**/delayed-cover.svg', async route => {
@@ -126,8 +144,10 @@ test('delayed cover decodes over an invariant fallback box with first-viewport p
   const cover = page.locator('[data-current-card="current-1"] .cover');
   const before = await cover.boundingBox();
   await expect(cover.locator('.cover-fallback')).toBeVisible();
+  await expect(cover.locator('img')).toHaveAttribute('src', '/delayed-cover.svg');
   await expect(cover.locator('img')).toHaveAttribute('loading', 'eager');
   await expect(cover.locator('img')).toHaveAttribute('fetchpriority', 'high');
+  expect(await cover.locator('img').evaluate(image => getComputedStyle(image).opacity)).toBe('1');
   release();
   await expect(cover).toHaveClass(/cover-loaded/);
   const after = await cover.boundingBox();

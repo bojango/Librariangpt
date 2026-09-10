@@ -160,3 +160,12 @@ Browser coverage includes cold unauthenticated launch, auth-mode lifecycle, dire
 10. Background and foreground the PWA; confirm the active route and viewport remain sensible.
 
 The branch is intended to remain review-only until the manual authenticated checks are complete.
+
+## Final first-paint polish (2026-09-10)
+
+- The Currently Reading title had no deterministic size class in its initial markup. `currentTitleClass()` now classifies titles from character count, word count, and longest-word length before rendering; iOS text inflation is explicitly disabled with `text-size-adjust: 100%` while the 290px hero height and existing type styles remain unchanged.
+- Cover markup previously withheld `src` in `data-cover-src`, then activation assigned it and an opacity gate revealed all decoded images. Covers now start loading from initial HTML, remain in the same absolute 2:3 box over the fallback, and are never deliberately faded or hidden while loading. Failure handling, URL-staleness checks, and same-URL image-node reuse remain intact.
+- Priority is decided during rendering: the first Currently Reading cover and book-detail cover are eager/high, the first six catalogue cards are eager (first three high), and offscreen cards remain lazy. Shell assets were bumped to v44 so installed PWAs receive the changed bundle and CSS normally.
+- Added pure title-classification and cover-markup/CSS tests, plus browser regressions for first-markup title class stability, immediate cover `src`, no opacity gate, failed-cover fallback, invariant geometry, stale URL rejection, node reuse, and loading priority.
+- Results: build passed (220.0 kB bundle); unit tests 20/20; architecture check passed (25 modules); full Playwright 34/34; explicit iPhone 13 WebKit 17/17; npm audit 0 vulnerabilities; `git diff --check` passed.
+- Remaining QA is real-device only: cold-launch/reopen the Home Screen PWA several times, inspect the long title and Home covers, observe Wishlist covers over 4G, navigate Home → Library → Book → Back, refresh while covers are visible, and background/foreground the PWA. Automated browser results do not replace this physical-iPhone confirmation.

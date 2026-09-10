@@ -16,6 +16,9 @@ const text = (await Promise.all(runtime.map(path => readFile(path, 'utf8')))).jo
 const assertions = [
   ['MutationObserver', 0],
   ['IntersectionObserver', 0],
+  ['ResizeObserver', 0],
+  ['data-cover-src', 0],
+  ['scrollHeight', 0],
   ['location.reload', 0],
   ['createClient(', 1]
 ];
