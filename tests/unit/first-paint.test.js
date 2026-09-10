@@ -2,13 +2,22 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { coverMarkup } from '../../src/ui/cover.js';
-import { currentTitleClass } from '../../src/utils/text.js';
+import { currentTitleClass, currentTitlePresentation } from '../../src/utils/text.js';
 
 test('classifies current-reading titles before rendering', () => {
   assert.equal(currentTitleClass('Outpost'), '');
   assert.equal(currentTitleClass('The Remains of the Day'), '');
+  assert.equal(currentTitleClass('The Unfinished Harauld Hughes'), 'current-title-compact-v37');
   assert.equal(currentTitleClass('The Unfinished Works of Harauld Hughes'), 'current-title-compact-v37');
   assert.equal(currentTitleClass('A Very Long Chronicle of Everything We Almost Remembered About the World'), 'current-title-tight-v37');
+});
+
+test('long-title presentation contains its final inline first-paint size', () => {
+  assert.deepEqual(currentTitlePresentation('The Unfinished Harauld Hughes'), {
+    className: 'current-title-compact-v37',
+    style: 'font-size:clamp(31px,5.2vw,58px)!important;line-height:.96!important'
+  });
+  assert.deepEqual(currentTitlePresentation('Outpost'), { className: '', style: '' });
 });
 
 test('cover markup starts image loading with explicit priority', () => {

@@ -18,7 +18,7 @@ test('auth mode changes without navigation or duplicate forms', async ({ page })
 
 test('authenticated fixture supports route, filter and detail lifecycles', async ({ page }) => {
   await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('heading', { name: 'The Unfinished Works of Harauld Hughes' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'The Unfinished Harauld Hughes' })).toBeVisible();
   await page.locator('[data-route="library"]').first().click();
   await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
   await page.locator('[data-filter="Read"]').click();
@@ -44,6 +44,8 @@ test('long current title has its final class in initial markup and never mutates
   await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
   const title = page.locator('[data-current-card="current-1"] h1');
   await expect(title).toHaveClass('current-title-compact-v37');
+  await expect(title).toHaveAttribute('data-title-variant', 'compact');
+  await expect(title).toHaveAttribute('style', /font-size:clamp\(31px,5\.2vw,58px\)!important/);
   const initial = await title.getAttribute('class');
   const mutations = await title.evaluate(element => new Promise(resolve => {
     let count = 0;
@@ -53,6 +55,14 @@ test('long current title has its final class in initial markup and never mutates
   }));
   expect(mutations).toBe(0);
   await expect(title).toHaveClass(initial);
+  const beforeResume = await title.evaluate(element => ({ className: element.className, style: element.getAttribute('style') }));
+  await page.evaluate(() => {
+    document.dispatchEvent(new Event('visibilitychange'));
+    const event = new Event('pageshow');
+    Object.defineProperty(event, 'persisted', { value: true });
+    window.dispatchEvent(event);
+  });
+  expect(await title.evaluate(element => ({ className: element.className, style: element.getAttribute('style') }))).toEqual(beforeResume);
 });
 
 test('detail and modal layouts do not overflow a mobile viewport', async ({ page }) => {
@@ -68,6 +78,17 @@ test('service worker shell references resolve', async ({ request }) => {
   const source = await (await request.get('/sw.js')).text();
   const assets = [...source.matchAll(/^\s*'\.\/([^']+)'/gm)].map(match => `/${match[1]}`);
   for (const asset of assets) expect((await request.get(asset)).ok(), asset).toBe(true);
+});
+
+test('service worker and document reference one coherent shell generation', async ({ request }) => {
+  const html = await (await request.get('/index.html')).text();
+  const worker = await (await request.get('/sw.js')).text();
+  const generation = html.match(/name="reading-room-generation" content="(\d+)"/)?.[1];
+  expect(generation).toBeTruthy();
+  const assetGenerations = [...html.matchAll(/[?&]v=(\d+)/g)].map(match => match[1]);
+  expect(new Set(assetGenerations)).toEqual(new Set([generation]));
+  expect(worker).toContain(`const GENERATION = '${generation}'`);
+  for (const value of [...worker.matchAll(/[?&]v=(\d+)/g)].map(match => match[1])) expect(value).toBe(generation);
 });
 
 test('rapid route changes only leave the final route rendered', async ({ page }) => {
@@ -182,4 +203,19 @@ test('Home structural shelves render without a scroll event after navigation', a
   await expect(page.locator('#ai-recommended-section')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Owned & unread' })).toBeVisible();
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
+});
+
+test.describe('service-worker-controlled document', () => {
+  test.use({ serviceWorkers: 'allow' });
+
+  test('reload keeps HTML, CSS and JavaScript on the same generation', async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => navigator.serviceWorker.ready);
+    await page.reload({ waitUntil: 'load' });
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('45');
+    const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
+    expect(resources.length).toBeGreaterThanOrEqual(2);
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '45')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v45');
+  });
 });

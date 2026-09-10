@@ -473,9 +473,8 @@ html,body{scroll-behavior:auto!important}
 .detail-loading-stack-v41 span:nth-child(1){width:72%}.detail-loading-stack-v41 span:nth-child(2){width:94%}.detail-loading-stack-v41 span:nth-child(3){width:58%}
 .detail-load-error-v41{margin-top:24px;color:#6d675f}
 
-/* Avoid image paint transitions fighting fallback covers. Dimensions remain reserved by the cover container. */
+/* Dimensions remain reserved by the cover container; avoid forcing all covers into one GPU-composited layer. */
 .cover,.upnext-cover,.recommended-cover,.edition-cover{overflow:hidden}
-.cover img,.upnext-cover img,.recommended-cover img,.edition-cover img{backface-visibility:hidden;transform:translateZ(0)}
 
 /* Feature modules should not animate layout when data arrives. */
 .detail-copy-v4,.book-quotes-v40,.metadata-accordion,.exact-copy-card,.edition-browser-entry,.book-admin-entry{animation:none!important;transition:none!important}
@@ -504,3 +503,8 @@ html,body{max-width:100%;overflow-x:hidden}
 .cover.cover-failed>.cover-image{display:none}
 .book-card{contain:layout}
 .library-grid,.shelf,.section,.hero,.recommended-row,.upnext-row{content-visibility:visible!important}
+
+/* Genuine route entry only; persistent header and navigation do not move. */
+main.route-enter{animation:route-enter 160ms ease-out both}
+@keyframes route-enter{from{opacity:.94;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){main.route-enter{animation:none}}

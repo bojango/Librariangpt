@@ -18,6 +18,7 @@ import { openEditionBrowser } from './features/editions.js';
 import { handleExactCopyAction } from './features/exact-copy.js';
 import { handleQuoteAction } from './features/quotes.js';
 import { activateCovers, collectCoverImages, reuseCoverImages } from './ui/cover.js';
+import { installScrollLifecycle } from './scroll-lifecycle.js';
 
 const app = document.querySelector('#app');
 const store = createAppState();
@@ -28,6 +29,13 @@ let dataLoad = null;
 let libraryLoaded = false;
 let scrollRestoreFrame = null;
 let sessionBootstrapUser = null;
+let scrollTrackingSuspended = false;
+
+function cancelScrollRestore() {
+  if (scrollRestoreFrame !== null) cancelAnimationFrame(scrollRestoreFrame);
+  scrollRestoreFrame = null;
+  scrollTrackingSuspended = false;
+}
 
 function currentBook(id = store.value.route.bookId) {
   return store.value.detail?.book?.id === id ? store.value.detail.book : store.value.books.find(book => book.id === id);
@@ -38,33 +46,69 @@ function saveCurrentScroll() {
   if (['home', 'library', 'wishlist'].includes(name)) store.saveScroll(name, window.scrollY);
 }
 
-function paint(html, { restore = false, preserveScroll = null, reuseCovers = false } = {}) {
-  if (scrollRestoreFrame !== null) {
-    cancelAnimationFrame(scrollRestoreFrame);
-    scrollRestoreFrame = null;
-  }
+function syncNavigation(current, next) {
+  const active = next.querySelector('.nav-btn.active')?.dataset.route;
+  current.querySelectorAll('.nav-btn').forEach(button => button.classList.toggle('active', button.dataset.route === active));
+}
+
+function markRouteEntry(main) {
+  if (!main || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  main.classList.add('route-enter');
+  main.addEventListener('animationend', () => main.classList.remove('route-enter'), { once: true });
+}
+
+function paint(html, { restore = false, restoreY: requestedRestoreY = null, preserveScroll = null, reuseCovers = false, transition = false } = {}) {
+  cancelScrollRestore();
+  scrollTrackingSuspended = Boolean(restore);
+  const restoreRoute = restore ? { ...store.value.route } : null;
+  const restoreY = restore ? (Number.isFinite(requestedRestoreY) ? requestedRestoreY : store.scrollFor(restoreRoute.name)) : null;
   const coverPool = reuseCovers ? collectCoverImages(app) : null;
-  app.innerHTML = html;
+  const template = document.createElement('template');
+  template.innerHTML = html.trim();
+  const nextRoot = template.content.firstElementChild;
+  const currentLayout = app.firstElementChild?.matches('.layout') ? app.firstElementChild : null;
+  const nextLayout = nextRoot?.matches('.layout') ? nextRoot : null;
+  let activationRoot = app;
+  if (currentLayout && nextLayout) {
+    const currentMain = currentLayout.querySelector(':scope > main');
+    const nextMain = nextLayout.querySelector(':scope > main');
+    if (coverPool) reuseCoverImages(nextMain, coverPool, { activate: false });
+    if (transition) markRouteEntry(nextMain);
+    currentMain.replaceWith(nextMain);
+    syncNavigation(currentLayout.querySelector(':scope > .bottom-nav'), nextLayout.querySelector(':scope > .bottom-nav'));
+    activationRoot = nextMain;
+  } else {
+    if (transition) markRouteEntry(nextLayout?.querySelector(':scope > main'));
+    app.replaceChildren(template.content);
+  }
   app.dataset.routeView = store.value.route.name;
-  if (coverPool) reuseCoverImages(app, coverPool);
-  else activateCovers(app);
-  app.querySelectorAll('img:not(.cover-image)').forEach(image => image.addEventListener('error', () => { image.hidden = true; }, { once: true }));
-  initialiseCarousel(app);
+  activateCovers(activationRoot);
+  activationRoot.querySelectorAll('img:not(.cover-image)').forEach(image => image.addEventListener('error', () => { image.hidden = true; }, { once: true }));
+  initialiseCarousel(activationRoot);
   if (restore) {
-    const route = { ...store.value.route };
-    const y = store.scrollFor(route.name);
+    if (restore === 'startup' && restoreY === 0) {
+      scrollTrackingSuspended = false;
+      return;
+    }
     scrollRestoreFrame = requestAnimationFrame(() => {
-      scrollRestoreFrame = null;
-      if (sameRoute(store.value.route, route)) window.scrollTo({ top: y, left: 0, behavior: 'instant' });
+      if (sameRoute(store.value.route, restoreRoute)) window.scrollTo({ top: restoreY, left: 0, behavior: 'instant' });
+      scrollRestoreFrame = requestAnimationFrame(() => {
+        scrollRestoreFrame = null;
+        scrollTrackingSuspended = false;
+        if (sameRoute(store.value.route, restoreRoute)) store.saveScroll(restoreRoute.name, window.scrollY);
+      });
     });
   }
   else if (Number.isFinite(preserveScroll)) window.scrollTo({ top: preserveScroll, left: 0, behavior: 'instant' });
 }
 
-async function renderRoute(route, { mode = 'navigation', detail = null } = {}) {
+async function renderRoute(route, { mode = 'navigation', detail = null, restoreY = null } = {}) {
   const priorRoute = { ...store.value.route };
   const routeChanged = !sameRoute(priorRoute, route);
+  const routeRestoreY = Number.isFinite(restoreY) ? restoreY : store.scrollFor(route.name);
+  if (mode === 'noop' && !routeChanged) return;
   const preservedY = mode === 'refresh' ? window.scrollY : null;
+  const transition = mode === 'navigation' && routeChanged;
   const version = store.beginRender();
   store.setRoute(route);
   if (!store.value.session) { paint(authView(store.value.authMode)); return; }
@@ -73,14 +117,15 @@ async function renderRoute(route, { mode = 'navigation', detail = null } = {}) {
   if (route.name === 'book') {
     const seed = currentBook(route.bookId);
     if (!seed) { router.navigate({ name: 'library' }, { replace: true }); return; }
-    if (mode === 'navigation' && routeChanged) window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-    if (!detail && store.value.detail?.book?.id !== route.bookId && mode === 'navigation') paint(loadingBookView(seed));
+    if ((mode === 'navigation' || mode === 'startup') && routeChanged) window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    const paintedLoading = !detail && store.value.detail?.book?.id !== route.bookId && mode === 'navigation';
+    if (paintedLoading) paint(loadingBookView(seed), { transition });
     try {
       const nextDetail = detail || await loadBookDetail(route.bookId);
       if (!store.isCurrent(version) || store.value.route.name !== 'book' || store.value.route.bookId !== route.bookId) return;
       store.value.detail = nextDetail;
       store.value.route.returnTo = previousRoute;
-      paint(bookDetailView(store.value), { preserveScroll: preservedY, reuseCovers: mode === 'refresh' });
+      paint(bookDetailView(store.value), { preserveScroll: preservedY, reuseCovers: mode === 'refresh' || paintedLoading, transition: transition && !paintedLoading });
       maybeEnrich(nextDetail, version);
     } catch (error) {
       if (store.isCurrent(version)) paint(errorView(error.message || 'Could not load this book'));
@@ -90,7 +135,9 @@ async function renderRoute(route, { mode = 'navigation', detail = null } = {}) {
 
   store.value.detail = null;
   const options = mode === 'navigation'
-    ? { restore: true }
+    ? { restore: true, restoreY: routeRestoreY, transition }
+    : mode === 'startup'
+      ? { restore: 'startup', restoreY: routeRestoreY }
     : { preserveScroll: preservedY, reuseCovers: true };
   if (route.name === 'home') paint(homeView(store.value), options);
   else if (route.name === 'library' || route.name === 'wishlist') paint(libraryView(store.value, route.name), options);
@@ -143,12 +190,14 @@ function maybeEnrich(detail, renderVersion) {
 }
 
 function navigate(route) {
+  const restoreY = store.scrollFor(route.name);
   saveCurrentScroll();
+  if (!sameRoute(store.value.route, route)) scrollTrackingSuspended = true;
   if (route.name === 'book') {
     previousRoute = ['home', 'library', 'wishlist'].includes(store.value.route.name) ? store.value.route.name : previousRoute;
     bookHasReturnRoute = store.value.route.name !== 'book';
   }
-  router.navigate(route);
+  router.navigate(route, { restoreY });
 }
 
 app.addEventListener('click', async event => {
@@ -158,7 +207,7 @@ app.addEventListener('click', async event => {
   if (route) { navigate({ name: route.dataset.route, bookId: null }); return; }
   const open = target.closest('[data-open-book]');
   if (open && !target.closest('[data-progress]')) { navigate({ name: 'book', bookId: open.dataset.openBook }); return; }
-  if (target.closest('[data-back]')) { if (bookHasReturnRoute) { bookHasReturnRoute = false; history.back(); } else router.navigate({ name: previousRoute }); return; }
+  if (target.closest('[data-back]')) { if (bookHasReturnRoute) { bookHasReturnRoute = false; history.back(); } else navigate({ name: previousRoute }); return; }
   if (target.closest('[data-refresh]')) { refresh(); return; }
   if (target.closest('[data-menu]')) { openMenu(); return; }
   if (target.closest('[data-signout]')) { supabase.auth.signOut(); return; }
@@ -203,7 +252,7 @@ app.addEventListener('input', event => {
   const name = input.dataset.librarySearch;
   store.value.queries[name] = input.value;
   const selection = input.selectionStart;
-  paint(libraryView(store.value, name));
+  paint(libraryView(store.value, name), { preserveScroll: window.scrollY, reuseCovers: true });
   const next = app.querySelector('[data-library-search]'); next?.focus(); next?.setSelectionRange(selection, selection);
 });
 
@@ -211,7 +260,7 @@ app.addEventListener('click', event => {
   const filter = event.target.closest('[data-filter]');
   if (!filter) return;
   store.value.filters.library = filter.dataset.filter;
-  paint(libraryView(store.value, 'library'));
+  paint(libraryView(store.value, 'library'), { preserveScroll: window.scrollY, reuseCovers: true });
 });
 
 app.addEventListener('click', event => {
@@ -263,7 +312,10 @@ window.addEventListener('reading-room:refresh', event => refresh({
 }));
 
 async function init() {
-  router = createRouter(route => renderRoute(route));
+  router = createRouter((route, context) => renderRoute(route, {
+    mode: context.source === 'start' ? 'startup' : context.source === 'same-route' ? 'noop' : 'navigation',
+    restoreY: context.restoreY
+  }));
   const { data: { session } } = await supabase.auth.getSession();
   store.value.session = session;
   if (session) {
@@ -289,7 +341,7 @@ async function init() {
       try {
         await loadSnapshot();
         if (store.value.session?.user?.id !== nextUserId) return;
-        await renderRoute({ ...store.value.route }, { mode: enteringSession ? 'navigation' : 'refresh' });
+        await renderRoute({ ...store.value.route }, { mode: enteringSession ? 'startup' : 'refresh' });
       } catch (error) { paint(errorView(error.message)); }
       finally { if (sessionBootstrapUser === nextUserId) sessionBootstrapUser = null; }
     }
@@ -297,4 +349,12 @@ async function init() {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(error => console.info('[Reading Room] service worker unavailable:', error?.message || error));
 }
 
+installScrollLifecycle({
+  getRoute: () => store.value.route,
+  save: (name, y) => store.saveScroll(name, y),
+  cancelRestore: cancelScrollRestore,
+  isSuspended: () => scrollTrackingSuspended
+});
+
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 init();

@@ -28,6 +28,17 @@ export function currentTitleClass(title = '') {
   return '';
 }
 
+export function currentTitlePresentation(title = '') {
+  const className = currentTitleClass(title);
+  if (className === 'current-title-tight-v37') {
+    return { className, style: 'font-size:clamp(28px,4.7vw,52px)!important;line-height:.95!important' };
+  }
+  if (className === 'current-title-compact-v37') {
+    return { className, style: 'font-size:clamp(31px,5.2vw,58px)!important;line-height:.96!important' };
+  }
+  return { className: '', style: '' };
+}
+
 export function dedupeResults(results = []) {
   const seen = new Set();
   return results.filter(result => {

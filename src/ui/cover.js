@@ -57,7 +57,7 @@ export function collectCoverImages(root) {
   return pool;
 }
 
-export function reuseCoverImages(root, pool) {
+export function reuseCoverImages(root, pool, { activate = true } = {}) {
   root.querySelectorAll('.cover[data-cover-key] .cover-image').forEach(placeholder => {
     const container = placeholder.closest('.cover');
     const key = `${container.dataset.coverKey}\n${container.dataset.coverUrl}`;
@@ -68,5 +68,5 @@ export function reuseCoverImages(root, pool) {
     placeholder.replaceWith(reusable);
     if (!reusable.hidden && reusable.naturalWidth > 0) container.classList.add('cover-loaded');
   });
-  activateCovers(root);
+  if (activate) activateCovers(root);
 }

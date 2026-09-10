@@ -52,7 +52,7 @@ async function mockAuthenticatedLibrary(page) {
       overall_status: 'Owned - Unread',
       ownership_status: 'Owned',
       primary_genre: 'Fiction',
-      cover_url: ''
+      cover_url: '/wishlist-cover.jpg'
     }))
   ];
 
@@ -132,8 +132,8 @@ test('real same-route Home refresh preserves scroll and skips unchanged repaint'
   await page.evaluate(() => {
     window.__refreshPaints = 0;
     new MutationObserver(records => {
-      if (records.some(record => record.type === 'childList' && record.target.id === 'app')) window.__refreshPaints += 1;
-    }).observe(document.querySelector('#app'), { childList: true });
+      if (records.some(record => record.type === 'childList' && (record.target.id === 'app' || record.target.classList?.contains('layout')))) window.__refreshPaints += 1;
+    }).observe(document.querySelector('#app'), { childList: true, subtree: true });
   });
   await Promise.all([
     page.waitForResponse(response => response.url().includes('/rest/v1/v_library?')),
@@ -143,10 +143,98 @@ test('real same-route Home refresh preserves scroll and skips unchanged repaint'
   expect(await page.evaluate(() => window.__refreshPaints)).toBe(0);
   expect(Math.abs((await page.evaluate(() => window.scrollY)) - beforeY)).toBeLessThanOrEqual(2);
 
+  await page.locator('.cover-image').first().evaluate(image => { image.dataset.instanceMarker = 'same-cover'; });
   backend.bump();
   backend.setLatency(450);
   await page.evaluate(() => window.dispatchEvent(new CustomEvent('reading-room:refresh')));
   await expect(page.locator('.book-title', { hasText: 'Unread 00 revision 1' }).first()).toBeVisible();
+  await expect(page.locator('.cover-image').first()).toHaveAttribute('data-instance-marker', 'same-cover');
   expect(Math.abs((await page.evaluate(() => window.scrollY)) - beforeY)).toBeLessThanOrEqual(2);
   await expect(page).toHaveURL(/#\/home$/);
+});
+
+test('cold authenticated route paints once and preserves persistent chrome', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__appRootPaints = 0;
+    const replaceChildren = Element.prototype.replaceChildren;
+    Element.prototype.replaceChildren = function (...nodes) {
+      if (this.id === 'app') window.__appRootPaints += 1;
+      return replaceChildren.apply(this, nodes);
+    };
+  });
+  await mockAuthenticatedLibrary(page);
+  await page.goto('/#/home', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#app')).toHaveAttribute('data-route-view', 'home');
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  expect(await page.evaluate(() => window.__appRootPaints)).toBe(1);
+
+  await page.locator('.topbar').evaluate(element => { element.dataset.instanceMarker = 'persistent'; });
+  await page.locator('[data-route="library"]').first().click();
+  await expect(page.locator('#app')).toHaveAttribute('data-route-view', 'library');
+  await expect(page.locator('main')).toHaveClass(/route-enter/);
+  await expect(page.locator('.topbar')).toHaveAttribute('data-instance-marker', 'persistent');
+  expect(await page.evaluate(() => window.__appRootPaints)).toBe(1);
+});
+
+test('scrolling and lifecycle exits persist position while resume leaves native viewport untouched', async ({ page }) => {
+  await mockAuthenticatedLibrary(page);
+  await page.goto('/#/home');
+  await expect(page.locator('#app')).toHaveAttribute('data-route-view', 'home');
+  await page.evaluate(() => window.scrollTo(0, 1000));
+  await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem('reading-room-scroll-v2') || '{}').home || 0)).toBeGreaterThan(800);
+  const before = await page.evaluate(() => window.scrollY);
+
+  await page.evaluate(() => {
+    const nativeScrollTo = window.scrollTo.bind(window);
+    window.__resumeScrollCalls = [];
+    window.scrollTo = (...args) => { window.__resumeScrollCalls.push(args); nativeScrollTo(...args); };
+    window.dispatchEvent(new Event('pagehide'));
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+    const show = new Event('pageshow');
+    Object.defineProperty(show, 'persisted', { value: true });
+    window.dispatchEvent(show);
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  expect(await page.evaluate(() => window.__resumeScrollCalls.length)).toBe(0);
+  expect(Math.abs((await page.evaluate(() => window.scrollY)) - before)).toBeLessThanOrEqual(2);
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('reading-room-scroll-v2')).home)).toBe(before);
+  await expect(page.locator('main')).not.toHaveClass(/route-enter/);
+});
+
+test('true route return restores Home scroll and only navigation transitions', async ({ page }) => {
+  await mockAuthenticatedLibrary(page);
+  await page.goto('/#/home');
+  await expect(page.locator('#app')).toHaveAttribute('data-route-view', 'home');
+  await page.evaluate(() => window.scrollTo(0, 1000));
+  await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem('reading-room-scroll-v2') || '{}').home || 0)).toBeGreaterThan(800);
+  const savedHome = await page.evaluate(() => JSON.parse(sessionStorage.getItem('reading-room-scroll-v2')).home);
+  await page.evaluate(() => {
+    window.__routeTransitions = 0;
+    document.addEventListener('animationstart', event => { if (event.animationName === 'route-enter') window.__routeTransitions += 1; });
+  });
+  await page.locator('[data-route="library"]').first().evaluate(element => element.click());
+  await expect(page.locator('#app')).toHaveAttribute('data-route-view', 'library');
+  await page.locator('.bottom-nav [data-route="home"]').evaluate(element => element.click());
+  await expect(page.locator('#app')).toHaveAttribute('data-route-view', 'home');
+  await page.waitForTimeout(250);
+  const metrics = await page.evaluate(() => ({ y: window.scrollY, max: document.documentElement.scrollHeight - innerHeight, stored: JSON.parse(sessionStorage.getItem('reading-room-scroll-v2')).home }));
+  expect(metrics.y, JSON.stringify(metrics)).toBeGreaterThanOrEqual(Math.min(savedHome, metrics.max) - 2);
+  const restoredY = await page.evaluate(() => window.scrollY);
+  await expect(page.locator('main')).not.toHaveClass(/route-enter/);
+  expect(await page.evaluate(() => window.__routeTransitions)).toBeGreaterThanOrEqual(1);
+  await page.evaluate(() => window.dispatchEvent(new CustomEvent('reading-room:refresh')));
+  await expect(page.locator('main')).not.toHaveClass(/route-enter/);
+  expect(Math.abs((await page.evaluate(() => window.scrollY)) - restoredY)).toBeLessThanOrEqual(2);
+});
+
+test('reduced motion disables the route-entry animation', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await mockAuthenticatedLibrary(page);
+  await page.goto('/#/home');
+  await page.locator('[data-route="library"]').first().click();
+  await expect(page.locator('#app')).toHaveAttribute('data-route-view', 'library');
+  await expect(page.locator('main')).not.toHaveClass(/route-enter/);
+  expect(await page.locator('main').evaluate(element => getComputedStyle(element).animationName)).toBe('none');
 });

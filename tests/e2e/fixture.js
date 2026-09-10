@@ -6,7 +6,7 @@ import { snapshotFingerprint } from '../../src/lifecycle.js';
 import { activateCovers, collectCoverImages, reuseCoverImages } from '../../src/ui/cover.js';
 
 const books = [
-  { id: 'current-1', title: 'The Unfinished Works of Harauld Hughes', authors: 'Reader One', overall_status: 'Currently Reading', ownership_status: 'Owned', current_page: 40, total_pages: 200, progress_percent: 20, cover_url: '/delayed-cover.svg', primary_genre: 'Fiction' },
+  { id: 'current-1', title: 'The Unfinished Harauld Hughes', authors: 'Reader One', overall_status: 'Currently Reading', ownership_status: 'Owned', current_page: 40, total_pages: 200, progress_percent: 20, cover_url: '/delayed-cover.svg', primary_genre: 'Fiction' },
   { id: 'current-2', title: 'Currently Two', authors: 'Reader Two', overall_status: 'Currently Reading', ownership_status: 'Owned', current_page: 90, total_pages: 300, progress_percent: 30, cover_url: '/missing-cover.jpg', primary_genre: 'History' },
   { id: 'read-1', title: 'Finished Book', authors: 'Done Author', overall_status: 'Read', ownership_status: 'Owned', total_pages: 250, user_rating_5: 4.5, synopsis: 'A complete synopsis for fixture rendering.', primary_genre: 'Science' },
   { id: 'wish-1', title: 'Wish Book', authors: 'Future Author', overall_status: 'Wishlist', ownership_status: 'Not Owned', cover_url: '/wishlist-cover.jpg', primary_genre: 'Essay' }
