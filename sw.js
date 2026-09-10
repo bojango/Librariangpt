@@ -1,12 +1,12 @@
-const GENERATION = '45';
+const GENERATION = '46';
 const SHELL = `reading-room-shell-v${GENERATION}`;
 const COVERS = 'reading-room-covers-v3';
 const APP_SHELL = [
   './',
   './index.html',
-  './manifest.webmanifest?v=45',
-  './src/styles/app.css?v=45',
-  './dist/app.js?v=45',
+  './manifest.webmanifest?v=46',
+  './src/styles/app.css?v=46',
+  './dist/app.js?v=46',
   './dist/app.js.map',
   './supabase-config.js',
   './assets/reading-room-mark.svg',
@@ -17,6 +17,20 @@ const APP_SHELL = [
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];
+let diagnosticsEnabled = false;
+const diagnosticCounters = { cover_cache_hits: 0, cover_cache_misses: 0, cover_network_fetches: 0 };
+
+self.addEventListener('message', event => {
+  if (event.data?.type === 'SET_DIAGNOSTICS') {
+    const next = event.data.enabled === true;
+    if (next && !diagnosticsEnabled) Object.keys(diagnosticCounters).forEach(key => { diagnosticCounters[key] = 0; });
+    diagnosticsEnabled = next;
+    return;
+  }
+  if (event.data?.type === 'GET_DIAGNOSTIC_STATE') {
+    event.ports?.[0]?.postMessage({ generation: GENERATION, shell_cache: SHELL, cover_cache: COVERS, ...diagnosticCounters });
+  }
+});
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(SHELL).then(cache => cache.addAll(APP_SHELL)));
@@ -56,13 +70,16 @@ async function staleCover(request) {
   const url = new URL(request.url);
   const cache = await caches.open(COVERS);
   const cached = await cache.match(request);
+  if (diagnosticsEnabled) diagnosticCounters[cached ? 'cover_cache_hits' : 'cover_cache_misses'] += 1;
   if (url.hostname.endsWith('.supabase.co')) {
     try {
+      if (diagnosticsEnabled) diagnosticCounters.cover_network_fetches += 1;
       const response = await fetch(request);
       if (response.ok || response.type === 'opaque') await cache.put(request, response.clone());
       return response;
     } catch { return cached || new Response('', { status: 504 }); }
   }
+  if (diagnosticsEnabled) diagnosticCounters.cover_network_fetches += 1;
   const update = fetch(request).then(async response => {
     if (response.ok || response.type === 'opaque') await cache.put(request, response.clone());
     return response;

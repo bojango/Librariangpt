@@ -2,9 +2,15 @@ import { supabase } from './supabase.js';
 import { dedupeResults, exactIsbnMatch, isValidIsbn } from '../utils/text.js';
 
 const requests = new Map();
+let diagnosticHook = null;
+
+export function setDataDiagnosticHook(hook) {
+  diagnosticHook = hook;
+}
 
 function dedupe(key, work) {
   if (!requests.has(key)) requests.set(key, Promise.resolve().then(work).finally(() => requests.delete(key)));
+  else diagnosticHook?.event('request_deduped', { request_key: key });
   return requests.get(key);
 }
 

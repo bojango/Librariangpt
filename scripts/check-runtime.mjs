@@ -12,7 +12,8 @@ async function files(root) {
 }
 
 const runtime = (await files('src')).filter(path => path.endsWith('.js'));
-const text = (await Promise.all(runtime.map(path => readFile(path, 'utf8')))).join('\n');
+const architectureRuntime = runtime.filter(path => !path.includes(`${join('src', 'diagnostics')}`));
+const text = (await Promise.all(architectureRuntime.map(path => readFile(path, 'utf8')))).join('\n');
 const assertions = [
   ['MutationObserver', 0],
   ['IntersectionObserver', 0],

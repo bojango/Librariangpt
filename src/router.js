@@ -11,21 +11,26 @@ export function routeHash(route) {
   return route.name === 'book' ? `#/book/${encodeURIComponent(route.bookId)}` : `#/${route.name}`;
 }
 
-export function createRouter(onChange) {
+export function createRouter(onChange, hooks = null) {
   let pendingContext = null;
   const listener = () => {
     const context = pendingContext || { source: 'hashchange' };
     pendingContext = null;
-    onChange(parseRoute(), context);
+    const route = parseRoute();
+    hooks?.event('hashchange', { route: route.name, book_id: route.bookId || null, source: context.source });
+    onChange(route, context);
   };
   window.addEventListener('hashchange', listener);
   return {
     start() {
       if (!location.hash) history.replaceState(null, '', routeHash({ name: 'home' }));
-      onChange(parseRoute(), { source: 'start' });
+      const route = parseRoute();
+      hooks?.event('router_start', { route: route.name, book_id: route.bookId || null });
+      onChange(route, { source: 'start' });
     },
     navigate(route, { replace = false, restoreY = null } = {}) {
       const hash = routeHash(route);
+      hooks?.event('route_navigation_requested', { to: route.name, book_id: route.bookId || null, source: replace ? 'replace' : location.hash === hash ? 'same-route' : 'navigation' });
       if (replace) {
         history.replaceState(null, '', hash);
         onChange(route, { source: 'navigation', restoreY });

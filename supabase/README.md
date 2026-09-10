@@ -27,3 +27,7 @@ The remote project currently reports:
 - Info: `book_quotes.book_id` and `book_quotes.edition_id` foreign keys lack covering indexes.
 
 No remediation was applied to production because this refactor was explicitly constrained to non-destructive work and no isolated Supabase branch was provisioned.
+
+## Diagnostic Test Mode migrations
+
+On 2026-09-10 the additive migrations `20260910194645`, `20260910194728`, and `20260910194958` were deployed for the opt-in diagnostic recorder. They create only `public.diagnostic_sessions` and `public.diagnostic_events`, enable authenticated owner-only RLS, remove legacy default grants, and retain the unique `(session_id, sequence)` upload key. Post-deployment verification found zero diagnostic rows. Existing Library tables and data were not modified.

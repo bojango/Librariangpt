@@ -4,6 +4,27 @@ Branch: `refactor/architecture-foundation`
 
 Last updated: 2026-09-10
 
+## Permanent diagnostic Test Mode (2026-09-10)
+
+- Added an opt-in recorder in `src/diagnostics/` with one central API, deterministic per-session sequences, compact sanitised events, batched IndexedDB persistence, unfinished-session recovery, a 5,000-event cap, critical-event preservation, and idempotent batch upload. When Test Mode is off, IndexedDB is not opened and lifecycle/data/cover hooks are not installed.
+- Added a menu-only Test Mode control, active code/event summary, immediate issue categories, end/upload and end-local actions, recent-session copy/retry, plus a small static TEST topbar indicator.
+- Instrumented existing explicit app/auth/router/paint/scroll/title/cover/data/service-worker/error boundaries without changing their policies or timing decisions. Every existing application-owned `window.scrollTo` now passes through a reason-labelled recorder before retaining the same call semantics.
+- Bumped the coherent PWA shell to generation 46 solely so the new bundle/CSS/worker diagnostic protocol deploy together. Navigation, static asset, cover, and Supabase caching policies are otherwise unchanged. The worker counts cover cache hits/misses/network fetches only while enabled and returns those aggregates on request at start, issue markers, and session end.
+- Added `window.__RR_TEST__` only while enabled (or via `?test=1`) for local session/event inspection and Playwright markers. It exposes no Supabase client, credentials, tokens, or private application records.
+- Deployed and committed additive diagnostic migrations `20260910194645`, `20260910194728`, and `20260910194958` for `diagnostic_sessions`/`diagnostic_events`, authenticated owner-only RLS, least-privilege authenticated grants, no anonymous grants, and unique `(session_id, sequence)` upload idempotency. Verification found both tables empty, RLS enabled, six owner policies present, and only SELECT/INSERT/UPDATE table privileges for `authenticated`. No Library table or row was modified.
+- Privacy rules, taxonomy, collection/upload workflow, SQL lookup, extension rules, and intended approximately 14-day retention are documented in `docs/DIAGNOSTICS.md`.
+- Diagnostic unit/browser coverage verifies disabled zero-write behavior, ordering/timestamps, issue persistence, sanitisation, cap preservation, idempotent upload, route/paint/title/cover evidence, lifecycle events, programmatic scroll reasons, and same-cover reuse.
+- Final verification: build passed (`dist/app.js` 247.7 kB); unit tests 31/31; architecture check passed across 30 modules; full Playwright passed 54/54; explicit iPhone 13 WebKit passed 27/27; `npm audit` found 0 vulnerabilities; `git diff --check` passed. The diagnostic migration is recorded in remote migration history, both new tables have RLS enabled, and post-migration advisors introduced no new security/performance finding beyond expected unused indexes on the still-empty diagnostic tables.
+- Guardrail audit: production still has one `createClient(` and zero `MutationObserver`, `ResizeObserver`, `IntersectionObserver`, or `location.reload`. The sole `scrollHeight` read is Test Mode-only checkpoint geometry. The sole `window.scrollTo` is the reason-labelled wrapper preserving existing calls. The new 800 ms `setTimeout` only bounds a Test Mode service-worker message when an older worker cannot answer; existing edition polling and toast dismissal remain the other two timers. Existing `innerHTML` writes remain trusted/escaped route, modal, and menu renderers; diagnostic history is escaped before its scoped menu write. Existing `scrollRestoration`, `visibilitychange`, `pagehide`, and `pageshow` application behavior was not changed; Test Mode adds removable listeners only while enabled.
+- Exact next step: collect and upload physical-iPhone sessions for Home launch, book-detail resume, and cover flashing. Do not fix the lifecycle bugs until those session codes have been examined chronologically.
+
+### Physical-iPhone diagnostic collection
+
+- Session A: start fresh, fully close/reopen from Home Screen, mark title/scroll/cover/page issues immediately, scroll and background for about 30 seconds, then end/upload and retain the code.
+- Session B: start fresh, open a book, scroll near the bottom, background for about 30 seconds, mark any return jump, then end/upload and retain the code.
+- Session C: start fresh, navigate Home → Library → Wishlist repeatedly, mark cover/page flicker immediately, background/foreground once, then end/upload and retain the code.
+- The next repair task must use those three codes. No current iOS title, cover, render, scroll, auth, or resume behavior was changed in this instrumentation task.
+
 ## Completed phases
 
 - Inventoried the original entry points, runtime scripts/styles, service worker, Supabase access, navigation, caches, observers, timers, reloads, listeners, and feature ownership.
