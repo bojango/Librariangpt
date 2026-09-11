@@ -33,7 +33,6 @@ export function installMotionController({ getRoute, goBack, win = window, doc = 
   const resume = () => {
     resetBaseline();
     suspended = false;
-    setNavRoute(getRoute()?.name, { animate: false });
   };
   const updateNav = () => {
     frame = null;
@@ -106,6 +105,7 @@ export function installMotionController({ getRoute, goBack, win = window, doc = 
   doc.addEventListener('touchend', onTouchEnd, { passive: true });
   doc.addEventListener('touchcancel', resetGesture, { passive: true });
 
+  setNavRoute(getRoute()?.name, { animate: false });
   resume();
   return { suspend, resume, expand, setNavRoute, destroy() {
     if (frame !== null) win.cancelAnimationFrame(frame);

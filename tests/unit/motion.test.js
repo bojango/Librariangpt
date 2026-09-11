@@ -75,6 +75,10 @@ test('the shared nav indicator maps routes to deterministic indexes without geom
     controller.setNavRoute(route);
     assert.equal(harness.navStyle.get('--nav-index'), String(index));
   }
+  controller.setNavRoute('library', { animate: true });
+  controller.resume();
+  assert.equal(harness.navClasses.contains('indicator-instant'), false);
+  assert.equal(harness.navStyle.get('--nav-index'), '1');
   controller.destroy();
   const reducedHarness = createHarness({ reduced: true });
   const reducedController = installMotionController({ getRoute: () => ({ name: 'home' }), goBack() {}, ...reducedHarness });
