@@ -1,0 +1,7 @@
+{
+  "slug": "upload-cover-photo",
+  "deployedVersion": 2,
+  "verifyJwt": true,
+  "sha256": "bcdd203bf1548498084a3ce42358f5eb67b66661264122ac5df3cb03215036e4",
+  "exportedAt": "2026-09-09"
+}
