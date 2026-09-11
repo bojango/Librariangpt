@@ -6,7 +6,7 @@ export function navigation(active) {
     stats: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 1 0 8.5 8.5M12 3.5V12h8.5A8.5 8.5 0 0 0 12 3.5Z"/></svg>'
   };
   const items = [['home','Home'],['library','Library'],['wishlist','Wishlist'],['stats','Stats']];
-  return `<nav class="bottom-nav" aria-label="Main navigation">${items.map(([key, label]) => `<button class="nav-btn ${active === key ? 'active' : ''}" data-route="${key}"${active === key ? ' aria-current="page"' : ''}><span class="nav-icon">${icons[key]}</span><span class="nav-label">${label}</span><i class="nav-indicator" aria-hidden="true"></i></button>`).join('')}</nav>`;
+  return `<nav class="bottom-nav" aria-label="Main navigation">${items.map(([key, label]) => `<button class="nav-btn ${active === key ? 'active' : ''}" data-route="${key}"${active === key ? ' aria-current="page"' : ''}><span class="nav-icon">${icons[key]}</span><span class="nav-label">${label}</span></button>`).join('')}<i class="nav-active-indicator" aria-hidden="true"></i></nav>`;
 }
 
 export function chrome(content, active) {

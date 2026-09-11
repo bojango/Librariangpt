@@ -36,6 +36,8 @@ let sessionBootstrapUser = null;
 let scrollTrackingSuspended = false;
 let diagnosticDisposer = null;
 let serviceWorkerRegistration = null;
+let motionController = null;
+let skipNextRouteTransition = false;
 
 diagnostics.configure({
   context: () => ({ route: store.value.route, bookId: store.value.route.bookId || null }),
@@ -73,7 +75,6 @@ function stopDiagnosticRuntime() {
 function cancelScrollRestore() {
   if (scrollRestoreFrame !== null) cancelAnimationFrame(scrollRestoreFrame);
   scrollRestoreFrame = null;
-  scrollTrackingSuspended = false;
 }
 
 function currentBook(id = store.value.route.bookId) {
@@ -101,23 +102,25 @@ function markRouteEntry(main) {
   main.addEventListener('animationend', () => main.classList.remove('route-enter'), { once: true });
 }
 
-function markRouteExit(main) {
-  if (!main || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  const bounds = main.getBoundingClientRect();
-  const clone = document.createElement('div');
-  clone.innerHTML = main.innerHTML;
-  clone.className = 'route-leave-overlay';
-  clone.inert = true;
-  clone.setAttribute('aria-hidden', 'true');
-  Object.assign(clone.style, { top: `${bounds.top}px`, left: `${bounds.left}px`, width: `${bounds.width}px`, height: `${bounds.height}px` });
-  document.body.append(clone);
-  clone.addEventListener('animationend', () => clone.remove(), { once: true });
+function positionAfterPaint(top, reason, route, renderMode, { save = false } = {}) {
+  scrollTrackingSuspended = true;
+  motionController?.suspend();
+  diagnosticScrollTo(diagnostics, reason, { top, left: 0, behavior: 'instant' }, { route: route.name, render_mode: renderMode });
+  scrollRestoreFrame = requestAnimationFrame(() => {
+    scrollRestoreFrame = null;
+    if (sameRoute(store.value.route, route) && save) store.saveScroll(route.name, window.scrollY);
+    scrollTrackingSuspended = false;
+    motionController?.resume();
+  });
 }
 
-function paint(html, { restore = false, restoreY: requestedRestoreY = null, preserveScroll = null, reuseCovers = false, transition = false, detailResolve = false, renderMode = 'direct' } = {}) {
+function paint(html, { restore = false, restoreY: requestedRestoreY = null, preserveScroll = null, positionY = null, positionReason = 'route_position', reuseCovers = false, transition = false, renderMode = 'direct' } = {}) {
   const tracing = diagnostics.isActive();
   cancelScrollRestore();
-  scrollTrackingSuspended = Boolean(restore);
+  if (restore || Number.isFinite(positionY) || Number.isFinite(preserveScroll)) {
+    scrollTrackingSuspended = true;
+    motionController?.suspend();
+  }
   const restoreRoute = restore ? { ...store.value.route } : null;
   const restoreY = restore ? (Number.isFinite(requestedRestoreY) ? requestedRestoreY : store.scrollFor(restoreRoute.name)) : null;
   const oldCoverCount = tracing ? app.querySelectorAll('.cover-image').length : 0;
@@ -136,11 +139,7 @@ function paint(html, { restore = false, restoreY: requestedRestoreY = null, pres
     const currentMain = currentLayout.querySelector(':scope > main');
     const nextMain = nextLayout.querySelector(':scope > main');
     if (coverPool) reusedCoverCount = reuseCoverImages(nextMain, coverPool, { activate: false });
-    if (transition) { markRouteExit(currentMain); markRouteEntry(nextMain); }
-    if (detailResolve && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      nextMain.classList.add('detail-resolve');
-      window.setTimeout(() => nextMain.classList.remove('detail-resolve'), 420);
-    }
+    if (transition) markRouteEntry(nextMain);
     currentMain.replaceWith(nextMain);
     syncNavigation(currentLayout.querySelector(':scope > .bottom-nav'), nextLayout.querySelector(':scope > .bottom-nav'));
     activationRoot = nextMain;
@@ -155,26 +154,15 @@ function paint(html, { restore = false, restoreY: requestedRestoreY = null, pres
   activationRoot.querySelectorAll('img:not(.cover-image)').forEach(image => image.addEventListener('error', () => { image.hidden = true; }, { once: true }));
   initialiseCarousel(activationRoot);
   syncTestIndicator(diagnostics);
+  motionController?.alignIndicator({ animate: transition });
   recordCurrentTitleState(diagnostics, 'home_paint_complete');
   if (tracing) {
     const newCoverCount = activationRoot.querySelectorAll('.cover-image').length;
     diagnostics.event('paint_complete', { route: store.value.route.name, render_mode: renderMode, replacement, transition, restore_requested: Boolean(restore), preserve_scroll: Number.isFinite(preserveScroll), old_cover_count: oldCoverCount, new_cover_count: newCoverCount, covers_reused: reusedCoverCount, covers_recreated: Math.max(0, newCoverCount - reusedCoverCount) });
   }
-  if (restore) {
-    if (restore === 'startup' && restoreY === 0) {
-      scrollTrackingSuspended = false;
-      return;
-    }
-    scrollRestoreFrame = requestAnimationFrame(() => {
-      if (sameRoute(store.value.route, restoreRoute)) diagnosticScrollTo(diagnostics, restore === 'startup' ? 'startup_restore' : 'route_return_restore', { top: restoreY, left: 0, behavior: 'instant' }, { route: restoreRoute.name, render_mode: renderMode });
-      scrollRestoreFrame = requestAnimationFrame(() => {
-        scrollRestoreFrame = null;
-        scrollTrackingSuspended = false;
-        if (sameRoute(store.value.route, restoreRoute)) store.saveScroll(restoreRoute.name, window.scrollY);
-      });
-    });
-  }
-  else if (Number.isFinite(preserveScroll)) diagnosticScrollTo(diagnostics, 'refresh_preserve', { top: preserveScroll, left: 0, behavior: 'instant' }, { route: store.value.route.name, render_mode: renderMode });
+  if (restore) positionAfterPaint(restoreY, restore === 'startup' ? 'startup_restore' : 'route_return_restore', restoreRoute, renderMode, { save: true });
+  else if (Number.isFinite(positionY)) positionAfterPaint(positionY, positionReason, { ...store.value.route }, renderMode);
+  else if (Number.isFinite(preserveScroll)) positionAfterPaint(preserveScroll, 'refresh_preserve', { ...store.value.route }, renderMode);
 }
 
 async function renderRoute(route, { mode = 'navigation', detail = null, restoreY = null } = {}) {
@@ -183,7 +171,8 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
   const routeRestoreY = Number.isFinite(restoreY) ? restoreY : store.scrollFor(route.name);
   if (mode === 'noop' && !routeChanged) { diagnostics.event('route_render_noop', { route: route.name, book_id: route.bookId || null, mode }); return; }
   const preservedY = mode === 'refresh' ? window.scrollY : null;
-  const transition = mode === 'navigation' && routeChanged;
+  const transition = mode === 'navigation' && routeChanged && !skipNextRouteTransition;
+  skipNextRouteTransition = false;
   const version = store.beginRender();
   diagnostics.event('route_render_start', { route: route.name, book_id: route.bookId || null, mode, render_generation: version, route_changed: routeChanged });
   store.setRoute(route);
@@ -193,9 +182,8 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
   if (route.name === 'book') {
     const seed = currentBook(route.bookId);
     if (!seed) { diagnostics.event('route_render_cancelled', { route: route.name, mode, render_generation: version, reason: 'missing_book' }); router.navigate({ name: 'library' }, { replace: true }); return; }
-    if ((mode === 'navigation' || mode === 'startup') && routeChanged) diagnosticScrollTo(diagnostics, 'book_open_top', { top: 0, left: 0, behavior: 'instant' }, { route: route.name, render_mode: mode });
     const paintedLoading = !detail && store.value.detail?.book?.id !== route.bookId && mode === 'navigation';
-    if (paintedLoading) paint(loadingBookView(seed), { transition, renderMode: mode });
+    if (paintedLoading) paint(loadingBookView(seed), { transition, positionY: 0, positionReason: 'book_open_top', renderMode: mode });
     try {
       const loadStarted = performance.now();
       diagnostics.event('book_detail_load_start', { book_id: route.bookId });
@@ -204,7 +192,7 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
       if (!store.isCurrent(version) || store.value.route.name !== 'book' || store.value.route.bookId !== route.bookId) { diagnostics.event('route_render_cancelled', { route: route.name, mode, render_generation: version, reason: 'stale_render' }); return; }
       store.value.detail = nextDetail;
       store.value.route.returnTo = previousRoute;
-      paint(bookDetailView(store.value), { preserveScroll: preservedY, reuseCovers: mode === 'refresh' || paintedLoading, transition: transition && !paintedLoading, detailResolve: paintedLoading || mode === 'startup', renderMode: mode });
+      paint(bookDetailView(store.value), { preserveScroll: preservedY, positionY: !paintedLoading && routeChanged ? 0 : null, positionReason: 'book_open_top', reuseCovers: mode === 'refresh' || paintedLoading, transition: transition && !paintedLoading, renderMode: mode });
       diagnostics.event('route_render_complete', { route: route.name, mode, render_generation: version });
       maybeEnrich(nextDetail, version);
     } catch (error) {
@@ -282,7 +270,10 @@ function maybeEnrich(detail, renderVersion) {
 function navigate(route) {
   const restoreY = store.scrollFor(route.name);
   saveCurrentScroll();
-  if (!sameRoute(store.value.route, route)) scrollTrackingSuspended = true;
+  if (!sameRoute(store.value.route, route)) {
+    scrollTrackingSuspended = true;
+    motionController?.suspend({ expand: true });
+  }
   if (route.name === 'book') {
     previousRoute = ['home', 'library', 'wishlist'].includes(store.value.route.name) ? store.value.route.name : previousRoute;
     bookHasReturnRoute = store.value.route.name !== 'book';
@@ -298,7 +289,12 @@ app.addEventListener('click', async event => {
   if (route) { navigate({ name: route.dataset.route, bookId: null }); return; }
   const open = target.closest('[data-open-book]');
   if (open && !target.closest('[data-progress]')) { navigate({ name: 'book', bookId: open.dataset.openBook }); return; }
-  if (target.closest('[data-back]')) { if (bookHasReturnRoute) { bookHasReturnRoute = false; history.back(); } else navigate({ name: previousRoute }); return; }
+  if (target.closest('[data-back]')) {
+    scrollTrackingSuspended = true;
+    motionController?.suspend({ expand: true });
+    if (bookHasReturnRoute) { bookHasReturnRoute = false; history.back(); } else navigate({ name: previousRoute });
+    return;
+  }
   if (target.closest('[data-refresh]')) { refresh(); return; }
   if (target.closest('[data-menu]')) { openMenu(); return; }
   if (target.closest('[data-signout]')) { supabase.auth.signOut(); return; }
@@ -492,9 +488,12 @@ installScrollLifecycle({
   isSuspended: () => scrollTrackingSuspended
 });
 
-installMotionController({
+motionController = installMotionController({
   getRoute: () => store.value.route,
-  goBack: () => app.querySelector('[data-back]')?.click()
+  goBack: () => {
+    skipNextRouteTransition = true;
+    app.querySelector('[data-back]')?.click();
+  }
 });
 
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
