@@ -260,10 +260,22 @@ test('book navigation owns one zero position before restoring Home scroll once',
 test('mobile nav uses route indexes and stays compact at the document bottom', async ({ page }) => {
   await mockAuthenticatedLibrary(page);
   await page.goto('/#/home');
+  const expectIndicatorCentred = async () => {
+    await page.waitForTimeout(220);
+    expect(await page.evaluate(() => {
+      const nav = document.querySelector('.bottom-nav');
+      const active = nav.querySelector('.nav-btn.active');
+      const track = nav.querySelector('.nav-active-indicator');
+      const button = active.getBoundingClientRect();
+      const indicator = track.getBoundingClientRect();
+      return Math.abs((button.left + button.width / 2) - (indicator.left + indicator.width / 2));
+    })).toBeLessThanOrEqual(1);
+  };
   for (const [route, index] of [['home', '0'], ['library', '1'], ['wishlist', '2'], ['stats', '3']]) {
     await page.locator(`.bottom-nav [data-route="${route}"]`).click();
     await expect(page.locator('#app')).toHaveAttribute('data-route-view', route);
     expect(await page.locator('.bottom-nav').evaluate(element => getComputedStyle(element).getPropertyValue('--nav-index').trim())).toBe(index);
+    await expectIndicatorCentred();
   }
   await page.locator('.bottom-nav [data-route="library"]').click();
   await expect(page.locator('#app')).toHaveAttribute('data-route-view', 'library');
@@ -275,6 +287,11 @@ test('mobile nav uses route indexes and stays compact at the document bottom', a
   });
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
   await expect(page.locator('.bottom-nav')).toHaveClass(/compact/);
+  for (const route of ['home', 'library', 'wishlist', 'stats']) {
+    await page.locator(`.bottom-nav [data-route="${route}"]`).click();
+    await expect(page.locator('#app')).toHaveAttribute('data-route-view', route);
+    await expectIndicatorCentred();
+  }
 });
 
 test('reduced motion disables the route-entry animation', async ({ page }) => {
