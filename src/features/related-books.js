@@ -1,24 +1,7 @@
 import { invoke, rpc } from '../data/library.js';
 import { cover, esc } from '../ui/format.js';
 import { closeModal, showModal, toast } from '../ui/feedback.js';
-
-const normaliseTitle = value => String(value || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-
-export function relatedStatus(item) {
-  if (item?.overall_status === 'Read') return { icon: '✓', label: 'Read' };
-  if (item?.overall_status === 'Wishlist') return { icon: '♡', label: 'Wishlist' };
-  if (item?.ownership_status === 'Owned' || ['Currently Reading', 'Owned - Unread', 'Paused'].includes(item?.overall_status)) return { icon: '▣', label: 'Owned' };
-  return { icon: '+', label: 'Not in your library' };
-}
-
-export function excludeSeriesFromAuthor(seriesBooks = [], authorBooks = []) {
-  const ids = new Set(seriesBooks.map(item => item.book_id || item.id).filter(Boolean));
-  const titles = new Set(seriesBooks.map(item => normaliseTitle(item.title)).filter(Boolean));
-  return authorBooks.filter(item => {
-    const id = item.book_id || item.id;
-    return !ids.has(id) && !titles.has(normaliseTitle(item.title));
-  });
-}
+import { excludeSeriesFromAuthor, relatedDiscoveryKey, relatedStatus } from '../utils/related-books.js';
 
 function statusBadge(item) {
   const status = relatedStatus(item);
@@ -28,7 +11,7 @@ function statusBadge(item) {
 function card(item) {
   const isExternal = item.kind === 'external';
   const attrs = isExternal
-    ? `data-related-external="${esc(item.discovery_id || item.provider_id || normaliseTitle(item.title))}" tabindex="0" role="button" aria-label="View ${esc(item.title)}"`
+    ? `data-related-external="${esc(relatedDiscoveryKey(item))}" tabindex="0" role="button" aria-label="View ${esc(item.title)}"`
     : `data-open-book="${esc(item.book_id || item.id)}" tabindex="0" role="button" aria-label="Open ${esc(item.title)}"`;
   return `<article class="book-card" ${attrs}><div style="position:relative">${cover(item)}${statusBadge(item)}</div><div class="book-title">${esc(item.title)}</div><div class="book-author">${esc(item.authors || item.author || 'Unknown author')}</div></article>`;
 }
@@ -87,7 +70,7 @@ class RelatedBooksElement extends HTMLElement {
       ].join('');
       this.innerHTML = html || '';
       const external = [...seriesBooks, ...authorBooks].filter(item => item.kind === 'external');
-      const byId = new Map(external.map(item => [String(item.discovery_id || item.provider_id || normaliseTitle(item.title)), item]));
+      const byId = new Map(external.map(item => [relatedDiscoveryKey(item), item]));
       this.querySelectorAll('[data-related-external]').forEach(node => {
         const open = () => discoveryModal(byId.get(node.dataset.relatedExternal), bookId);
         node.addEventListener('click', open);
