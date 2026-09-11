@@ -1,12 +1,12 @@
-const GENERATION = '47';
+const GENERATION = '48';
 const SHELL = `reading-room-shell-v${GENERATION}`;
 const COVERS = 'reading-room-covers-v3';
 const APP_SHELL = [
   './',
   './index.html',
-  './manifest.webmanifest?v=47',
-  './src/styles/app.css?v=47',
-  './dist/app.js?v=47',
+  './manifest.webmanifest?v=48',
+  './src/styles/app.css?v=48',
+  './dist/app.js?v=48',
   './dist/app.js.map',
   './supabase-config.js',
   './assets/reading-room-mark.svg',
@@ -91,7 +91,6 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
 
-  // Canonical Supabase API and function responses always stay on the network.
   if (url.hostname.endsWith('.supabase.co') && !isCover(url, event.request)) return;
 
   if (isCover(url, event.request)) {
