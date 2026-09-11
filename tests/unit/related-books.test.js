@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { excludeSeriesFromAuthor, relatedStatus } from '../../src/features/related-books.js';
+import { excludeSeriesFromAuthor, relatedStatus } from '../../src/utils/related-books.js';
 
 test('related status distinguishes read, wishlist, owned and external items', () => {
   assert.equal(relatedStatus({ overall_status: 'Read' }).label, 'Read');
