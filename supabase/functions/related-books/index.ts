@@ -130,7 +130,6 @@ Deno.serve(async (req: Request) => {
     if (userResult.error || !userResult.data.user) return json({ error: 'Invalid session' }, 401);
     const owner = await userClient.rpc('is_library_owner');
     if (owner.error || owner.data !== true) return json({ error: 'Not authorized' }, 403);
-    const userId = userResult.data.user.id;
     const admin = createClient(supabaseUrl, serviceKey);
     const body = await req.json();
     const bookId = String(body?.book_id || '').trim();
@@ -138,7 +137,6 @@ Deno.serve(async (req: Request) => {
 
     const bookQuery = await admin.from('books').select('id,title,original_publication_year,synopsis,cover_url_preferred').eq('id', bookId).maybeSingle();
     if (bookQuery.error || !bookQuery.data) return json({ error: 'Book not found' }, 404);
-    const currentBook = bookQuery.data;
 
     const authorLink = await admin.from('book_authors').select('author_id,author_order').eq('book_id', bookId).order('author_order', { ascending: true }).limit(1).maybeSingle();
     const authorId = authorLink.data?.author_id || null;
