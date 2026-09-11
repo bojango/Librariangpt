@@ -1,5 +1,5 @@
 import { chrome } from '../ui/chrome.js';
-import { cover, esc, progressPct, progressText } from '../ui/format.js';
+import { cover, esc, progressPct, progressText, readingAgeText } from '../ui/format.js';
 import { currentTitlePresentation } from '../utils/text.js';
 
 function bookCard(book) {
@@ -23,7 +23,8 @@ function currentCard(book, state, index) {
   const pct = progressPct(book);
   const chapter = chapterFor(state, book.id);
   const title = currentTitlePresentation(book.title);
-  return `<section class="hero current-reading-card-v36" data-current-card="${book.id}" data-open-book="${book.id}">${cover(book, '', { eager: index === 0, high: index === 0 })}<div class="hero-copy"><p class="eyebrow current-reading-label"><span aria-hidden="true"></span>Currently reading</p><h1${title.className ? ` class="${title.className}" data-title-variant="${title.className.replace('current-title-', '').replace('-v37', '')}" style="${title.style}"` : ''}>${esc(book.title)}</h1><div class="hero-author">${esc(book.authors || '')}</div><div class="progress-block"><div class="progress-meta"><span>${esc(progressText(book))}</span><span>${book.total_pages ? `${Math.round(pct)}%` : ''}</span></div>${chapter ? `<div class="chapter-progress-line">${esc(chapter)}</div>` : ''}<div class="progress-track"><div class="progress-fill" data-progress-book="${book.id}" data-progress-value="${pct}" style="--progress:${pct}%"></div></div></div><div class="hero-actions"><button class="btn btn-primary" data-progress="${book.id}">Update progress</button><button class="btn" data-open-book="${book.id}">Open book</button></div></div></section>`;
+  const readingAge = readingAgeText(book.started_at);
+  return `<section class="hero current-reading-card-v36" data-current-card="${book.id}" data-open-book="${book.id}">${cover(book, '', { eager: index === 0, high: index === 0 })}<div class="hero-copy"><p class="eyebrow current-reading-label"><span aria-hidden="true"></span>Currently reading</p><h1${title.className ? ` class="${title.className}" data-title-variant="${title.className.replace('current-title-', '').replace('-v37', '')}" style="${title.style}"` : ''}>${esc(book.title)}</h1><div class="hero-author">${esc(book.authors || '')}${readingAge ? ` <small>· ${esc(readingAge)}</small>` : ''}</div><div class="progress-block"><div class="progress-meta"><span>${esc(progressText(book))}</span><span>${book.total_pages ? `${Math.round(pct)}%` : ''}</span></div>${chapter ? `<div class="chapter-progress-line">${esc(chapter)}</div>` : ''}<div class="progress-track"><div class="progress-fill" data-progress-book="${book.id}" data-progress-value="${pct}" style="--progress:${pct}%"></div></div></div><div class="hero-actions"><button class="btn btn-primary" data-progress="${book.id}">Update progress</button><button class="btn" data-open-book="${book.id}">Open book</button></div></div></section>`;
 }
 
 function currentReading(state) {

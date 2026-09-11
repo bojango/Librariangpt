@@ -3,10 +3,40 @@ import { coverMarkup } from './cover.js';
 
 export { escapeHtml as esc };
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function dayStamp(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+}
+
 export function fmtDate(value) {
   if (!value) return 'Not recorded';
   try { return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value)); }
   catch { return String(value); }
+}
+
+export function readingDayCount(startedAt, endedAt = null, now = new Date()) {
+  const start = dayStamp(startedAt);
+  const end = dayStamp(endedAt || now);
+  if (start == null || end == null) return null;
+  return Math.max(0, Math.floor((end - start) / DAY_MS));
+}
+
+export function readingAgeText(startedAt, now = new Date()) {
+  const days = readingDayCount(startedAt, null, now);
+  if (days == null) return '';
+  if (days === 0) return 'Started today';
+  return `${days} day${days === 1 ? '' : 's'} reading`;
+}
+
+export function readingDurationText(startedAt, completedAt = null, now = new Date()) {
+  const days = readingDayCount(startedAt, completedAt, now);
+  if (days == null) return '';
+  if (completedAt) return days === 0 ? 'Read in < 1 day' : `Read in ${days} day${days === 1 ? '' : 's'}`;
+  return days === 0 ? 'Started today' : `${days} day${days === 1 ? '' : 's'} reading`;
 }
 
 export function progressPct(book) {
