@@ -41,3 +41,5 @@ jobs:
 
       - name: Full Playwright suite
         run: npm run test:e2e
+
+      # Intentionally temporary; remove after this feature branch is validated.
