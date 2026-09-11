@@ -27,6 +27,7 @@ test('authenticated fixture supports route, filter and detail lifecycles', async
   await expect(page.locator('.detail-header[data-library-detail="ready"]')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Quotes & passages 1' })).toBeVisible();
   await expect(page.locator('.rating-public')).toBeVisible();
+  await expect(page.locator('related-books')).toHaveCount(1);
   await page.locator('[data-back]').click();
   await expect(page.getByRole('heading', { name: 'Read' })).toBeVisible();
 });
@@ -212,11 +213,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('47');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('48');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '47')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v47');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '48')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v48');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -228,7 +229,7 @@ test.describe('service-worker-controlled document', () => {
       channel.port1.onmessage = event => resolve(event.data);
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
-    expect(state).toMatchObject({ generation: '47', shell_cache: 'reading-room-shell-v47', cover_cache: 'reading-room-covers-v3' });
+    expect(state).toMatchObject({ generation: '48', shell_cache: 'reading-room-shell-v48', cover_cache: 'reading-room-covers-v3' });
     expect(state.cover_cache_hits).toBeGreaterThanOrEqual(0);
     expect(state.cover_cache_misses).toBeGreaterThanOrEqual(0);
     expect(state.cover_network_fetches).toBeGreaterThanOrEqual(0);
