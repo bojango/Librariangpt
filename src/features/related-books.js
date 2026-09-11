@@ -1,8 +1,10 @@
-import { invoke, rpc } from '../data/library.js';
 import { cover, esc } from '../ui/format.js';
 import { activateCovers } from '../ui/cover.js';
 import { closeModal, showModal, toast } from '../ui/feedback.js';
 import { excludeSeriesFromAuthor, relatedDiscoveryKey, relatedStatus } from '../utils/related-books.js';
+
+let libraryModulePromise = null;
+const libraryModule = () => (libraryModulePromise ||= import('../data/library.js'));
 
 function statusBadge(item) {
   const status = relatedStatus(item);
@@ -28,6 +30,7 @@ function discoveryModal(item, originBookId) {
     const button = event.currentTarget;
     button.disabled = true;
     try {
+      const { invoke, rpc } = await libraryModule();
       const result = await rpc('library_add_related_result', {
         p_result: item.add_payload || item,
         p_series_name: item.relationship === 'series' ? item.series_name || null : null,
@@ -58,6 +61,7 @@ class RelatedBooksElement extends HTMLElement {
     const request = ++this.#request;
     this.innerHTML = '<div style="margin:34px 0;color:var(--muted);font-size:12px">Finding related books…</div>';
     try {
+      const { invoke } = await libraryModule();
       const data = await invoke('related-books', { book_id: bookId });
       if (!this.isConnected || request !== this.#request || this.dataset.bookId !== bookId) return;
       const seriesBooks = data?.series?.books || [];
