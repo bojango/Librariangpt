@@ -45,15 +45,23 @@ async function submitAction(event, name, args, message) {
   catch (error) { toast(error.message || 'Action failed', true); button.disabled = false; }
 }
 
-export async function addToWishlist(book) {
-  try { await rpc('set_library_status', { p_book_id: book.id, p_status: 'Wishlist', p_ownership: null, p_priority: null, p_source: 'frontend' }); toast('Added to wishlist.'); refresh(); }
-  catch (error) { toast(error.message || 'Could not update wishlist', true); }
+export async function addToWishlist(book, button = null) {
+  button?.classList.add('wishlist-changing');
+  try { await rpc('set_library_status', { p_book_id: book.id, p_status: 'Wishlist', p_ownership: null, p_priority: null, p_source: 'frontend' }); button?.classList.add('is-wishlisted'); toast('Added to wishlist.'); refresh(); }
+  catch (error) { button?.classList.remove('wishlist-changing'); toast(error.message || 'Could not update wishlist', true); }
 }
 
 export function openReview(book) {
-  const root = showModal(`<h2>${book.user_rating_5 != null ? 'Edit' : 'Add'} your rating</h2><form id="review-form" class="form-stack"><div class="quick-stars">${[1,2,3,4,5].map(value => `<button type="button" data-star="${value}">★</button>`).join('')}</div><div class="field"><label for="rating">Your rating / 5</label><input class="input rating-input" id="rating" name="rating" type="number" min="0" max="5" step="0.01" value="${book.user_rating_5 ?? ''}" required></div><div class="field"><label for="notes">Review notes</label><textarea class="input" id="notes" name="notes" rows="7">${esc(book.review_notes || book.user_review || '')}</textarea></div><div class="modal-actions"><button class="btn" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit">Save</button></div></form>`);
+  const root = showModal(`<h2>${book.user_rating_5 != null ? 'Edit' : 'Add'} your rating</h2><form id="review-form" class="form-stack"><div class="quick-stars">${[1,2,3,4,5].map(value => `<button type="button" data-star="${value}" aria-label="${value} star${value === 1 ? '' : 's'}" aria-pressed="false">★</button>`).join('')}</div><div class="field"><label for="rating">Your rating / 5</label><input class="input rating-input" id="rating" name="rating" type="number" min="0" max="5" step="0.01" value="${book.user_rating_5 ?? ''}" required></div><div class="field"><label for="notes">Review notes</label><textarea class="input" id="notes" name="notes" rows="7">${esc(book.review_notes || book.user_review || '')}</textarea></div><div class="modal-actions"><button class="btn" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit">Save</button></div></form>`);
   const input = root.querySelector('#rating');
-  root.querySelectorAll('[data-star]').forEach(button => button.addEventListener('click', () => { input.value = button.dataset.star; }));
+  const stars = [...root.querySelectorAll('[data-star]')];
+  const selectStars = value => stars.forEach(button => {
+    const selected = Number(button.dataset.star) <= Number(value);
+    button.classList.toggle('active', selected);
+    button.setAttribute('aria-pressed', String(selected));
+  });
+  selectStars(input.value);
+  stars.forEach(button => button.addEventListener('click', () => { input.value = button.dataset.star; selectStars(button.dataset.star); }));
   root.querySelector('#review-form').addEventListener('submit', event => submitAction(event, 'save_book_review', { p_book_id: book.id, p_rating: Number(event.currentTarget.rating.value), p_notes: event.currentTarget.notes.value.trim() || null, p_source: 'frontend' }, 'Rating saved.'));
 }
 

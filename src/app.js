@@ -18,6 +18,7 @@ import { openEditionBrowser } from './features/editions.js';
 import { handleExactCopyAction } from './features/exact-copy.js';
 import { handleQuoteAction } from './features/quotes.js';
 import { activateCovers, collectCoverImages, reuseCoverImages, setCoverDiagnosticHook } from './ui/cover.js';
+import { animateProgress, installMotionController, progressSnapshot } from './ui/motion.js';
 import { installScrollLifecycle } from './scroll-lifecycle.js';
 import { createSupabaseDiagnosticUploader, diagnostics } from './diagnostics/diagnostics.js';
 import { connectServiceWorkerDiagnostics, diagnosticScrollTo, installDiagnosticsInstrumentation, recordCurrentTitleState, requestServiceWorkerDiagnosticSnapshot } from './diagnostics/instrumentation.js';
@@ -86,7 +87,12 @@ function saveCurrentScroll() {
 
 function syncNavigation(current, next) {
   const active = next.querySelector('.nav-btn.active')?.dataset.route;
-  current.querySelectorAll('.nav-btn').forEach(button => button.classList.toggle('active', button.dataset.route === active));
+  current.querySelectorAll('.nav-btn').forEach(button => {
+    const isActive = button.dataset.route === active;
+    button.classList.toggle('active', isActive);
+    if (isActive) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
 }
 
 function markRouteEntry(main) {
@@ -95,13 +101,27 @@ function markRouteEntry(main) {
   main.addEventListener('animationend', () => main.classList.remove('route-enter'), { once: true });
 }
 
-function paint(html, { restore = false, restoreY: requestedRestoreY = null, preserveScroll = null, reuseCovers = false, transition = false, renderMode = 'direct' } = {}) {
+function markRouteExit(main) {
+  if (!main || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const bounds = main.getBoundingClientRect();
+  const clone = document.createElement('div');
+  clone.innerHTML = main.innerHTML;
+  clone.className = 'route-leave-overlay';
+  clone.inert = true;
+  clone.setAttribute('aria-hidden', 'true');
+  Object.assign(clone.style, { top: `${bounds.top}px`, left: `${bounds.left}px`, width: `${bounds.width}px`, height: `${bounds.height}px` });
+  document.body.append(clone);
+  clone.addEventListener('animationend', () => clone.remove(), { once: true });
+}
+
+function paint(html, { restore = false, restoreY: requestedRestoreY = null, preserveScroll = null, reuseCovers = false, transition = false, detailResolve = false, renderMode = 'direct' } = {}) {
   const tracing = diagnostics.isActive();
   cancelScrollRestore();
   scrollTrackingSuspended = Boolean(restore);
   const restoreRoute = restore ? { ...store.value.route } : null;
   const restoreY = restore ? (Number.isFinite(requestedRestoreY) ? requestedRestoreY : store.scrollFor(restoreRoute.name)) : null;
   const oldCoverCount = tracing ? app.querySelectorAll('.cover-image').length : 0;
+  const previousProgress = progressSnapshot(app);
   const coverPool = reuseCovers ? collectCoverImages(app) : null;
   if (tracing) diagnostics.event('paint_start', { route: store.value.route.name, render_mode: renderMode, restore_requested: Boolean(restore), preserve_scroll: Number.isFinite(preserveScroll), old_cover_count: oldCoverCount });
   const template = document.createElement('template');
@@ -116,7 +136,11 @@ function paint(html, { restore = false, restoreY: requestedRestoreY = null, pres
     const currentMain = currentLayout.querySelector(':scope > main');
     const nextMain = nextLayout.querySelector(':scope > main');
     if (coverPool) reusedCoverCount = reuseCoverImages(nextMain, coverPool, { activate: false });
-    if (transition) markRouteEntry(nextMain);
+    if (transition) { markRouteExit(currentMain); markRouteEntry(nextMain); }
+    if (detailResolve && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      nextMain.classList.add('detail-resolve');
+      window.setTimeout(() => nextMain.classList.remove('detail-resolve'), 420);
+    }
     currentMain.replaceWith(nextMain);
     syncNavigation(currentLayout.querySelector(':scope > .bottom-nav'), nextLayout.querySelector(':scope > .bottom-nav'));
     activationRoot = nextMain;
@@ -127,6 +151,7 @@ function paint(html, { restore = false, restoreY: requestedRestoreY = null, pres
   }
   app.dataset.routeView = store.value.route.name;
   activateCovers(activationRoot);
+  animateProgress(activationRoot, previousProgress);
   activationRoot.querySelectorAll('img:not(.cover-image)').forEach(image => image.addEventListener('error', () => { image.hidden = true; }, { once: true }));
   initialiseCarousel(activationRoot);
   syncTestIndicator(diagnostics);
@@ -179,7 +204,7 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
       if (!store.isCurrent(version) || store.value.route.name !== 'book' || store.value.route.bookId !== route.bookId) { diagnostics.event('route_render_cancelled', { route: route.name, mode, render_generation: version, reason: 'stale_render' }); return; }
       store.value.detail = nextDetail;
       store.value.route.returnTo = previousRoute;
-      paint(bookDetailView(store.value), { preserveScroll: preservedY, reuseCovers: mode === 'refresh' || paintedLoading, transition: transition && !paintedLoading, renderMode: mode });
+      paint(bookDetailView(store.value), { preserveScroll: preservedY, reuseCovers: mode === 'refresh' || paintedLoading, transition: transition && !paintedLoading, detailResolve: paintedLoading || mode === 'startup', renderMode: mode });
       diagnostics.event('route_render_complete', { route: route.name, mode, render_generation: version });
       maybeEnrich(nextDetail, version);
     } catch (error) {
@@ -289,7 +314,7 @@ app.addEventListener('click', async event => {
   else if (target.closest('[data-finish]')) openFinish(book);
   else if (target.closest('[data-pause]')) confirmPause(book);
   else if (target.closest('[data-dnf]')) openDnf(book);
-  else if (target.closest('[data-wishlist]')) addToWishlist(book);
+  else if (target.closest('[data-wishlist]')) addToWishlist(book, target.closest('[data-wishlist]'));
   else if (target.closest('[data-review]')) openReview(book);
   else if (target.closest('[data-page-count]')) openPageCount(book);
   else if (target.closest('[data-cover-picker]')) openCoverPicker(book);
@@ -465,6 +490,11 @@ installScrollLifecycle({
   save: (name, y) => store.saveScroll(name, y),
   cancelRestore: cancelScrollRestore,
   isSuspended: () => scrollTrackingSuspended
+});
+
+installMotionController({
+  getRoute: () => store.value.route,
+  goBack: () => app.querySelector('[data-back]')?.click()
 });
 
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
