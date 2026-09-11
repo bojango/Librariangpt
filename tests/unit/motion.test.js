@@ -19,13 +19,12 @@ function createHarness({ reduced = false, standalone = false } = {}) {
   const navClasses = classList();
   const mainClasses = classList();
   const navStyle = new Map();
-  let active = { offsetLeft: 20, offsetWidth: 80 };
-  const nav = { classList: navClasses, style: { setProperty: (name, value) => navStyle.set(name, value) }, querySelector: selector => selector === '.nav-btn.active' ? active : null };
+  const nav = { classList: navClasses, style: { setProperty: (name, value) => navStyle.set(name, value) } };
   const main = target({ classList: mainClasses, style: { setProperty() {}, removeProperty() {} }, getBoundingClientRect: () => ({ width: 390 }) });
-  const win = target({ scrollY: 0, navigator: { standalone }, matchMedia: query => ({ matches: query.includes('reduced-motion') ? reduced : standalone }), requestAnimationFrame(callback) { const id = nextFrame++; frames.set(id, callback); return id; }, cancelAnimationFrame(id) { frames.delete(id); } });
-  const doc = target({ querySelector: selector => ({ '.bottom-nav': nav, main, '#app main': main }[selector] || null) });
+  const win = target({ scrollY: 0, innerHeight: 800, navigator: { standalone }, matchMedia: query => ({ matches: query.includes('reduced-motion') ? reduced : standalone }), requestAnimationFrame(callback) { const id = nextFrame++; frames.set(id, callback); return id; }, cancelAnimationFrame(id) { frames.delete(id); } });
+  const doc = target({ documentElement: { scrollHeight: 2000 }, querySelector: selector => ({ '.bottom-nav': nav, main, '#app main': main }[selector] || null) });
   const runFrames = () => { for (const [id, callback] of [...frames]) { frames.delete(id); callback(); } };
-  return { win, doc, navClasses, main, mainClasses, navStyle, runFrames, setActive: next => { active = next; } };
+  return { win, doc, navClasses, main, mainClasses, navStyle, runFrames };
 }
 
 function touchEvent(type, touches) {
@@ -69,20 +68,46 @@ test('tab navigation can explicitly expand the nav and reset its scroll baseline
   controller.destroy();
 });
 
-test('the shared nav indicator tracks the active button and is instant for reduced motion', () => {
+test('the shared nav indicator maps routes to deterministic indexes without geometry measurement', () => {
   const harness = createHarness();
   const controller = installMotionController({ getRoute: () => ({ name: 'home' }), goBack() {}, ...harness });
-  controller.alignIndicator();
-  assert.equal(harness.navStyle.get('--nav-indicator-x'), '53px');
-  harness.setActive({ offsetLeft: 260, offsetWidth: 80 });
-  controller.alignIndicator();
-  assert.equal(harness.navStyle.get('--nav-indicator-x'), '293px');
+  for (const [route, index] of Object.entries({ home: 0, library: 1, wishlist: 2, stats: 3 })) {
+    controller.setNavRoute(route);
+    assert.equal(harness.navStyle.get('--nav-index'), String(index));
+  }
   controller.destroy();
   const reducedHarness = createHarness({ reduced: true });
   const reducedController = installMotionController({ getRoute: () => ({ name: 'home' }), goBack() {}, ...reducedHarness });
-  reducedController.alignIndicator();
+  reducedController.setNavRoute('library');
   assert.equal(reducedHarness.navClasses.contains('indicator-instant'), true);
   reducedController.destroy();
+});
+
+test('elastic overscroll does not alter compact navigation, while a real upward scroll from bottom expands it', () => {
+  const harness = createHarness();
+  const controller = installMotionController({ getRoute: () => ({ name: 'home' }), goBack() {}, ...harness });
+  harness.navClasses.add('compact');
+  harness.win.scrollY = 1200;
+  controller.resume();
+  harness.win.scrollY = 1240;
+  harness.win.dispatchEvent(new Event('scroll'));
+  harness.runFrames();
+  assert.equal(harness.navClasses.contains('compact'), true);
+  harness.win.scrollY = 1200;
+  harness.win.dispatchEvent(new Event('scroll'));
+  harness.runFrames();
+  assert.equal(harness.navClasses.contains('compact'), true);
+  harness.win.scrollY = 1181;
+  harness.win.dispatchEvent(new Event('scroll'));
+  harness.runFrames();
+  assert.equal(harness.navClasses.contains('compact'), false);
+
+  harness.navClasses.add('compact');
+  harness.win.scrollY = -18;
+  harness.win.dispatchEvent(new Event('scroll'));
+  harness.runFrames();
+  assert.equal(harness.navClasses.contains('compact'), true);
+  controller.destroy();
 });
 
 test('standalone book swipe waits for settling before back navigation and cancellation stays put', () => {
@@ -110,4 +135,6 @@ test('book detail hydration does not replay a route entrance', async () => {
   const app = await readFile(new URL('../../src/app.js', import.meta.url), 'utf8');
   assert.doesNotMatch(app, /markRouteExit|route-leave-overlay|detailResolve/);
   assert.match(app, /transition: transition && !paintedLoading/);
+  assert.match(app, /lockScrollAnchor: true/);
+  assert.match(app, /route-scroll-lock/);
 });

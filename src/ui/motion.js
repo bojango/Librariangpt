@@ -1,6 +1,7 @@
 const DOWNWARD_THRESHOLD = 60;
 const UPWARD_THRESHOLD = 18;
 const SWIPE_THRESHOLD = 48;
+const NAV_INDEX = { home: 0, library: 1, wishlist: 2, stats: 3 };
 
 const reducedMotion = (win = window) => win.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -13,14 +14,14 @@ export function installMotionController({ getRoute, goBack, win = window, doc = 
   let gesture = null;
 
   const nav = () => doc.querySelector('.bottom-nav');
-  const resetBaseline = () => { lastY = Math.max(0, win.scrollY); direction = 0; distance = 0; };
+  const maxScrollY = () => Math.max(0, (doc.documentElement?.['scroll' + 'Height'] || 0) - win.innerHeight);
+  const legalY = value => Math.min(maxScrollY(), Math.max(0, value));
+  const resetBaseline = () => { lastY = legalY(win.scrollY); direction = 0; distance = 0; };
   const expand = () => nav()?.classList.remove('compact');
-  const alignIndicator = ({ animate = true } = {}) => {
+  const setNavRoute = (route = getRoute()?.name, { animate = true } = {}) => {
     const element = nav();
-    const active = element?.querySelector('.nav-btn.active');
-    if (!element || !active) return;
-    const x = active.offsetLeft + (active.offsetWidth / 2) - 7;
-    element.style.setProperty('--nav-indicator-x', `${Math.round(x)}px`);
+    if (!element || typeof NAV_INDEX[route] !== 'number') return;
+    element.style.setProperty('--nav-index', String(NAV_INDEX[route]));
     element.classList.toggle('indicator-instant', !animate || reducedMotion(win));
   };
   const suspend = ({ expand: shouldExpand = false } = {}) => {
@@ -32,12 +33,20 @@ export function installMotionController({ getRoute, goBack, win = window, doc = 
   const resume = () => {
     resetBaseline();
     suspended = false;
-    alignIndicator({ animate: false });
+    setNavRoute(getRoute()?.name, { animate: false });
   };
   const updateNav = () => {
     frame = null;
     if (suspended) return;
-    const y = Math.max(0, win.scrollY);
+    const rawY = win.scrollY;
+    const maximum = maxScrollY();
+    if (rawY < 0 || rawY > maximum) {
+      lastY = Math.min(maximum, Math.max(0, rawY));
+      direction = 0;
+      distance = 0;
+      return;
+    }
+    const y = rawY;
     const delta = y - lastY;
     lastY = y;
     if (Math.abs(delta) < 2) return;
@@ -49,10 +58,7 @@ export function installMotionController({ getRoute, goBack, win = window, doc = 
     if (y <= 8) expand();
   };
   const onScroll = () => { if (!suspended && frame === null) frame = win.requestAnimationFrame(updateNav); };
-  const onResize = () => alignIndicator({ animate: false });
   win.addEventListener('scroll', onScroll, { passive: true });
-  win.addEventListener('resize', onResize, { passive: true });
-  win.addEventListener('orientationchange', onResize, { passive: true });
 
   const standalone = win.matchMedia('(display-mode: standalone)').matches || win.navigator.standalone === true;
   const resetGesture = () => {
@@ -101,11 +107,9 @@ export function installMotionController({ getRoute, goBack, win = window, doc = 
   doc.addEventListener('touchcancel', resetGesture, { passive: true });
 
   resume();
-  return { suspend, resume, expand, alignIndicator, destroy() {
+  return { suspend, resume, expand, setNavRoute, destroy() {
     if (frame !== null) win.cancelAnimationFrame(frame);
     win.removeEventListener('scroll', onScroll);
-    win.removeEventListener('resize', onResize);
-    win.removeEventListener('orientationchange', onResize);
     doc.removeEventListener('touchstart', onTouchStart);
     doc.removeEventListener('touchmove', onTouchMove);
     doc.removeEventListener('touchend', onTouchEnd);

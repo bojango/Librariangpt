@@ -229,6 +229,54 @@ test('true route return restores Home scroll and only navigation transitions', a
   expect(Math.abs((await page.evaluate(() => window.scrollY)) - restoredY)).toBeLessThanOrEqual(2);
 });
 
+test('book navigation owns one zero position before restoring Home scroll once', async ({ page }) => {
+  await mockAuthenticatedLibrary(page);
+  await page.goto('/#/home');
+  await expect(page.locator('#app')).toHaveAttribute('data-route-view', 'home');
+  await page.evaluate(() => window.scrollTo(0, 1000));
+  await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem('reading-room-scroll-v2') || '{}').home || 0)).toBeGreaterThan(800);
+  await page.evaluate(() => {
+    const nativeScrollTo = window.scrollTo.bind(window);
+    window.__routeScrolls = [];
+    window.scrollTo = function (options) {
+      window.__routeScrolls.push(typeof options === 'object' ? options.top : arguments[1]);
+      nativeScrollTo(options);
+    };
+  });
+  await page.locator('[data-open-book="book-1"]').first().click();
+  await expect(page.locator('#app')).toHaveAttribute('data-route-view', 'book');
+  await expect(page.locator('.detail-header[data-book-id="book-1"]')).toBeVisible();
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  expect(await page.evaluate(() => window.__routeScrolls.every(value => value === 0))).toBe(true);
+  const callsBeforeBack = await page.evaluate(() => window.__routeScrolls.length);
+  const sourcePosition = await page.evaluate(() => JSON.parse(sessionStorage.getItem('reading-room-scroll-v2')).home);
+  await page.locator('[data-back]').click();
+  await expect(page.locator('#app')).toHaveAttribute('data-route-view', 'home');
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThanOrEqual(sourcePosition - 2);
+  expect(await page.evaluate(from => window.__routeScrolls.slice(from).filter(value => value > 0), callsBeforeBack)).toEqual([sourcePosition]);
+});
+
+test('mobile nav uses route indexes and stays compact at the document bottom', async ({ page }) => {
+  await mockAuthenticatedLibrary(page);
+  await page.goto('/#/home');
+  for (const [route, index] of [['home', '0'], ['library', '1'], ['wishlist', '2'], ['stats', '3']]) {
+    await page.locator(`.bottom-nav [data-route="${route}"]`).click();
+    await expect(page.locator('#app')).toHaveAttribute('data-route-view', route);
+    expect(await page.locator('.bottom-nav').evaluate(element => getComputedStyle(element).getPropertyValue('--nav-index').trim())).toBe(index);
+  }
+  await page.locator('.bottom-nav [data-route="library"]').click();
+  await expect(page.locator('#app')).toHaveAttribute('data-route-view', 'library');
+  await page.evaluate(() => {
+    const nav = document.querySelector('.bottom-nav');
+    nav.classList.add('compact');
+    window.scrollTo(0, document.documentElement.scrollHeight - innerHeight);
+    window.dispatchEvent(new Event('scroll'));
+  });
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
+  await expect(page.locator('.bottom-nav')).toHaveClass(/compact/);
+});
+
 test('reduced motion disables the route-entry animation', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await mockAuthenticatedLibrary(page);

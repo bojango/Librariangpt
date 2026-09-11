@@ -75,6 +75,7 @@ function stopDiagnosticRuntime() {
 function cancelScrollRestore() {
   if (scrollRestoreFrame !== null) cancelAnimationFrame(scrollRestoreFrame);
   scrollRestoreFrame = null;
+  app.classList.remove('route-scroll-lock');
 }
 
 function currentBook(id = store.value.route.bookId) {
@@ -108,13 +109,14 @@ function positionAfterPaint(top, reason, route, renderMode, { save = false } = {
   diagnosticScrollTo(diagnostics, reason, { top, left: 0, behavior: 'instant' }, { route: route.name, render_mode: renderMode });
   scrollRestoreFrame = requestAnimationFrame(() => {
     scrollRestoreFrame = null;
+    app.classList.remove('route-scroll-lock');
     if (sameRoute(store.value.route, route) && save) store.saveScroll(route.name, window.scrollY);
     scrollTrackingSuspended = false;
     motionController?.resume();
   });
 }
 
-function paint(html, { restore = false, restoreY: requestedRestoreY = null, preserveScroll = null, positionY = null, positionReason = 'route_position', reuseCovers = false, transition = false, renderMode = 'direct' } = {}) {
+function paint(html, { restore = false, restoreY: requestedRestoreY = null, preserveScroll = null, positionY = null, positionReason = 'route_position', lockScrollAnchor = false, reuseCovers = false, transition = false, renderMode = 'direct' } = {}) {
   const tracing = diagnostics.isActive();
   cancelScrollRestore();
   if (restore || Number.isFinite(positionY) || Number.isFinite(preserveScroll)) {
@@ -132,6 +134,7 @@ function paint(html, { restore = false, restoreY: requestedRestoreY = null, pres
   const nextRoot = template.content.firstElementChild;
   const currentLayout = app.firstElementChild?.matches('.layout') ? app.firstElementChild : null;
   const nextLayout = nextRoot?.matches('.layout') ? nextRoot : null;
+  if (lockScrollAnchor) app.classList.add('route-scroll-lock');
   let activationRoot = app;
   let replacement = 'app_root';
   let reusedCoverCount = 0;
@@ -154,7 +157,7 @@ function paint(html, { restore = false, restoreY: requestedRestoreY = null, pres
   activationRoot.querySelectorAll('img:not(.cover-image)').forEach(image => image.addEventListener('error', () => { image.hidden = true; }, { once: true }));
   initialiseCarousel(activationRoot);
   syncTestIndicator(diagnostics);
-  motionController?.alignIndicator({ animate: transition });
+  motionController?.setNavRoute(store.value.route.name, { animate: transition });
   recordCurrentTitleState(diagnostics, 'home_paint_complete');
   if (tracing) {
     const newCoverCount = activationRoot.querySelectorAll('.cover-image').length;
@@ -183,7 +186,7 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
     const seed = currentBook(route.bookId);
     if (!seed) { diagnostics.event('route_render_cancelled', { route: route.name, mode, render_generation: version, reason: 'missing_book' }); router.navigate({ name: 'library' }, { replace: true }); return; }
     const paintedLoading = !detail && store.value.detail?.book?.id !== route.bookId && mode === 'navigation';
-    if (paintedLoading) paint(loadingBookView(seed), { transition, positionY: 0, positionReason: 'book_open_top', renderMode: mode });
+    if (paintedLoading) paint(loadingBookView(seed), { transition, positionY: 0, positionReason: 'book_open_top', lockScrollAnchor: true, renderMode: mode });
     try {
       const loadStarted = performance.now();
       diagnostics.event('book_detail_load_start', { book_id: route.bookId });
@@ -192,7 +195,7 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
       if (!store.isCurrent(version) || store.value.route.name !== 'book' || store.value.route.bookId !== route.bookId) { diagnostics.event('route_render_cancelled', { route: route.name, mode, render_generation: version, reason: 'stale_render' }); return; }
       store.value.detail = nextDetail;
       store.value.route.returnTo = previousRoute;
-      paint(bookDetailView(store.value), { preserveScroll: preservedY, positionY: !paintedLoading && routeChanged ? 0 : null, positionReason: 'book_open_top', reuseCovers: mode === 'refresh' || paintedLoading, transition: transition && !paintedLoading, renderMode: mode });
+      paint(bookDetailView(store.value), { preserveScroll: preservedY, positionY: !paintedLoading && routeChanged ? 0 : null, positionReason: 'book_open_top', lockScrollAnchor: !paintedLoading && routeChanged, reuseCovers: mode === 'refresh' || paintedLoading, transition: transition && !paintedLoading, renderMode: mode });
       diagnostics.event('route_render_complete', { route: route.name, mode, render_generation: version });
       maybeEnrich(nextDetail, version);
     } catch (error) {
