@@ -1,7 +1,14 @@
 import { cover, esc } from '../ui/format.js';
 import { activateCovers } from '../ui/cover.js';
 import { closeModal, showModal, toast } from '../ui/feedback.js';
-import { excludeSeriesFromAuthor, relatedDiscoveryKey, relatedStatus } from '../utils/related-books.js';
+import {
+  excludeSeriesFromAuthor,
+  readRelatedCache,
+  relatedDataFingerprint,
+  relatedDiscoveryKey,
+  relatedStatus,
+  writeRelatedCache
+} from '../utils/related-books.js';
 
 let libraryModulePromise = null;
 const libraryModule = () => (libraryModulePromise ||= import('../data/library.js'));
@@ -55,37 +62,52 @@ class RelatedBooksElement extends HTMLElement {
     this.load();
   }
 
+  #render(data, bookId) {
+    const seriesBooks = data?.series?.books || [];
+    const authorBooks = excludeSeriesFromAuthor(seriesBooks, data?.author?.books || []);
+    const totalSeries = Number(data?.series?.total_books || (seriesBooks.length + 1));
+    const currentOrder = data?.series?.current_order;
+    const seriesNote = data?.series ? `Series${currentOrder != null ? ` · Book ${Number(currentOrder)}${totalSeries ? ` of ${totalSeries}` : ''}` : ''}` : '';
+    const html = [
+      data?.series ? shelf(data.series.name, seriesNote, seriesBooks) : '',
+      data?.author ? shelf(`More by ${data.author.name}`, 'Other books by this author', authorBooks) : ''
+    ].join('');
+    this.innerHTML = html || '';
+    activateCovers(this);
+    const external = [...seriesBooks, ...authorBooks].filter(item => item.kind === 'external');
+    const byId = new Map(external.map(item => [relatedDiscoveryKey(item), item]));
+    this.querySelectorAll('[data-related-external]').forEach(node => {
+      const open = () => discoveryModal(byId.get(node.dataset.relatedExternal), bookId);
+      node.addEventListener('click', open);
+      node.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
+    });
+  }
+
   async load() {
     const bookId = this.dataset.bookId;
     if (!bookId) return;
     const request = ++this.#request;
-    this.innerHTML = '<div style="margin:34px 0;color:var(--muted);font-size:12px">Finding related books…</div>';
+    const cached = readRelatedCache(globalThis.localStorage, bookId);
+    let renderedFingerprint = '';
+
+    if (cached) {
+      renderedFingerprint = relatedDataFingerprint(cached);
+      this.#render(cached, bookId);
+    } else {
+      this.innerHTML = '<div style="margin:34px 0;color:var(--muted);font-size:12px">Finding related books…</div>';
+    }
+
     try {
       const { invoke } = await libraryModule();
       const data = await invoke('related-books', { book_id: bookId });
       if (!this.isConnected || request !== this.#request || this.dataset.bookId !== bookId) return;
-      const seriesBooks = data?.series?.books || [];
-      const authorBooks = excludeSeriesFromAuthor(seriesBooks, data?.author?.books || []);
-      const totalSeries = Number(data?.series?.total_books || (seriesBooks.length + 1));
-      const currentOrder = data?.series?.current_order;
-      const seriesNote = data?.series ? `Series${currentOrder != null ? ` · Book ${Number(currentOrder)}${totalSeries ? ` of ${totalSeries}` : ''}` : ''}` : '';
-      const html = [
-        data?.series ? shelf(data.series.name, seriesNote, seriesBooks) : '',
-        data?.author ? shelf(`More by ${data.author.name}`, 'Other books by this author', authorBooks) : ''
-      ].join('');
-      this.innerHTML = html || '';
-      activateCovers(this);
-      const external = [...seriesBooks, ...authorBooks].filter(item => item.kind === 'external');
-      const byId = new Map(external.map(item => [relatedDiscoveryKey(item), item]));
-      this.querySelectorAll('[data-related-external]').forEach(node => {
-        const open = () => discoveryModal(byId.get(node.dataset.relatedExternal), bookId);
-        node.addEventListener('click', open);
-        node.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); open(); } });
-      });
+      writeRelatedCache(globalThis.localStorage, bookId, data);
+      const nextFingerprint = relatedDataFingerprint(data);
+      if (!cached || nextFingerprint !== renderedFingerprint) this.#render(data, bookId);
     } catch (error) {
       if (!this.isConnected || request !== this.#request) return;
       console.info('[Reading Room] related books unavailable:', error?.message || error);
-      this.innerHTML = '';
+      if (!cached) this.innerHTML = '';
     }
   }
 }
