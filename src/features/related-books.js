@@ -1,5 +1,6 @@
 import { invoke, rpc } from '../data/library.js';
 import { cover, esc } from '../ui/format.js';
+import { activateCovers } from '../ui/cover.js';
 import { closeModal, showModal, toast } from '../ui/feedback.js';
 import { excludeSeriesFromAuthor, relatedDiscoveryKey, relatedStatus } from '../utils/related-books.js';
 
@@ -69,6 +70,7 @@ class RelatedBooksElement extends HTMLElement {
         data?.author ? shelf(`More by ${data.author.name}`, 'Other books by this author', authorBooks) : ''
       ].join('');
       this.innerHTML = html || '';
+      activateCovers(this);
       const external = [...seriesBooks, ...authorBooks].filter(item => item.kind === 'external');
       const byId = new Map(external.map(item => [relatedDiscoveryKey(item), item]));
       this.querySelectorAll('[data-related-external]').forEach(node => {
