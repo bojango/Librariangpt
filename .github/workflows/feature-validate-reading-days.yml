@@ -38,5 +38,8 @@ jobs:
       - name: Verify committed bundle is current
         run: git diff --exit-code -- dist/app.js dist/app.js.map
 
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium webkit
+
       - name: Full Playwright suite
         run: npm run test:e2e
