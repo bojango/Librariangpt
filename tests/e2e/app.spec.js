@@ -105,6 +105,19 @@ test('detail and modal layouts do not overflow a mobile viewport', async ({ page
   expect(sizes.modal.width).toBeLessThanOrEqual(sizes.viewport);
 });
 
+test('book detail shows Goodreads only and uses a neutral unavailable state', async ({ page }) => {
+  await page.goto('/tests/e2e/fixture.html#/book/extra-0');
+  const rating = page.locator('.rating-public');
+  await expect(rating).toContainText('4.23/5');
+  await expect(rating).toContainText('9,876 ratings');
+  await expect(rating).toHaveAttribute('href', 'https://www.goodreads.com/book/show/123');
+  await expect(page.getByText('Open Library')).toHaveCount(0);
+
+  await page.goto('/tests/e2e/fixture.html#/book/read-1');
+  await expect(page.locator('.rating-public')).toContainText('GoodreadsRating unavailable');
+  await expect(page.getByText('Open Library')).toHaveCount(0);
+});
+
 test('service worker shell references resolve', async ({ request }) => {
   const source = await (await request.get('/sw.js')).text();
   const assets = [...source.matchAll(/^\s*'\.\/([^']+)'/gm)].map(match => `/${match[1]}`);
@@ -243,11 +256,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('55');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('56');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '55')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v55');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '56')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v56');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -259,7 +272,7 @@ test.describe('service-worker-controlled document', () => {
       channel.port1.onmessage = event => resolve(event.data);
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
-    expect(state).toMatchObject({ generation: '55', shell_cache: 'reading-room-shell-v55', cover_cache: 'reading-room-covers-v3' });
+    expect(state).toMatchObject({ generation: '56', shell_cache: 'reading-room-shell-v56', cover_cache: 'reading-room-covers-v3' });
     expect(state.cover_cache_hits).toBeGreaterThanOrEqual(0);
     expect(state.cover_cache_misses).toBeGreaterThanOrEqual(0);
     expect(state.cover_network_fetches).toBeGreaterThanOrEqual(0);

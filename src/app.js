@@ -24,6 +24,7 @@ import { installScrollLifecycle } from './scroll-lifecycle.js';
 import { createSupabaseDiagnosticUploader, diagnostics } from './diagnostics/diagnostics.js';
 import { connectServiceWorkerDiagnostics, diagnosticScrollTo, installDiagnosticsInstrumentation, recordCurrentTitleState, requestServiceWorkerDiagnosticSnapshot } from './diagnostics/instrumentation.js';
 import { diagnosticHistoryMarkup, diagnosticsMenuMarkup, openIssueMarker, syncTestIndicator } from './diagnostics/ui.js';
+import { isGoodreadsRefreshDue } from './utils/metadata.js';
 
 const app = document.querySelector('#app');
 const store = createAppState();
@@ -260,12 +261,16 @@ async function refresh({ quiet = false, scope = 'library', bookId = null } = {})
 
 function maybeEnrich(detail, renderVersion) {
   const book = detail.book;
-  if (!navigator.onLine || (book.synopsis && book.cover_url && book.display_edition_id && detail.ratings.length)) return;
-  const key = `reading-room-enrich:${book.id}`;
+  if (!navigator.onLine) return;
+  const metadataComplete = Boolean(book.synopsis && book.cover_url && book.display_edition_id);
+  const goodreadsDue = isGoodreadsRefreshDue(detail.ratings, detail.refreshState);
+  if (metadataComplete && !goodreadsDue) return;
+  const key = `reading-room-${metadataComplete ? 'goodreads' : 'enrich'}:${book.id}`;
   const last = Number(sessionStorage.getItem(key) || 0);
   if (Date.now() - last < 6 * 60 * 60 * 1000) return;
   sessionStorage.setItem(key, String(Date.now()));
-  invoke('book-background-enrich', { book_id: book.id }).then(async () => {
+  const functionName = metadataComplete ? 'goodreads-rating-refresh' : 'book-background-enrich';
+  invoke(functionName, { book_id: book.id }).then(async () => {
     if (!store.isCurrent(renderVersion) || store.value.route.bookId !== book.id) return;
     await refresh({ quiet: true, scope: 'book', bookId: book.id });
   }).catch(error => console.info('[Reading Room] background enrichment deferred:', error?.message || error));

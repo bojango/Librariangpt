@@ -115,6 +115,6 @@ async function uploadCover(book, file, button) {
 
 export async function refreshMetadata(book, button) {
   button.disabled = true;
-  try { await Promise.allSettled([invoke('content-enrichment', { book_id: book.id, force: true }), invoke('edition-options', { book_id: book.id, force: true })]); toast('Book data refreshed.'); refresh(); }
+  try { await Promise.allSettled([invoke('content-enrichment', { book_id: book.id, force: true }), invoke('edition-options', { book_id: book.id, force: true }), invoke('goodreads-rating-refresh', { book_id: book.id, force: true })]); toast('Book data refreshed.'); refresh(); }
   finally { button.disabled = false; }
 }

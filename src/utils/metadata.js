@@ -35,11 +35,16 @@ export function convertProgress(currentPage, oldTotal, newTotal, mode = 'percent
   return Math.min(nextTotal, Math.max(0, Math.round(page / Number(oldTotal) * nextTotal)));
 }
 
-export function selectPrimaryRating(ratings = []) {
-  return ratings.find(rating => /goodreads/i.test(rating.provider || ''))
-    || ratings.find(rating => rating.is_primary)
-    || ratings[0]
-    || null;
+export function selectGoodreadsRating(ratings = []) {
+  return ratings.find(rating => /^goodreads$/i.test(String(rating.provider || '').trim())) || null;
+}
+
+export function isGoodreadsRefreshDue(ratings = [], refreshState = null, now = Date.now()) {
+  const rating = selectGoodreadsRating(ratings);
+  const fetchedAt = rating?.fetched_at ? new Date(rating.fetched_at).getTime() : NaN;
+  if (Number.isFinite(fetchedAt) && now - fetchedAt < 7 * 24 * 60 * 60 * 1000) return false;
+  const nextRetry = refreshState?.next_retry_at ? new Date(refreshState.next_retry_at).getTime() : NaN;
+  return !Number.isFinite(nextRetry) || nextRetry <= now;
 }
 
 export function selectCoverCandidate(candidates = [], { owned = false } = {}) {

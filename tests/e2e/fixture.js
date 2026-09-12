@@ -24,7 +24,10 @@ const state = {
 const app = document.querySelector('#app');
 
 function detailFor(book) {
-  return { book, ratings: [{ provider: 'Open Library', rating_5: 4.2, rating_count: 1200, is_primary: true }], recommendation: null, quotes: [{ id: 'q1', page_start: 12, quote_text: 'A saved passage.', note: 'Fixture note' }], editions: [], enrichment: {} };
+  const ratings = book.id === 'extra-0'
+    ? [{ provider: 'Open Library', rating_5: 4.9, rating_count: 1200, is_primary: true }, { provider: 'Goodreads', rating_5: 4.23, rating_count: 9876, source_url: 'https://www.goodreads.com/book/show/123' }]
+    : [{ provider: 'Open Library', rating_5: 4.2, rating_count: 1200, is_primary: true }];
+  return { book, ratings, recommendation: null, quotes: [{ id: 'q1', page_start: 12, quote_text: 'A saved passage.', note: 'Fixture note' }], editions: [], enrichment: {}, refreshState: null };
 }
 
 function paint(html, { reuseCovers = false, preserveScroll = null } = {}) {
