@@ -41,6 +41,36 @@ test('currently-reading carousel and wishlist render directly', async ({ page })
   await expect(page.locator('.book-card')).toHaveCount(1);
 });
 
+test('header mark is visible and carousel memory follows ordered membership', async ({ page }) => {
+  await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
+  const mark = page.locator('.topbar .wordmark .brand-mark img');
+  await expect(mark).toBeVisible();
+  expect((await mark.boundingBox()).width).toBeGreaterThan(30);
+  await expect(page.locator('[data-current-card]').first()).toHaveAttribute('data-current-card', 'current-2');
+
+  await page.locator('[data-carousel-dot="1"]').click();
+  await expect(page.locator('[data-carousel-dot="1"]')).toHaveAttribute('aria-current', 'true');
+  await page.evaluate(() => window.fixtureRefresh({ upNext: [...window.fixtureState.upNext, { queue_id: 'queue-2', id: 'extra-1', title: 'Reserve', position: 2, source: 'AI' }] }));
+  await expect(page.locator('[data-carousel-dot="1"]')).toHaveAttribute('aria-current', 'true');
+
+  await page.evaluate(() => window.fixtureRefresh({ books: [...window.fixtureState.books, {
+    id: 'current-new', title: 'Newest Current Read', authors: 'New Reader', overall_status: 'Currently Reading', ownership_status: 'Owned', started_at: '2026-09-13'
+  }] }));
+  await expect(page.locator('[data-current-card]').first()).toHaveAttribute('data-current-card', 'current-new');
+  await expect(page.locator('[data-carousel-dot="0"]')).toHaveAttribute('aria-current', 'true');
+});
+
+test('Home limits Up Next to five while its manager exposes all reserves', async ({ page }) => {
+  await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => window.fixtureRefresh({ upNext: Array.from({ length: 8 }, (_, index) => ({
+    queue_id: `queue-${index + 1}`, id: `extra-${index}`, title: `Queued ${index + 1}`, position: index + 1, source: 'AI'
+  })) }));
+  await expect(page.locator('.upnext-row [data-upnext-id]')).toHaveCount(5);
+  await expect(page.locator('.upnext-row [data-upnext-id="queue-6"]')).toHaveCount(0);
+  await page.locator('[data-manage-upnext]').click();
+  await expect(page.locator('#queue-manager-list [data-queue-id]')).toHaveCount(8);
+});
+
 test('long current title has its final class in initial markup and never mutates later', async ({ page }) => {
   await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
   const title = page.locator('[data-current-card="current-1"] h1');
@@ -213,11 +243,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('54');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('55');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '54')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v54');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '55')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v55');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -229,7 +259,7 @@ test.describe('service-worker-controlled document', () => {
       channel.port1.onmessage = event => resolve(event.data);
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
-    expect(state).toMatchObject({ generation: '54', shell_cache: 'reading-room-shell-v54', cover_cache: 'reading-room-covers-v3' });
+    expect(state).toMatchObject({ generation: '55', shell_cache: 'reading-room-shell-v55', cover_cache: 'reading-room-covers-v3' });
     expect(state.cover_cache_hits).toBeGreaterThanOrEqual(0);
     expect(state.cover_cache_misses).toBeGreaterThanOrEqual(0);
     expect(state.cover_network_fetches).toBeGreaterThanOrEqual(0);

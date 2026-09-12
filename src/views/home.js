@@ -2,6 +2,41 @@ import { chrome } from '../ui/chrome.js';
 import { cover, esc, progressPct, progressText, readingAgeText } from '../ui/format.js';
 import { currentTitlePresentation } from '../utils/text.js';
 
+export const VISIBLE_UP_NEXT_COUNT = 5;
+
+function startedAtTime(value) {
+  const time = Date.parse(value || '');
+  return Number.isFinite(time) ? time : Number.NEGATIVE_INFINITY;
+}
+
+export function currentlyReadingBooks(books) {
+  return books
+    .filter(book => book.overall_status === 'Currently Reading')
+    .sort((a, b) => {
+      const aTime = startedAtTime(a.started_at);
+      const bTime = startedAtTime(b.started_at);
+      return aTime === bTime ? 0 : bTime > aTime ? 1 : -1;
+    });
+}
+
+export function homeRecommendations(items) {
+  const picks = [];
+  const recommendationIds = new Set();
+  const bookIds = new Set();
+  const append = item => {
+    const recommendationId = item.recommendation_id == null ? '' : String(item.recommendation_id);
+    const bookId = item.book_id ?? item.id;
+    const normalisedBookId = bookId == null ? '' : String(bookId);
+    if ((recommendationId && recommendationIds.has(recommendationId)) || (normalisedBookId && bookIds.has(normalisedBookId))) return;
+    if (recommendationId) recommendationIds.add(recommendationId);
+    if (normalisedBookId) bookIds.add(normalisedBookId);
+    picks.push(item);
+  };
+  items.filter(item => item.frontend_featured).forEach(append);
+  items.filter(item => !item.frontend_featured).forEach(append);
+  return picks.slice(0, 5);
+}
+
 function bookCard(book) {
   return `<article class="book-card" data-open-book="${book.id}" tabindex="0" role="button" aria-label="Open ${esc(book.title)}">${cover(book)}<div class="book-title">${esc(book.title)}</div><div class="book-author">${esc(book.authors || 'Unknown author')}</div></article>`;
 }
@@ -28,7 +63,7 @@ function currentCard(book, state, index) {
 }
 
 function currentReading(state) {
-  const books = state.books.filter(book => book.overall_status === 'Currently Reading');
+  const books = currentlyReadingBooks(state.books);
   if (!books.length) return `<section class="hero"><div class="hero-copy"><p class="eyebrow">Reading terminal</p><h1>Nothing currently open.</h1><div class="hero-author">Your owned-unread shelf is sitting there, judging with remarkable restraint.</div><div class="hero-actions"><button class="btn btn-primary" data-route="library">Browse library</button></div></div></section>`;
   return `<div class="current-reading-carousel-v36" data-carousel><div class="current-reading-track-v36" aria-label="Currently reading books">${books.map((book, index) => currentCard(book, state, index)).join('')}</div><div class="current-reading-dots-v36"><div class="current-reading-dot-rail-v36">${books.map((book, index) => `<button class="current-reading-dot-v36" data-carousel-dot="${index}" aria-label="Show ${esc(book.title)}"></button>`).join('')}<span class="current-reading-indicator-v36" aria-hidden="true"></span></div></div></div>`;
 }
@@ -38,7 +73,8 @@ function upNextCard(item) {
 }
 
 function upNext(state) {
-  return `<section class="section up-next-section" id="up-next-section"><div class="section-header"><h2>Up Next</h2><button class="upnext-manage" data-manage-upnext type="button">Manage</button></div>${state.upNext.length ? `<div class="upnext-row">${state.upNext.map(upNextCard).join('')}</div>` : '<div class="empty-shelf">Nothing queued yet.</div>'}</section>`;
+  const visible = state.upNext.slice(0, VISIBLE_UP_NEXT_COUNT);
+  return `<section class="section up-next-section" id="up-next-section"><div class="section-header"><h2>Up Next</h2><button class="upnext-manage" data-manage-upnext type="button">Manage</button></div>${visible.length ? `<div class="upnext-row">${visible.map(upNextCard).join('')}</div>` : '<div class="empty-shelf">Nothing queued yet.</div>'}</section>`;
 }
 
 function recommendationCard(item) {
@@ -46,8 +82,7 @@ function recommendationCard(item) {
 }
 
 function recommendations(state) {
-  const chosen = state.aiRecommendations.filter(item => item.frontend_featured);
-  const picks = (chosen.length ? chosen : state.aiRecommendations).slice(0, 5);
+  const picks = homeRecommendations(state.aiRecommendations);
   return `<section class="section ai-recommended-section" id="ai-recommended-section"><div class="section-header"><div><h2>Recommended for you</h2><p class="recommended-section-note">AI picks from beyond your library, shaped by what you actually enjoy.</p></div><button class="recommended-more" data-recommendations-page type="button" ${state.aiRecommendations.length ? '' : 'disabled'}>See more</button></div>${picks.length ? `<div class="recommended-row">${picks.map(recommendationCard).join('')}</div>` : '<div class="empty-shelf">No active recommendations right now.</div>'}</section>`;
 }
 

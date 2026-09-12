@@ -4,10 +4,12 @@ import { bookDetailView } from '../../src/views/book-detail.js';
 import { statsView } from '../../src/views/stats.js';
 import { snapshotFingerprint } from '../../src/lifecycle.js';
 import { activateCovers, collectCoverImages, reuseCoverImages } from '../../src/ui/cover.js';
+import { initialiseCarousel } from '../../src/features/current-reading-carousel.js';
+import { upNextManagerRows } from '../../src/features/up-next-markup.js';
 
 const books = [
-  { id: 'current-1', title: 'The Unfinished Harauld Hughes', authors: 'Reader One', overall_status: 'Currently Reading', ownership_status: 'Owned', current_page: 40, total_pages: 200, progress_percent: 20, cover_url: '/delayed-cover.svg', primary_genre: 'Fiction' },
-  { id: 'current-2', title: 'Currently Two', authors: 'Reader Two', overall_status: 'Currently Reading', ownership_status: 'Owned', current_page: 90, total_pages: 300, progress_percent: 30, cover_url: '/missing-cover.jpg', primary_genre: 'History' },
+  { id: 'current-1', title: 'The Unfinished Harauld Hughes', authors: 'Reader One', overall_status: 'Currently Reading', ownership_status: 'Owned', started_at: '2026-07-28', current_page: 40, total_pages: 200, progress_percent: 20, cover_url: '/delayed-cover.svg', primary_genre: 'Fiction' },
+  { id: 'current-2', title: 'There Is No Antimemetics Division', authors: 'Reader Two', overall_status: 'Currently Reading', ownership_status: 'Owned', started_at: '2026-09-12', current_page: 90, total_pages: 300, progress_percent: 30, cover_url: '/missing-cover.jpg', primary_genre: 'History' },
   { id: 'read-1', title: 'Finished Book', authors: 'Done Author', overall_status: 'Read', ownership_status: 'Owned', total_pages: 250, user_rating_5: 4.5, synopsis: 'A complete synopsis for fixture rendering.', primary_genre: 'Science' },
   { id: 'wish-1', title: 'Wish Book', authors: 'Future Author', overall_status: 'Wishlist', ownership_status: 'Not Owned', cover_url: '/wishlist-cover.jpg', primary_genre: 'Essay' }
 ];
@@ -29,6 +31,7 @@ function paint(html, { reuseCovers = false, preserveScroll = null } = {}) {
   const pool = reuseCovers ? collectCoverImages(app) : null;
   app.innerHTML = html;
   if (pool) reuseCoverImages(app, pool); else activateCovers(app);
+  initialiseCarousel(app);
   if (Number.isFinite(preserveScroll)) window.scrollTo(0, preserveScroll);
   window.fixturePaints = (window.fixturePaints || 0) + 1;
 }
@@ -49,8 +52,10 @@ window.fixtureRefresh = patch => {
 window.fixtureSetCover = url => window.fixtureRefresh({
   books: state.books.map(book => book.id === 'current-1' ? { ...book, cover_url: url } : book)
 });
+window.fixtureState = state;
 
 app.addEventListener('click', event => {
+  if (event.target.closest('[data-manage-upnext]')) { document.querySelector('#modal-root').innerHTML = `<div id="queue-manager-list">${upNextManagerRows(state.upNext)}</div>`; return; }
   const route = event.target.closest('[data-route]'); if (route) { location.hash = `#/${route.dataset.route}`; return; }
   const filter = event.target.closest('[data-filter]'); if (filter) { state.filters.library = filter.dataset.filter; render(); return; }
   const book = event.target.closest('[data-open-book]'); if (book) { location.hash = `#/book/${book.dataset.openBook}`; return; }
