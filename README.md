@@ -48,9 +48,9 @@ Then open <http://127.0.0.1:4173>.
 ## Deployment
 
 1. Run `npm ci && npm run build`.
-2. Commit `dist/app.js` and `dist/app.js.map`.
-3. Publish the repository root with GitHub Pages.
-4. No database migration or Edge Function deployment is required for this frontend refactor.
+2. Apply any new migrations in `supabase/migrations/` and deploy only Edge Functions changed by the release.
+3. Commit `dist/app.js` and `dist/app.js.map`.
+4. Publish the repository root with GitHub Pages.
 
 The service worker uses a versioned application-shell cache, network-first navigation, release-bounded cover caches, and never caches canonical Supabase API responses.
 
@@ -59,6 +59,10 @@ The service worker uses a versioned application-shell cache, network-first navig
 Current deployed database migration statements and all current deployed Edge Function sources were exported read-only into `supabase/`. Deployment metadata beside each function records the deployed version, JWT setting, and checksum. Secrets are referenced only through runtime environment variables.
 
 Review `supabase/README.md` before any backend deployment. Never place service-role keys or provider secrets in this repository.
+
+### Reading Check-in automation handoff
+
+The external hourly ChatGPT Reading Check-in automation remains the scheduler. It should call `reading_checkin_snapshot()`, detect meaningful real progress, and optionally persist one brief card comment through `save_reading_card_note()`. It should use `latest_card_note` to avoid repetition, never invent unread plot events, and stay silent unless an independent conversational check-in is warranted. Notes should ideally be one sentence (occasionally two short sentences), prefer roughly 240 characters or fewer, contain no spoilers, and discuss story events only when supported by feedback, chapter data, or stored reading context; otherwise they should stick to progress, pace, reading stage, and known reactions.
 
 ## Security
 

@@ -1,17 +1,17 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 const CORS={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
 const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{...CORS,'Content-Type':'application/json'}});
-async function fj(url:string){try{const r=await fetch(url,{headers:{'User-Agent':'Library/1.0 personal reading tracker'}});if(!r.ok)return null;return await r.json()}catch{return null}}
+async function fj(url:string){const r=await fetch(url,{headers:{'User-Agent':'Library/1.0 personal reading tracker'}});if(r.status===404)return null;if(!r.ok)throw new Error(`Open Library request failed (${r.status})`);return await r.json()}
 const clean=(v:any)=>String(v??'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
 function pageNo(v:any){if(typeof v==='number'&&Number.isFinite(v))return Math.max(0,Math.round(v));const m=clean(v).match(/(?:^|\D)(\d{1,4})(?:\D|$)/);return m?Number(m[1]):null}
 function classify(title:string){const t=title.toLowerCase();if(/^part\b/.test(t))return'part';if(/^introduction\b/.test(t))return'introduction';if(/^prologue\b/.test(t))return'prologue';if(/^epilogue\b/.test(t))return'epilogue';if(/^(appendix|acknowledg|notes|bibliograph|index)\b/.test(t))return'appendix';return'chapter'}
 function splitTitle(raw:string,sequence:number){const title=clean(raw);let m=title.match(/^chapter\s+([0-9ivxlcdm]+)\s*(?:[:.\-–—]\s*)?(.*)$/i);if(m)return{number:m[1],title:clean(m[2])||`Chapter ${m[1]}`};m=title.match(/^([0-9]+)\s*[.:\-–—]\s*(.+)$/);if(m)return{number:m[1],title:clean(m[2])};return{number:null,title:title||`Chapter ${sequence}`}}
-Deno.serve(async(req:Request)=>{if(req.method==='OPTIONS')return new Response('ok',{headers:CORS});if(req.method!=='POST')return json({error:'POST required'},405);try{
+Deno.serve(async(req:Request)=>{if(req.method==='OPTIONS')return new Response('ok',{headers:CORS});if(req.method!=='POST')return json({error:'POST required'},405);let admin:any=null,attemptedEditionId:string|null=null;try{
  const auth=req.headers.get('Authorization');if(!auth)return json({error:'Authentication required'},401);
  const url=Deno.env.get('SUPABASE_URL')!,anon=Deno.env.get('SUPABASE_ANON_KEY')!,service=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
  const user=createClient(url,anon,{global:{headers:{Authorization:auth}}});const ud=await user.auth.getUser();if(ud.error||!ud.data.user)return json({error:'Invalid session'},401);const own=await user.rpc('is_library_owner');if(own.error||own.data!==true)return json({error:'Not authorized'},403);
- const body=await req.json();const bookId=String(body?.book_id||''),force=body?.force===true;if(!bookId)return json({error:'book_id required'},400);const admin=createClient(url,service);
- const q=await admin.from('v_library').select('id,title,current_page,display_edition_id,isbn10,isbn13,open_library_edition_id').eq('id',bookId).single();if(q.error||!q.data)return json({error:'Book not found'},404);const book=q.data;if(!book.display_edition_id)return json({error:'No displayed edition'},400);
+ const body=await req.json();const bookId=String(body?.book_id||''),force=body?.force===true;if(!bookId)return json({error:'book_id required'},400);admin=createClient(url,service);
+ const q=await admin.from('v_library').select('id,title,current_page,display_edition_id,isbn10,isbn13,open_library_edition_id').eq('id',bookId).single();if(q.error||!q.data)return json({error:'Book not found'},404);const book=q.data;if(!book.display_edition_id)return json({error:'No displayed edition'},400);attemptedEditionId=book.display_edition_id;
  const existing=await admin.from('edition_chapters').select('*').eq('edition_id',book.display_edition_id).order('sequence_no');
  if(!force&&(existing.data?.length||0)>0){const current=(existing.data||[]).filter((x:any)=>book.current_page!=null&&x.start_page<=book.current_page).sort((a:any,b:any)=>b.start_page-a.start_page||b.level-a.level)[0]||null;return json({ok:true,cached:true,imported:existing.data?.length||0,current_chapter:current});}
  let olid=book.open_library_edition_id||null;const isbn=book.isbn13||book.isbn10;
@@ -24,4 +24,4 @@ Deno.serve(async(req:Request)=>{if(req.method==='OPTIONS')return new Response('o
  const ins=await admin.from('edition_chapters').upsert(rows,{onConflict:'edition_id,sequence_no'}).select('*');if(ins.error)throw ins.error;
  await admin.from('editions').update({open_library_edition_id:olid,chapter_map_source:'Open Library',chapter_map_status:rows.length<toc.length?'partial':'available',chapter_map_last_checked_at:new Date().toISOString()}).eq('id',book.display_edition_id);
  const current=rows.filter((x:any)=>book.current_page!=null&&x.start_page<=book.current_page).sort((a:any,b:any)=>b.start_page-a.start_page||b.level-a.level)[0]||null;return json({ok:true,imported:rows.length,status:rows.length<toc.length?'partial':'available',current_chapter:current});
-}catch(e){console.error(e);return json({error:e?.message||'Chapter mapping failed'},500)}});
+}catch(e){console.error(e);if(admin&&attemptedEditionId)await admin.from('editions').update({chapter_map_source:'Open Library',chapter_map_status:'failed',chapter_map_last_checked_at:new Date().toISOString()}).eq('id',attemptedEditionId);return json({error:e?.message||'Chapter mapping failed'},500)}});

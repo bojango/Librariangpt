@@ -14,6 +14,7 @@ export function createAppState() {
     aiRecommendations: [],
     upNext: [],
     chapters: [],
+    readingCardNotes: [],
     detail: null,
     route: { name: 'home', bookId: null },
     filters: { library: 'All', wishlist: 'Wishlist' },

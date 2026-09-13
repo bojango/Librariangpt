@@ -30,19 +30,21 @@ export function clearRequestDedupe() {
 
 export function loadLibrarySnapshot() {
   return dedupe('library-snapshot', async () => {
-    const [books, recommendations, upNext, aiRecommendations, chapters] = await Promise.all([
+    const [books, recommendations, upNext, aiRecommendations, chapters, readingCardNotes] = await Promise.all([
       supabase.from('v_library').select('*').order('title'),
       optional(supabase.from('recommendations').select('book_id,recommendation_strength,match_score_10,recommendation_status,why_recommended,frontend_featured,frontend_shelf,user_interest,prediction_accuracy_5,outcome,date_recommended').order('match_score_10', { ascending: false, nullsFirst: false })),
       optional(supabase.from('v_up_next').select('*').order('position')),
       optional(supabase.from('v_ai_recommendations').select('*').order('display_rank', { ascending: true })),
-      optional(supabase.from('v_library_chapters').select('*').eq('overall_status', 'Currently Reading'))
+      optional(supabase.from('v_library_chapters').select('*').eq('overall_status', 'Currently Reading')),
+      optional(supabase.from('v_latest_reading_card_notes').select('book_id,session_id,note_text,page,progress_percent,chapter_number,chapter_title,source,generated_at'))
     ]);
     return {
       books: unwrap(books),
       recommendations,
       upNext,
       aiRecommendations,
-      chapters
+      chapters,
+      readingCardNotes
     };
   });
 }

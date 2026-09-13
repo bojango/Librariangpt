@@ -25,6 +25,7 @@ import { createSupabaseDiagnosticUploader, diagnostics } from './diagnostics/dia
 import { connectServiceWorkerDiagnostics, diagnosticScrollTo, installDiagnosticsInstrumentation, recordCurrentTitleState, requestServiceWorkerDiagnosticSnapshot } from './diagnostics/instrumentation.js';
 import { diagnosticHistoryMarkup, diagnosticsMenuMarkup, openIssueMarker, syncTestIndicator } from './diagnostics/ui.js';
 import { isGoodreadsRefreshDue } from './utils/metadata.js';
+import { maybeMapCurrentChapters } from './features/chapter-map.js';
 
 const app = document.querySelector('#app');
 const store = createAppState();
@@ -228,6 +229,10 @@ async function loadSnapshot() {
     store.update(snapshot);
     libraryLoaded = true;
     diagnostics.event('snapshot_load_complete', { duration_ms: Math.round(performance.now() - started), book_count: snapshot.books.length });
+    void maybeMapCurrentChapters(snapshot, {
+      invoke,
+      refresh: () => refresh({ quiet: true, scope: 'library' })
+    });
     return snapshot;
   }).catch(error => { diagnostics.event('snapshot_load_failed', { duration_ms: Math.round(performance.now() - started), name: error?.name, message: error?.message }); throw error; }).finally(() => { dataLoad = null; });
   return dataLoad;
@@ -466,7 +471,7 @@ async function init() {
     if (!nextSession) {
       libraryLoaded = false;
       sessionBootstrapUser = null;
-      store.update({ books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], detail: null });
+      store.update({ books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], readingCardNotes: [], detail: null });
       paint(authView(store.value.authMode));
       return;
     }

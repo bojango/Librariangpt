@@ -12,7 +12,8 @@ export function snapshotFingerprint(value = {}) {
     value.recommendations || [],
     value.aiRecommendations || [],
     value.upNext || [],
-    value.chapters || []
+    value.chapters || [],
+    value.readingCardNotes || []
   ]);
 }
 

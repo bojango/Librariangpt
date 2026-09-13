@@ -19,6 +19,7 @@ const state = {
   aiRecommendations: [{ recommendation_id: 'rec-1', title: 'Outside Pick', authors: 'AI Author', recommendation_strength: 'Strong', match_score_10: 8.8, why_recommended: 'A fixture recommendation.' }],
   upNext: [{ queue_id: 'queue-1', id: 'wish-1', title: 'Wish Book', authors: 'Future Author', position: 1, source: 'Manual', locked: true }],
   chapters: [{ id: 'current-1', current_chapter_number: '3', current_chapter_title: 'The Middle' }],
+  readingCardNotes: [{ book_id: 'current-1', session_id: 'session-current-1', note_text: 'You have moved quickly through this section.' }],
   filters: { library: 'All', wishlist: 'Wishlist' }, queries: { library: '', wishlist: '' }, route: { name: 'home' }, detail: null
 };
 const app = document.querySelector('#app');

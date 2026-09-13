@@ -36,6 +36,15 @@ test('currently-reading carousel and wishlist render directly', async ({ page })
   await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('[data-current-card]')).toHaveCount(2);
   await expect(page.locator('[data-carousel-dot]')).toHaveCount(2);
+  await expect(page.locator('[data-current-card="current-1"] .librarian-note')).toContainText('You have moved quickly through this section.');
+  await expect(page.locator('[data-current-card="current-2"] .librarian-note')).toHaveCount(0);
+  const noteFits = await page.locator('[data-current-card="current-1"]').evaluate(card => {
+    const note = card.querySelector('.librarian-note').getBoundingClientRect();
+    const actions = card.querySelector('.hero-actions').getBoundingClientRect();
+    const bounds = card.getBoundingClientRect();
+    return note.top >= bounds.top && actions.bottom <= bounds.bottom;
+  });
+  expect(noteFits).toBe(true);
   await page.locator('[data-route="wishlist"]').first().click();
   await expect(page.getByRole('heading', { name: 'Wishlist' })).toBeVisible();
   await expect(page.locator('.book-card')).toHaveCount(1);
@@ -256,11 +265,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('56');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('57');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '56')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v56');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '57')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v57');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -272,7 +281,7 @@ test.describe('service-worker-controlled document', () => {
       channel.port1.onmessage = event => resolve(event.data);
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
-    expect(state).toMatchObject({ generation: '56', shell_cache: 'reading-room-shell-v56', cover_cache: 'reading-room-covers-v3' });
+    expect(state).toMatchObject({ generation: '57', shell_cache: 'reading-room-shell-v57', cover_cache: 'reading-room-covers-v3' });
     expect(state.cover_cache_hits).toBeGreaterThanOrEqual(0);
     expect(state.cover_cache_misses).toBeGreaterThanOrEqual(0);
     expect(state.cover_network_fetches).toBeGreaterThanOrEqual(0);

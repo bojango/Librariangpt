@@ -1,12 +1,12 @@
-const GENERATION = '56';
+const GENERATION = '57';
 const SHELL = `reading-room-shell-v${GENERATION}`;
 const COVERS = 'reading-room-covers-v3';
 const APP_SHELL = [
   './',
   './index.html',
-  './manifest.webmanifest?v=56',
-  './src/styles/app.css?v=56',
-  './dist/app.js?v=56',
+  './manifest.webmanifest?v=57',
+  './src/styles/app.css?v=57',
+  './dist/app.js?v=57',
   './dist/app.js.map',
   './supabase-config.js',
   './assets/reading-room-mark.svg',

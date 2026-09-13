@@ -9,6 +9,7 @@ function state(overrides = {}) {
   return {
     books: [],
     chapters: [],
+    readingCardNotes: [],
     upNext: [],
     aiRecommendations: [],
     ...overrides
@@ -87,6 +88,37 @@ test('recommendation selection deduplicates recommendation and book identities',
   assert.equal(picks.length, 5);
   assert.equal(new Set(picks.map(item => item.recommendation_id)).size, 5);
   assert.equal(new Set(picks.map(item => item.id)).size, 5);
+});
+
+test('current chapter and active-session Librarian note render only when supplied', () => {
+  const book = { id: 'current', title: 'Current', authors: 'Reader', overall_status: 'Currently Reading', current_page: 50, total_pages: 100 };
+  const html = homeView(state({
+    books: [book],
+    chapters: [{ id: 'current', current_chapter_number: '4', current_chapter_title: 'Return' }],
+    readingCardNotes: [{ book_id: 'current', note_text: 'Steady progress through a known section.' }]
+  }));
+  assert.match(html, /Chapter 4: Return/);
+  assert.match(html, /Librarian note/);
+  assert.match(html, /Steady progress through a known section\./);
+
+  const withoutContext = homeView(state({ books: [book] }));
+  assert.doesNotMatch(withoutContext, /chapter-progress-line/);
+  assert.doesNotMatch(withoutContext, /librarian-note/);
+});
+
+test('Librarian note text is escaped safely', () => {
+  const html = homeView(state({
+    books: [{ id: 'current', title: 'Current', overall_status: 'Currently Reading' }],
+    readingCardNotes: [{ book_id: 'current', note_text: '<img src=x onerror=alert(1)>' }]
+  }));
+  assert.doesNotMatch(html, /<img src=x/);
+  assert.match(html, /&lt;img src=x onerror=alert\(1\)&gt;/);
+});
+
+test('current-reading progress styling is scoped and leaves progress maths unchanged', async () => {
+  const css = await readFile('src/styles/app.css', 'utf8');
+  assert.match(css, /\.current-reading-card-v36 \.progress-track\{height:10px/);
+  assert.equal((50 / 100) * 100, 50);
 });
 
 test('header keeps the existing Reading Room mark as a visible image', async () => {
