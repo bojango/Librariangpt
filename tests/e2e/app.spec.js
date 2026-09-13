@@ -50,6 +50,37 @@ test('currently-reading carousel and wishlist render directly', async ({ page })
   await expect(page.locator('.book-card')).toHaveCount(1);
 });
 
+test('mobile current-reading cards stay compact without context and grow without overlap', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
+  const layout = await page.evaluate(() => {
+    const box = selector => {
+      const rect = document.querySelector(selector).getBoundingClientRect();
+      return { top: rect.top, bottom: rect.bottom, height: rect.height };
+    };
+    const compact = document.querySelector('[data-current-card="current-2"]');
+    const contextual = document.querySelector('[data-current-card="current-1"]');
+    const compactActions = compact.querySelector('.hero-actions').getBoundingClientRect();
+    const compactBounds = compact.getBoundingClientRect();
+    const compactCover = compact.querySelector('.cover').getBoundingClientRect();
+    return {
+      compact: box('[data-current-card="current-2"]'),
+      contextual: box('[data-current-card="current-1"]'),
+      compactActionsBottom: compactActions.bottom,
+      compactBottom: compactBounds.bottom,
+      compactCoverHeight: compactCover.height,
+      progressHeight: compact.querySelector('.progress-track').getBoundingClientRect().height,
+      dots: box('.current-reading-dots-v36')
+    };
+  });
+  expect(layout.compact.height).toBeLessThan(340);
+  expect(layout.contextual.height).toBeGreaterThanOrEqual(layout.compact.height);
+  expect(layout.compactActionsBottom).toBeLessThanOrEqual(layout.compactBottom);
+  expect(layout.compactCoverHeight).toBeGreaterThan(180);
+  expect(layout.progressHeight).toBe(10);
+  expect(layout.dots.top).toBeGreaterThanOrEqual(Math.max(layout.compact.bottom, layout.contextual.bottom));
+});
+
 test('header mark is visible and carousel memory follows ordered membership', async ({ page }) => {
   await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
   const mark = page.locator('.topbar .wordmark .brand-mark img');
@@ -265,11 +296,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('57');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('58');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '57')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v57');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '58')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v58');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -281,7 +312,7 @@ test.describe('service-worker-controlled document', () => {
       channel.port1.onmessage = event => resolve(event.data);
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
-    expect(state).toMatchObject({ generation: '57', shell_cache: 'reading-room-shell-v57', cover_cache: 'reading-room-covers-v3' });
+    expect(state).toMatchObject({ generation: '58', shell_cache: 'reading-room-shell-v58', cover_cache: 'reading-room-covers-v3' });
     expect(state.cover_cache_hits).toBeGreaterThanOrEqual(0);
     expect(state.cover_cache_misses).toBeGreaterThanOrEqual(0);
     expect(state.cover_network_fetches).toBeGreaterThanOrEqual(0);

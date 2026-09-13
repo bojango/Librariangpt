@@ -121,6 +121,14 @@ test('current-reading progress styling is scoped and leaves progress maths uncha
   assert.equal((50 / 100) * 100, 50);
 });
 
+test('mobile current-reading cards use compact content-driven height and scoped spacing', async () => {
+  const css = await readFile('src/styles/app.css', 'utf8');
+  assert.match(css, /\.current-reading-track-v36\{align-items:flex-start\}/);
+  assert.match(css, /@media\(max-width:700px\)\{[\s\S]*?\.current-reading-track-v36>\.hero\.current-reading-card-v36\{height:auto!important;min-height:292px!important;max-height:none!important;overflow:visible!important;padding:14px!important\}/);
+  assert.match(css, /\.current-reading-card-v36 \.progress-block\{margin:14px 0 11px!important\}/);
+  assert.doesNotMatch(css, /@media\(max-width:700px\)\{\.current-reading-track-v36>\.hero\.current-reading-card-v36\{height:420px/);
+});
+
 test('header keeps the existing Reading Room mark as a visible image', async () => {
   const [markup, css] = await Promise.all([
     readFile('src/ui/chrome.js', 'utf8'),
