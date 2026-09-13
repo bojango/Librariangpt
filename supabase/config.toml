@@ -1,0 +1,2 @@
+[functions.reading-checkin-bridge]
+verify_jwt = false
