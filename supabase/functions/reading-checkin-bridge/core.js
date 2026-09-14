@@ -14,6 +14,11 @@ const OPTIONS_HEADERS = Object.freeze({
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const encoder = new TextEncoder();
+const BRIDGE_VERSION = 2;
+const SAFE_NOTE_ERRORS = new Set([
+  'note_required', 'note_too_long', 'invalid_book', 'invalid_page', 'invalid_progress',
+  'invalid_chapter', 'book_not_currently_reading', 'active_session_unavailable', 'stale_progress',
+]);
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
@@ -129,6 +134,25 @@ function notePayload(input) {
 }
 
 export async function handleBridgeRequest(request, dependencies) {
+  const clock = dependencies.now || (() => performance.now());
+  const startedAt = clock();
+  const logEvent = async ({ action, outcome, httpStatus, errorCode = null, bookId = null }) => {
+    try {
+      await dependencies.logEvent?.({
+        component: 'reading-checkin-bridge',
+        action,
+        outcome,
+        error_code: errorCode,
+        http_status: httpStatus,
+        duration_ms: Math.max(0, Math.round(clock() - startedAt)),
+        book_id: bookId && UUID_PATTERN.test(bookId) ? bookId : null,
+        metadata: { bridge_version: BRIDGE_VERSION },
+      });
+    } catch {
+      // Telemetry is deliberately best-effort and must never change bridge behaviour.
+    }
+  };
+
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: OPTIONS_HEADERS });
   }
@@ -140,16 +164,19 @@ export async function handleBridgeRequest(request, dependencies) {
   try {
     input = await requestInput(request);
   } catch {
+    await logEvent({ action: 'request', outcome: 'invalid_request', httpStatus: 400, errorCode: 'invalid_request' });
     return json({ ok: false, error: 'invalid_request' }, 400);
   }
 
   const action = typeof input.action === 'string' ? input.action : '';
-  if (action !== 'snapshot' && action !== 'note') {
+  if (action !== 'snapshot' && action !== 'note' && action !== 'health') {
+    await logEvent({ action: 'request', outcome: 'unsupported_action', httpStatus: 400, errorCode: 'unsupported_action' });
     return json({ ok: false, error: 'unsupported_action' }, 400);
   }
 
-  const expectedToken = action === 'snapshot' ? dependencies.readToken : dependencies.writeToken;
+  const expectedToken = action === 'note' ? dependencies.writeToken : dependencies.readToken;
   if (!constantTimeEqual(input.token, expectedToken)) {
+    await logEvent({ action, outcome: 'invalid_credentials', httpStatus: 401, errorCode: 'invalid_credentials' });
     return json({ ok: false, error: 'invalid_credentials' }, 401);
   }
 
@@ -157,16 +184,33 @@ export async function handleBridgeRequest(request, dependencies) {
     if (action === 'snapshot') {
       const snapshot = await dependencies.readSnapshot();
       if (!snapshot) throw new Error('snapshot_unavailable');
-      return json({ ok: true, snapshot, bridge_version: 1 });
+      await logEvent({ action, outcome: 'success', httpStatus: 200 });
+      return json({ ok: true, snapshot, bridge_version: BRIDGE_VERSION });
+    }
+
+    if (action === 'health') {
+      const snapshot = await dependencies.readSnapshot();
+      await logEvent({ action, outcome: 'success', httpStatus: 200 });
+      return json({ ok: true, bridge_version: BRIDGE_VERSION, snapshot_available: snapshot != null });
     }
 
     const parsed = notePayload(input);
-    if (parsed.error) return json({ ok: false, error: parsed.error }, 400);
+    if (parsed.error) {
+      await logEvent({ action, outcome: 'rejected', httpStatus: 400, errorCode: parsed.error, bookId: input.book_id });
+      return json({ ok: false, error: parsed.error }, 400);
+    }
     const result = await dependencies.saveNote(parsed.value);
     if (!result || typeof result !== 'object') throw new Error('save_unavailable');
-    if (result.ok === false) return json(result, 400);
+    if (result.ok === false) {
+      const errorCode = SAFE_NOTE_ERRORS.has(result.error) ? result.error : 'rejected';
+      await logEvent({ action, outcome: 'rejected', httpStatus: 400, errorCode, bookId: input.book_id });
+      return json(result, 400);
+    }
+    const outcome = result.throttled === true ? 'throttled' : result.duplicate === true ? 'duplicate' : 'saved';
+    await logEvent({ action, outcome, httpStatus: 200, bookId: input.book_id });
     return json(result);
   } catch {
+    await logEvent({ action, outcome: 'temporarily_unavailable', httpStatus: 503, errorCode: 'temporarily_unavailable', bookId: input.book_id });
     return json({ ok: false, error: 'temporarily_unavailable' }, 503);
   }
 }

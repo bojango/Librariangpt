@@ -13,6 +13,7 @@ function dependencies(overrides = {}) {
     writeToken: WRITE_TOKEN,
     readSnapshot: async () => ({ state: { current_book: { book_id: BOOK_ID } } }),
     saveNote: async () => ({ ok: true, saved: true, duplicate: false, id: BOOK_ID, generated_at: '2026-09-13T18:00:00Z' }),
+    logEvent: async () => {},
     ...overrides,
   };
 }
@@ -43,7 +44,7 @@ test('read token returns only the canonical snapshot and cannot select a user', 
   );
   assert.equal(response.status, 200);
   assert.equal(reads, 1);
-  assert.deepEqual(await body(response), { ok: true, snapshot: { canonical: true }, bridge_version: 1 });
+  assert.deepEqual(await body(response), { ok: true, snapshot: { canonical: true }, bridge_version: 2 });
   assert.equal(response.headers.get('cache-control'), 'no-store, private');
   assert.equal(response.headers.get('pragma'), 'no-cache');
   assert.equal(response.headers.get('x-robots-tag'), 'noindex, nofollow');
@@ -183,6 +184,64 @@ test('unexpected database failures return a stable minimal response', async () =
   );
   assert.equal(response.status, 503);
   assert.deepEqual(await body(response), { ok: false, error: 'temporarily_unavailable' });
+});
+
+test('snapshot success and invalid credentials record secret-free telemetry', async () => {
+  const events = [];
+  const deps = dependencies({ logEvent: async event => events.push(event) });
+  await handleBridgeRequest(new Request(`https://example.test/bridge?action=snapshot&token=${READ_TOKEN}`), deps);
+  await handleBridgeRequest(new Request(`https://example.test/bridge?action=snapshot&token=bad-${READ_TOKEN}`), deps);
+  assert.deepEqual(events.map(event => [event.action, event.outcome, event.http_status]), [
+    ['snapshot', 'success', 200], ['snapshot', 'invalid_credentials', 401],
+  ]);
+  const serialized = JSON.stringify(events);
+  assert.equal(serialized.includes(READ_TOKEN), false);
+  assert.equal(serialized.includes(WRITE_TOKEN), false);
+  assert.deepEqual(events[0].metadata, { bridge_version: 2 });
+});
+
+test('note outcomes record saved, duplicate, throttled, and safe rejection codes without note text', async () => {
+  const cases = [
+    [{ ok: true, saved: true, duplicate: false }, 'saved'],
+    [{ ok: true, saved: false, duplicate: true }, 'duplicate'],
+    [{ ok: true, saved: false, duplicate: false, throttled: true }, 'throttled'],
+    [{ ok: false, error: 'stale_progress' }, 'rejected'],
+  ];
+  for (const [result, expectedOutcome] of cases) {
+    const events = [];
+    const note = `private-note-${expectedOutcome}`;
+    const deps = dependencies({ saveNote: async () => result, logEvent: async event => events.push(event) });
+    await handleBridgeRequest(new Request(`https://example.test/bridge?action=note&token=${WRITE_TOKEN}&book_id=${BOOK_ID}&note=${note}`), deps);
+    assert.equal(events.at(-1).outcome, expectedOutcome);
+    assert.equal(JSON.stringify(events).includes(note), false);
+    if (expectedOutcome === 'rejected') assert.equal(events.at(-1).error_code, 'stale_progress');
+  }
+});
+
+test('telemetry insert failure never breaks a successful bridge request', async () => {
+  const response = await handleBridgeRequest(
+    new Request(`https://example.test/bridge?action=snapshot&token=${READ_TOKEN}`),
+    dependencies({ logEvent: async () => { throw new Error('telemetry offline'); } }),
+  );
+  assert.equal(response.status, 200);
+  assert.equal((await body(response)).ok, true);
+});
+
+test('health requires the read token, returns no snapshot content, and never writes notes', async () => {
+  let reads = 0;
+  let writes = 0;
+  const deps = dependencies({
+    readSnapshot: async () => { reads += 1; return { secret_snapshot_field: 'must-not-leak' }; },
+    saveNote: async () => { writes += 1; return { ok: true }; },
+  });
+  const valid = await handleBridgeRequest(new Request(`https://example.test/bridge?action=health&token=${READ_TOKEN}`), deps);
+  assert.deepEqual(await body(valid), { ok: true, bridge_version: 2, snapshot_available: true });
+  const writeToken = await handleBridgeRequest(new Request(`https://example.test/bridge?action=health&token=${WRITE_TOKEN}`), deps);
+  const badToken = await handleBridgeRequest(new Request('https://example.test/bridge?action=health&token=bad'), deps);
+  assert.equal(writeToken.status, 401);
+  assert.equal(badToken.status, 401);
+  assert.equal(reads, 1);
+  assert.equal(writes, 0);
 });
 
 test('migration fixes owner internally and grants both bridge RPCs only to service_role', async () => {

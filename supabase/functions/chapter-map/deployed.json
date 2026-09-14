@@ -1,7 +1,7 @@
 {
   "slug": "chapter-map",
-  "deployedVersion": 2,
+  "deployedVersion": 5,
   "verifyJwt": true,
-  "sha256": "ece5c084428fb82e34247de4c049f9dfd7458053e8ee2189097c047e27af9ddd",
-  "exportedAt": "2026-09-13"
+  "sha256": "6db8263ae6b45171325cba5ca6f7cc66c6c05f4329f53ab93d69c06df11c2f78",
+  "exportedAt": "2026-09-14"
 }
