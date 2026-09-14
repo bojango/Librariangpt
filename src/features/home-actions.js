@@ -1,33 +1,7 @@
 import { rpc } from '../data/library.js';
 import { cover, esc } from '../ui/format.js';
 import { closeModal, showModal, toast } from '../ui/feedback.js';
-
-export function initialiseCarousel(root) {
-  const wrapper = root.querySelector('[data-carousel]');
-  if (!wrapper) return;
-  const track = wrapper.querySelector('.current-reading-track-v36');
-  const cards = [...track.querySelectorAll('[data-current-card]')];
-  const dots = [...wrapper.querySelectorAll('[data-carousel-dot]')];
-  const indicator = wrapper.querySelector('.current-reading-indicator-v36');
-  let frame = 0;
-  const activate = index => {
-    const safe = Math.max(0, Math.min(cards.length - 1, index));
-    dots.forEach((dot, position) => dot.setAttribute('aria-current', position === safe ? 'true' : 'false'));
-    if (indicator && dots[safe]) indicator.style.transform = `translate3d(${dots[safe].offsetLeft}px,0,0)`;
-    try { sessionStorage.setItem('reading-room-current-card-v2', cards[safe]?.dataset.currentCard || ''); } catch {}
-  };
-  const activeFromScroll = () => {
-    const centre = track.scrollLeft + track.clientWidth / 2;
-    let best = 0; let distance = Infinity;
-    cards.forEach((card, index) => { const next = Math.abs(card.offsetLeft + card.offsetWidth / 2 - centre); if (next < distance) { distance = next; best = index; } });
-    activate(best);
-  };
-  track.addEventListener('scroll', () => { if (frame) return; frame = requestAnimationFrame(() => { frame = 0; activeFromScroll(); }); }, { passive: true });
-  dots.forEach((dot, index) => dot.addEventListener('click', event => { event.stopPropagation(); track.scrollTo({ left: cards[index].offsetLeft, behavior: 'smooth' }); activate(index); }));
-  let start = 0;
-  try { const saved = sessionStorage.getItem('reading-room-current-card-v2'); start = Math.max(0, cards.findIndex(card => card.dataset.currentCard === saved)); } catch {}
-  requestAnimationFrame(() => { if (start && cards[start]) track.scrollLeft = cards[start].offsetLeft; activate(start); });
-}
+import { upNextManagerRows } from './up-next-markup.js';
 
 export function openUpNextDetails(item, books) {
   const root = showModal(`<div class="upnext-detail-shell"><button class="upnext-detail-close" type="button" data-close aria-label="Close">×</button><div class="upnext-detail-head">${cover(item, 'upnext-detail-cover')}<div class="upnext-detail-meta"><p class="upnext-source ${item.source === 'Manual' ? 'manual' : 'ai'}">${item.source === 'Manual' ? 'Your pick' : 'Librarian pick'}${item.locked ? ' · locked' : ''}</p><h2>${esc(item.title)}</h2><p class="upnext-detail-author">${esc(item.authors || 'Unknown author')}</p>${item.ai_score != null ? `<p class="upnext-detail-score">${Number(item.ai_score).toFixed(1)}/10 · ${esc(item.confidence || '')} confidence</p>` : ''}</div></div><div class="upnext-detail-reason"><h3>Why it’s up next</h3><p>${esc(item.reason || item.why_recommended || 'This is a strong fit for what you appear to want next.')}</p></div><div class="upnext-detail-actions"><button class="btn btn-primary" data-read-now type="button">Read now</button><button class="btn" data-open-queued type="button">Open book</button></div></div>`, 'upnext-detail-backdrop');
@@ -35,14 +9,10 @@ export function openUpNextDetails(item, books) {
   root.querySelector('[data-read-now]').addEventListener('click', async event => { event.currentTarget.disabled = true; try { const book = books.find(row => row.id === item.id) || item; await rpc('start_reading', { p_book_id: item.id, p_edition_id: book.current_edition_id || book.display_edition_id || null, p_total_pages: book.total_pages ? Number(book.total_pages) : null }); closeModal(); toast(`${item.title} is now your current read.`); window.dispatchEvent(new CustomEvent('reading-room:refresh')); } catch (error) { toast(error.message || 'Could not start this book', true); event.currentTarget.disabled = false; } });
 }
 
-function managerRow(item, index, length) {
-  return `<div class="queue-manager-row" data-queue-id="${item.queue_id}"><div class="queue-manager-order">${index + 1}</div><div class="queue-manager-copy"><strong>${esc(item.title)}</strong><span>${esc(item.authors || '')}</span><small>${item.source === 'Manual' ? 'Your pick' : 'Librarian pick'}${item.locked ? ' · locked' : ''}</small></div><div class="queue-manager-actions"><button type="button" data-queue-move="up" ${index === 0 ? 'disabled' : ''}>↑</button><button type="button" data-queue-move="down" ${index === length - 1 ? 'disabled' : ''}>↓</button><button type="button" data-queue-lock="${item.locked ? '0' : '1'}">${item.locked ? 'Unlock' : 'Lock'}</button><button type="button" data-queue-remove>Remove</button></div></div>`;
-}
-
 export function openUpNextManager(queue, books) {
   const ids = new Set(queue.map(item => item.id));
   const remaining = books.filter(book => !ids.has(book.id) && !['Currently Reading', 'Read', 'DNF', 'Not Interested'].includes(book.overall_status));
-  const root = showModal(`<div class="upnext-manager-head"><div><p class="eyebrow">Reading queue</p><h2>Manage Up Next</h2></div><button class="btn" type="button" data-close>Done</button></div><p class="upnext-manager-note">Locked items are protected from future librarian reshuffles.</p><div id="queue-manager-list">${queue.map((item, index) => managerRow(item, index, queue.length)).join('')}</div><form id="upnext-add-form" class="upnext-add-form"><label for="upnext-add-book">Add a book manually</label><select id="upnext-add-book" name="book" class="input" ${remaining.length ? '' : 'disabled'}><option value="">${remaining.length ? 'Choose a book…' : 'No eligible books available'}</option>${remaining.map(book => `<option value="${book.id}">${esc(book.title)} — ${esc(book.authors || '')}</option>`).join('')}</select><button class="btn btn-primary" type="submit" ${remaining.length ? '' : 'disabled'}>Add to queue</button></form>`);
+  const root = showModal(`<div class="upnext-manager-head"><div><p class="eyebrow">Reading queue</p><h2>Manage Up Next</h2></div><button class="btn" type="button" data-close>Done</button></div><p class="upnext-manager-note">Locked items are protected from future librarian reshuffles.</p><div id="queue-manager-list">${upNextManagerRows(queue)}</div><form id="upnext-add-form" class="upnext-add-form"><label for="upnext-add-book">Add a book manually</label><select id="upnext-add-book" name="book" class="input" ${remaining.length ? '' : 'disabled'}><option value="">${remaining.length ? 'Choose a book…' : 'No eligible books available'}</option>${remaining.map(book => `<option value="${book.id}">${esc(book.title)} — ${esc(book.authors || '')}</option>`).join('')}</select><button class="btn btn-primary" type="submit" ${remaining.length ? '' : 'disabled'}>Add to queue</button></form>`);
   root.querySelector('[data-close]').addEventListener('click', closeModal);
   root.querySelectorAll('[data-queue-id]').forEach((row, index) => {
     row.querySelectorAll('[data-queue-move]').forEach(button => button.addEventListener('click', async () => { const delta = button.dataset.queueMove === 'up' ? -1 : 1; const reordered = [...queue]; [reordered[index], reordered[index + delta]] = [reordered[index + delta], reordered[index]]; await mutateQueue('up_next_reorder', { p_queue_ids: reordered.map(item => item.queue_id) }); }));

@@ -12,16 +12,20 @@ import { loadingBookView } from './views/loading.js';
 import { closeModal, toast } from './ui/feedback.js';
 import { openAddBook } from './features/add-book.js';
 import { addToWishlist, confirmPause, openCoverPicker, openDnf, openFinish, openPageCount, openProgress, openReview, openStart, refreshMetadata } from './features/reading-actions.js';
-import { initialiseCarousel, openRecommendation, openRecommendationsPage, openUpNextDetails, openUpNextManager } from './features/home-actions.js';
+import { openRecommendation, openRecommendationsPage, openUpNextDetails, openUpNextManager } from './features/home-actions.js';
+import { initialiseCarousel } from './features/current-reading-carousel.js';
 import { openBookAdmin } from './features/book-admin.js';
 import { openEditionBrowser } from './features/editions.js';
 import { handleExactCopyAction } from './features/exact-copy.js';
 import { handleQuoteAction } from './features/quotes.js';
 import { activateCovers, collectCoverImages, reuseCoverImages, setCoverDiagnosticHook } from './ui/cover.js';
+import { animateProgress, installMotionController, progressSnapshot } from './ui/motion.js';
 import { installScrollLifecycle } from './scroll-lifecycle.js';
 import { createSupabaseDiagnosticUploader, diagnostics } from './diagnostics/diagnostics.js';
 import { connectServiceWorkerDiagnostics, diagnosticScrollTo, installDiagnosticsInstrumentation, recordCurrentTitleState, requestServiceWorkerDiagnosticSnapshot } from './diagnostics/instrumentation.js';
 import { diagnosticHistoryMarkup, diagnosticsMenuMarkup, openIssueMarker, syncTestIndicator } from './diagnostics/ui.js';
+import { isGoodreadsRefreshDue } from './utils/metadata.js';
+import { maybeMapCurrentChapters } from './features/chapter-map.js';
 
 const app = document.querySelector('#app');
 const store = createAppState();
@@ -35,6 +39,8 @@ let sessionBootstrapUser = null;
 let scrollTrackingSuspended = false;
 let diagnosticDisposer = null;
 let serviceWorkerRegistration = null;
+let motionController = null;
+let skipNextRouteTransition = false;
 
 diagnostics.configure({
   context: () => ({ route: store.value.route, bookId: store.value.route.bookId || null }),
@@ -72,7 +78,7 @@ function stopDiagnosticRuntime() {
 function cancelScrollRestore() {
   if (scrollRestoreFrame !== null) cancelAnimationFrame(scrollRestoreFrame);
   scrollRestoreFrame = null;
-  scrollTrackingSuspended = false;
+  app.classList.remove('route-scroll-lock');
 }
 
 function currentBook(id = store.value.route.bookId) {
@@ -86,7 +92,12 @@ function saveCurrentScroll() {
 
 function syncNavigation(current, next) {
   const active = next.querySelector('.nav-btn.active')?.dataset.route;
-  current.querySelectorAll('.nav-btn').forEach(button => button.classList.toggle('active', button.dataset.route === active));
+  current.querySelectorAll('.nav-btn').forEach(button => {
+    const isActive = button.dataset.route === active;
+    button.classList.toggle('active', isActive);
+    if (isActive) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
 }
 
 function markRouteEntry(main) {
@@ -95,13 +106,30 @@ function markRouteEntry(main) {
   main.addEventListener('animationend', () => main.classList.remove('route-enter'), { once: true });
 }
 
-function paint(html, { restore = false, restoreY: requestedRestoreY = null, preserveScroll = null, reuseCovers = false, transition = false, renderMode = 'direct' } = {}) {
+function positionAfterPaint(top, reason, route, renderMode, { save = false } = {}) {
+  scrollTrackingSuspended = true;
+  motionController?.suspend();
+  diagnosticScrollTo(diagnostics, reason, { top, left: 0, behavior: 'instant' }, { route: route.name, render_mode: renderMode });
+  scrollRestoreFrame = requestAnimationFrame(() => {
+    scrollRestoreFrame = null;
+    app.classList.remove('route-scroll-lock');
+    if (sameRoute(store.value.route, route) && save) store.saveScroll(route.name, window.scrollY);
+    scrollTrackingSuspended = false;
+    motionController?.resume();
+  });
+}
+
+function paint(html, { restore = false, restoreY: requestedRestoreY = null, preserveScroll = null, positionY = null, positionReason = 'route_position', lockScrollAnchor = false, reuseCovers = false, transition = false, renderMode = 'direct' } = {}) {
   const tracing = diagnostics.isActive();
   cancelScrollRestore();
-  scrollTrackingSuspended = Boolean(restore);
+  if (restore || Number.isFinite(positionY) || Number.isFinite(preserveScroll)) {
+    scrollTrackingSuspended = true;
+    motionController?.suspend();
+  }
   const restoreRoute = restore ? { ...store.value.route } : null;
   const restoreY = restore ? (Number.isFinite(requestedRestoreY) ? requestedRestoreY : store.scrollFor(restoreRoute.name)) : null;
   const oldCoverCount = tracing ? app.querySelectorAll('.cover-image').length : 0;
+  const previousProgress = progressSnapshot(app);
   const coverPool = reuseCovers ? collectCoverImages(app) : null;
   if (tracing) diagnostics.event('paint_start', { route: store.value.route.name, render_mode: renderMode, restore_requested: Boolean(restore), preserve_scroll: Number.isFinite(preserveScroll), old_cover_count: oldCoverCount });
   const template = document.createElement('template');
@@ -109,6 +137,7 @@ function paint(html, { restore = false, restoreY: requestedRestoreY = null, pres
   const nextRoot = template.content.firstElementChild;
   const currentLayout = app.firstElementChild?.matches('.layout') ? app.firstElementChild : null;
   const nextLayout = nextRoot?.matches('.layout') ? nextRoot : null;
+  if (lockScrollAnchor) app.classList.add('route-scroll-lock');
   let activationRoot = app;
   let replacement = 'app_root';
   let reusedCoverCount = 0;
@@ -127,29 +156,19 @@ function paint(html, { restore = false, restoreY: requestedRestoreY = null, pres
   }
   app.dataset.routeView = store.value.route.name;
   activateCovers(activationRoot);
+  animateProgress(activationRoot, previousProgress);
   activationRoot.querySelectorAll('img:not(.cover-image)').forEach(image => image.addEventListener('error', () => { image.hidden = true; }, { once: true }));
   initialiseCarousel(activationRoot);
   syncTestIndicator(diagnostics);
+  motionController?.setNavRoute(store.value.route.name, { animate: transition });
   recordCurrentTitleState(diagnostics, 'home_paint_complete');
   if (tracing) {
     const newCoverCount = activationRoot.querySelectorAll('.cover-image').length;
     diagnostics.event('paint_complete', { route: store.value.route.name, render_mode: renderMode, replacement, transition, restore_requested: Boolean(restore), preserve_scroll: Number.isFinite(preserveScroll), old_cover_count: oldCoverCount, new_cover_count: newCoverCount, covers_reused: reusedCoverCount, covers_recreated: Math.max(0, newCoverCount - reusedCoverCount) });
   }
-  if (restore) {
-    if (restore === 'startup' && restoreY === 0) {
-      scrollTrackingSuspended = false;
-      return;
-    }
-    scrollRestoreFrame = requestAnimationFrame(() => {
-      if (sameRoute(store.value.route, restoreRoute)) diagnosticScrollTo(diagnostics, restore === 'startup' ? 'startup_restore' : 'route_return_restore', { top: restoreY, left: 0, behavior: 'instant' }, { route: restoreRoute.name, render_mode: renderMode });
-      scrollRestoreFrame = requestAnimationFrame(() => {
-        scrollRestoreFrame = null;
-        scrollTrackingSuspended = false;
-        if (sameRoute(store.value.route, restoreRoute)) store.saveScroll(restoreRoute.name, window.scrollY);
-      });
-    });
-  }
-  else if (Number.isFinite(preserveScroll)) diagnosticScrollTo(diagnostics, 'refresh_preserve', { top: preserveScroll, left: 0, behavior: 'instant' }, { route: store.value.route.name, render_mode: renderMode });
+  if (restore) positionAfterPaint(restoreY, restore === 'startup' ? 'startup_restore' : 'route_return_restore', restoreRoute, renderMode, { save: true });
+  else if (Number.isFinite(positionY)) positionAfterPaint(positionY, positionReason, { ...store.value.route }, renderMode);
+  else if (Number.isFinite(preserveScroll)) positionAfterPaint(preserveScroll, 'refresh_preserve', { ...store.value.route }, renderMode);
 }
 
 async function renderRoute(route, { mode = 'navigation', detail = null, restoreY = null } = {}) {
@@ -158,7 +177,8 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
   const routeRestoreY = Number.isFinite(restoreY) ? restoreY : store.scrollFor(route.name);
   if (mode === 'noop' && !routeChanged) { diagnostics.event('route_render_noop', { route: route.name, book_id: route.bookId || null, mode }); return; }
   const preservedY = mode === 'refresh' ? window.scrollY : null;
-  const transition = mode === 'navigation' && routeChanged;
+  const transition = mode === 'navigation' && routeChanged && !skipNextRouteTransition;
+  skipNextRouteTransition = false;
   const version = store.beginRender();
   diagnostics.event('route_render_start', { route: route.name, book_id: route.bookId || null, mode, render_generation: version, route_changed: routeChanged });
   store.setRoute(route);
@@ -168,9 +188,8 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
   if (route.name === 'book') {
     const seed = currentBook(route.bookId);
     if (!seed) { diagnostics.event('route_render_cancelled', { route: route.name, mode, render_generation: version, reason: 'missing_book' }); router.navigate({ name: 'library' }, { replace: true }); return; }
-    if ((mode === 'navigation' || mode === 'startup') && routeChanged) diagnosticScrollTo(diagnostics, 'book_open_top', { top: 0, left: 0, behavior: 'instant' }, { route: route.name, render_mode: mode });
     const paintedLoading = !detail && store.value.detail?.book?.id !== route.bookId && mode === 'navigation';
-    if (paintedLoading) paint(loadingBookView(seed), { transition, renderMode: mode });
+    if (paintedLoading) paint(loadingBookView(seed), { transition, positionY: 0, positionReason: 'book_open_top', lockScrollAnchor: true, renderMode: mode });
     try {
       const loadStarted = performance.now();
       diagnostics.event('book_detail_load_start', { book_id: route.bookId });
@@ -179,7 +198,7 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
       if (!store.isCurrent(version) || store.value.route.name !== 'book' || store.value.route.bookId !== route.bookId) { diagnostics.event('route_render_cancelled', { route: route.name, mode, render_generation: version, reason: 'stale_render' }); return; }
       store.value.detail = nextDetail;
       store.value.route.returnTo = previousRoute;
-      paint(bookDetailView(store.value), { preserveScroll: preservedY, reuseCovers: mode === 'refresh' || paintedLoading, transition: transition && !paintedLoading, renderMode: mode });
+      paint(bookDetailView(store.value), { preserveScroll: preservedY, positionY: !paintedLoading && routeChanged ? 0 : null, positionReason: 'book_open_top', lockScrollAnchor: !paintedLoading && routeChanged, reuseCovers: mode === 'refresh' || paintedLoading, transition: transition && !paintedLoading, renderMode: mode });
       diagnostics.event('route_render_complete', { route: route.name, mode, render_generation: version });
       maybeEnrich(nextDetail, version);
     } catch (error) {
@@ -210,6 +229,10 @@ async function loadSnapshot() {
     store.update(snapshot);
     libraryLoaded = true;
     diagnostics.event('snapshot_load_complete', { duration_ms: Math.round(performance.now() - started), book_count: snapshot.books.length });
+    void maybeMapCurrentChapters(snapshot, {
+      invoke,
+      refresh: () => refresh({ quiet: true, scope: 'library' })
+    });
     return snapshot;
   }).catch(error => { diagnostics.event('snapshot_load_failed', { duration_ms: Math.round(performance.now() - started), name: error?.name, message: error?.message }); throw error; }).finally(() => { dataLoad = null; });
   return dataLoad;
@@ -243,12 +266,16 @@ async function refresh({ quiet = false, scope = 'library', bookId = null } = {})
 
 function maybeEnrich(detail, renderVersion) {
   const book = detail.book;
-  if (!navigator.onLine || (book.synopsis && book.cover_url && book.display_edition_id && detail.ratings.length)) return;
-  const key = `reading-room-enrich:${book.id}`;
+  if (!navigator.onLine) return;
+  const metadataComplete = Boolean(book.synopsis && book.cover_url && book.display_edition_id);
+  const goodreadsDue = isGoodreadsRefreshDue(detail.ratings, detail.refreshState);
+  if (metadataComplete && !goodreadsDue) return;
+  const key = `reading-room-${metadataComplete ? 'goodreads' : 'enrich'}:${book.id}`;
   const last = Number(sessionStorage.getItem(key) || 0);
   if (Date.now() - last < 6 * 60 * 60 * 1000) return;
   sessionStorage.setItem(key, String(Date.now()));
-  invoke('book-background-enrich', { book_id: book.id }).then(async () => {
+  const functionName = metadataComplete ? 'goodreads-rating-refresh' : 'book-background-enrich';
+  invoke(functionName, { book_id: book.id }).then(async () => {
     if (!store.isCurrent(renderVersion) || store.value.route.bookId !== book.id) return;
     await refresh({ quiet: true, scope: 'book', bookId: book.id });
   }).catch(error => console.info('[Reading Room] background enrichment deferred:', error?.message || error));
@@ -257,7 +284,10 @@ function maybeEnrich(detail, renderVersion) {
 function navigate(route) {
   const restoreY = store.scrollFor(route.name);
   saveCurrentScroll();
-  if (!sameRoute(store.value.route, route)) scrollTrackingSuspended = true;
+  if (!sameRoute(store.value.route, route)) {
+    scrollTrackingSuspended = true;
+    motionController?.suspend({ expand: true });
+  }
   if (route.name === 'book') {
     previousRoute = ['home', 'library', 'wishlist'].includes(store.value.route.name) ? store.value.route.name : previousRoute;
     bookHasReturnRoute = store.value.route.name !== 'book';
@@ -273,7 +303,12 @@ app.addEventListener('click', async event => {
   if (route) { navigate({ name: route.dataset.route, bookId: null }); return; }
   const open = target.closest('[data-open-book]');
   if (open && !target.closest('[data-progress]')) { navigate({ name: 'book', bookId: open.dataset.openBook }); return; }
-  if (target.closest('[data-back]')) { if (bookHasReturnRoute) { bookHasReturnRoute = false; history.back(); } else navigate({ name: previousRoute }); return; }
+  if (target.closest('[data-back]')) {
+    scrollTrackingSuspended = true;
+    motionController?.suspend({ expand: true });
+    if (bookHasReturnRoute) { bookHasReturnRoute = false; history.back(); } else navigate({ name: previousRoute });
+    return;
+  }
   if (target.closest('[data-refresh]')) { refresh(); return; }
   if (target.closest('[data-menu]')) { openMenu(); return; }
   if (target.closest('[data-signout]')) { supabase.auth.signOut(); return; }
@@ -289,7 +324,7 @@ app.addEventListener('click', async event => {
   else if (target.closest('[data-finish]')) openFinish(book);
   else if (target.closest('[data-pause]')) confirmPause(book);
   else if (target.closest('[data-dnf]')) openDnf(book);
-  else if (target.closest('[data-wishlist]')) addToWishlist(book);
+  else if (target.closest('[data-wishlist]')) addToWishlist(book, target.closest('[data-wishlist]'));
   else if (target.closest('[data-review]')) openReview(book);
   else if (target.closest('[data-page-count]')) openPageCount(book);
   else if (target.closest('[data-cover-picker]')) openCoverPicker(book);
@@ -436,7 +471,7 @@ async function init() {
     if (!nextSession) {
       libraryLoaded = false;
       sessionBootstrapUser = null;
-      store.update({ books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], detail: null });
+      store.update({ books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], readingCardNotes: [], detail: null });
       paint(authView(store.value.authMode));
       return;
     }
@@ -465,6 +500,14 @@ installScrollLifecycle({
   save: (name, y) => store.saveScroll(name, y),
   cancelRestore: cancelScrollRestore,
   isSuspended: () => scrollTrackingSuspended
+});
+
+motionController = installMotionController({
+  getRoute: () => store.value.route,
+  goBack: () => {
+    skipNextRouteTransition = true;
+    app.querySelector('[data-back]')?.click();
+  }
 });
 
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';

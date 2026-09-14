@@ -9,7 +9,7 @@ function dayStamp(value) {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
 }
 
 export function fmtDate(value) {
@@ -48,6 +48,25 @@ export function progressText(book) {
   if (book.current_page == null && book.total_pages == null) return 'Progress not recorded';
   if (book.total_pages == null) return `Page ${book.current_page ?? 0}`;
   return `Page ${book.current_page ?? 0} of ${book.total_pages}`;
+}
+
+const STATUS_CLASSES = new Map([
+  ['Currently Reading', 'currently-reading'],
+  ['Read', 'read'],
+  ['Wishlist', 'wishlist'],
+  ['Owned', 'owned'],
+  ['Owned - Unread', 'owned'],
+  ['Paused', 'paused'],
+  ['DNF', 'dnf'],
+  ['Not Interested', 'not-interested']
+]);
+
+export function statusPill(status) {
+  const label = String(status || '').trim();
+  if (!label) return '';
+  const kind = STATUS_CLASSES.get(label) || 'neutral';
+  const icon = kind === 'read' ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8.25 3.1 3.1L13 4.75"/></svg>' : '';
+  return `<span class="status-pill status-${kind}">${icon}<span>${escapeHtml(label)}</span></span>`;
 }
 
 export function coverPalette(title = '') {

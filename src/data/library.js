@@ -30,34 +30,37 @@ export function clearRequestDedupe() {
 
 export function loadLibrarySnapshot() {
   return dedupe('library-snapshot', async () => {
-    const [books, recommendations, upNext, aiRecommendations, chapters] = await Promise.all([
+    const [books, recommendations, upNext, aiRecommendations, chapters, readingCardNotes] = await Promise.all([
       supabase.from('v_library').select('*').order('title'),
       optional(supabase.from('recommendations').select('book_id,recommendation_strength,match_score_10,recommendation_status,why_recommended,frontend_featured,frontend_shelf,user_interest,prediction_accuracy_5,outcome,date_recommended').order('match_score_10', { ascending: false, nullsFirst: false })),
       optional(supabase.from('v_up_next').select('*').order('position')),
       optional(supabase.from('v_ai_recommendations').select('*').order('display_rank', { ascending: true })),
-      optional(supabase.from('v_library_chapters').select('*').eq('overall_status', 'Currently Reading'))
+      optional(supabase.from('v_library_chapters').select('*').eq('overall_status', 'Currently Reading')),
+      optional(supabase.from('v_latest_reading_card_notes').select('book_id,session_id,note_text,page,progress_percent,chapter_number,chapter_title,source,generated_at'))
     ]);
     return {
       books: unwrap(books),
       recommendations,
       upNext,
       aiRecommendations,
-      chapters
+      chapters,
+      readingCardNotes
     };
   });
 }
 
 export function loadBookDetail(bookId) {
   return dedupe(`book:${bookId}`, async () => {
-    const [book, ratings, recommendation, quotes, editions, enrichment] = await Promise.all([
+    const [book, ratings, recommendation, quotes, editions, enrichment, refreshState] = await Promise.all([
       supabase.from('v_library').select('*').eq('id', bookId).single(),
       optional(supabase.from('public_ratings').select('provider,rating_5,rating_count,review_count,source_url,is_primary,fetched_at').eq('book_id', bookId).order('is_primary', { ascending: false }).order('fetched_at', { ascending: false })),
       optional(supabase.from('recommendations').select('why_recommended,match_score_10,outcome,recommendation_strength,date_recommended').eq('book_id', bookId).order('date_recommended', { ascending: false }).limit(1).maybeSingle(), null),
       optional(supabase.from('book_quotes').select('id,book_id,edition_id,session_id,page_start,page_end,chapter,quote_text,note,capture_method,created_at,updated_at').eq('book_id', bookId).order('page_start', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true })),
       optional(supabase.from('editions').select('*').eq('book_id', bookId)),
-      optional(supabase.from('books').select('editions_status,editions_last_refreshed_at,editions_error,metadata_status,metadata_retry_after').eq('id', bookId).single(), {})
+      optional(supabase.from('books').select('editions_status,editions_last_refreshed_at,editions_error,metadata_status,metadata_retry_after').eq('id', bookId).single(), {}),
+      optional(supabase.from('rating_refresh_state').select('last_attempted_at,last_success_at,next_retry_at,failure_count').eq('book_id', bookId).eq('provider', 'Goodreads').maybeSingle(), null)
     ]);
-    return { book: unwrap(book, null), ratings, recommendation, quotes, editions, enrichment };
+    return { book: unwrap(book, null), ratings, recommendation, quotes, editions, enrichment, refreshState };
   });
 }
 

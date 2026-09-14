@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chooseProviderId, confidenceRank, convertProgress, mergeTrustedMetadata, selectCoverCandidate, selectPrimaryRating } from '../../src/utils/metadata.js';
+import { chooseProviderId, confidenceRank, convertProgress, isGoodreadsRefreshDue, mergeTrustedMetadata, selectCoverCandidate, selectGoodreadsRating } from '../../src/utils/metadata.js';
 
 test('orders metadata confidence and protects trusted exact identity', () => {
   assert.ok(confidenceRank('user') > confidenceRank('exact'));
@@ -20,10 +20,21 @@ test('reuses a known provider id before rediscovery', () => {
   assert.equal(chooseProviderId({ google: 'g-123' }, [{ provider: 'google' }, { provider: 'openlibrary' }]), 'g-123');
 });
 
-test('ratings remain independent and choose a stable primary source', () => {
+test('visible public rating selects Goodreads only', () => {
   const ratings = [{ provider: 'Google Books', rating_5: 4.1, is_primary: true }, { provider: 'Goodreads', rating_5: 4.3 }];
-  assert.equal(selectPrimaryRating(ratings).provider, 'Goodreads');
+  assert.equal(selectGoodreadsRating(ratings).provider, 'Goodreads');
+  assert.equal(selectGoodreadsRating([{ provider: 'Open Library', rating_5: 4.2 }]), null);
+  assert.equal(selectGoodreadsRating([{ provider: 'Google Books', rating_5: 4.1 }]), null);
+  assert.equal(selectGoodreadsRating([]), null);
   assert.equal(mergeTrustedMetadata({ title: 'Book' }, {}).title, 'Book');
+});
+
+test('Goodreads refresh due logic honours freshness and retry state', () => {
+  const now = Date.parse('2026-09-12T12:00:00Z');
+  assert.equal(isGoodreadsRefreshDue([{ provider: 'Goodreads', fetched_at: '2026-09-10T12:00:00Z' }], null, now), false);
+  assert.equal(isGoodreadsRefreshDue([{ provider: 'Goodreads', fetched_at: '2026-09-01T12:00:00Z' }], null, now), true);
+  assert.equal(isGoodreadsRefreshDue([], { next_retry_at: '2026-09-13T12:00:00Z' }, now), false);
+  assert.equal(isGoodreadsRefreshDue([], { next_retry_at: '2026-09-12T11:00:00Z' }, now), true);
 });
 
 test('converts reading progress safely when editions change', () => {

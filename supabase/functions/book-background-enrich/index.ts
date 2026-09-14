@@ -18,11 +18,12 @@ Deno.serve(async(req:Request)=>{
     const headers={Authorization:auth,apikey:anon,'Content-Type':'application/json'};
     const call=async(slug:string,payload:any)=>{try{const r=await fetch(`${url}/functions/v1/${slug}`,{method:'POST',headers,body:JSON.stringify(payload)});const data=await r.json().catch(()=>null);return{slug,ok:r.ok,data}}catch(e){return{slug,ok:false,error:e?.message||String(e)}}};
     const work=(async()=>{
-      const results=await Promise.allSettled([
+      const metadataResults=await Promise.allSettled([
         call('content-enrichment',{book_id:bookId,force:true}),
         call('edition-options',{book_id:bookId,force:true})
       ]);
-      const detail=results.map((x:any)=>x.status==='fulfilled'?x.value:{ok:false,error:x.reason?.message||String(x.reason)});
+      const goodreadsResult=await call('goodreads-rating-refresh',{book_id:bookId,force:false});
+      const detail=[...metadataResults.map((x:any)=>x.status==='fulfilled'?x.value:{ok:false,error:x.reason?.message||String(x.reason)}),goodreadsResult];
       await admin.from('library_events').insert({user_id:ud.data.user.id,book_id:bookId,event_type:'background_enrichment_finished',source:'background',payload:{finished_at:new Date().toISOString(),results:detail}}).catch(()=>null);
     })();
     // Supabase Edge background task survives after the HTTP response is returned.
