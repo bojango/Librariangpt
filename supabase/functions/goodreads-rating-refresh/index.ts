@@ -1,8 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 import {
   MAX_GOODREADS_BATCH_SIZE,
-  cleanIsbn,
+  DEFAULT_GOODREADS_BATCH_SIZE,
   failureStateUpdate,
+  goodreadsDiscoveryQueries,
   goodreadsBookIdentity,
   parseGoodreadsJsonLd,
   processSequentially,
@@ -68,8 +69,9 @@ function candidateUrls(html: string, finalUrl: string) {
   const values = [] as string[];
   const redirected = goodreadsBookIdentity(finalUrl);
   if (redirected) values.push(redirected.sourceUrl);
-  for (const match of html.matchAll(/href=["'](?:https:\/\/(?:www\.)?goodreads\.com)?(\/book\/show\/\d+[^"'#?]*)["']/gi)) {
-    const identity = goodreadsBookIdentity(`https://www.goodreads.com${match[1].replace(/&amp;/g, '&')}`);
+  for (const match of html.matchAll(/(?:https:\/\/(?:www\.)?goodreads\.com)?\/(?:en\/)?book\/show\/\d+[^"'#?&<\\\s]*/gi)) {
+    const candidate = match[0].startsWith('http') ? match[0] : `https://www.goodreads.com${match[0]}`;
+    const identity = goodreadsBookIdentity(candidate.replace(/&amp;/g, '&'));
     if (identity) values.push(identity.sourceUrl);
   }
   return [...new Set(values)];
@@ -101,9 +103,7 @@ async function saveRating(admin: any, bookId: string, existing: any, identity: a
     fetched_at: new Date().toISOString(),
     notes: 'Cached from public Goodreads structured book metadata.'
   };
-  const write = existing?.id
-    ? await admin.from('public_ratings').update(payload).eq('id', existing.id)
-    : await admin.from('public_ratings').insert(payload);
+  const write = await admin.from('public_ratings').upsert(payload, { onConflict: 'book_id,provider' });
   if (write.error) throw new Error(`Could not cache Goodreads rating: ${write.error.message}`);
   await admin.from('public_ratings').update({ is_primary: false }).eq('book_id', bookId).neq('provider', PROVIDER);
   await recordSuccess(admin, bookId);
@@ -118,8 +118,7 @@ async function directRefresh(admin: any, book: any, existing: any, identity: any
 }
 
 async function discover(admin: any, book: any, existing: any) {
-  const queries = [cleanIsbn(book.isbn13), cleanIsbn(book.isbn10), `${book.title} ${book.author}`]
-    .map(value => value.trim()).filter(Boolean);
+  const queries = goodreadsDiscoveryQueries(book);
   const visited = new Set<string>();
   for (const query of queries) {
     const search = await goodreadsFetch(`https://www.goodreads.com/search?q=${encodeURIComponent(query)}`);
@@ -128,7 +127,8 @@ async function discover(admin: any, book: any, existing: any) {
       visited.add(sourceUrl);
       const identity = goodreadsBookIdentity(sourceUrl);
       if (!identity) continue;
-      const page = sourceUrl === search.finalUrl ? search : await goodreadsFetch(sourceUrl);
+      const searchIdentity = goodreadsBookIdentity(search.finalUrl);
+      const page = searchIdentity?.providerBookId === identity.providerBookId ? search : await goodreadsFetch(sourceUrl);
       const parsed = parseGoodreadsJsonLd(page.html);
       if (!parsed) continue;
       const match = validateGoodreadsCandidate(book, parsed);
@@ -140,9 +140,11 @@ async function discover(admin: any, book: any, existing: any) {
 }
 
 async function refreshBook(admin: any, bookId: string, force: boolean) {
-  const [bookResult, authorResult, ratingResult, stateResult] = await Promise.all([
-    admin.from('v_library').select('id,title,authors,isbn10,isbn13').eq('id', bookId).maybeSingle(),
+  const [bookResult, authorResult, libraryResult, editionsResult, ratingResult, stateResult] = await Promise.all([
+    admin.from('books').select('id,title,reference_edition_id').eq('id', bookId).maybeSingle(),
     admin.from('book_authors').select('author_order,authors(name)').eq('book_id', bookId).order('author_order').limit(1).maybeSingle(),
+    admin.from('library_entries').select('current_edition_id').eq('book_id', bookId).maybeSingle(),
+    admin.from('editions').select('id,isbn10,isbn13,preferred_copy,created_at').eq('book_id', bookId).order('preferred_copy', { ascending: false }).order('created_at'),
     admin.from('public_ratings').select('id,provider,provider_book_id,source_url,rating_5,rating_count,review_count,fetched_at').eq('book_id', bookId).ilike('provider', PROVIDER).limit(1).maybeSingle(),
     admin.from('rating_refresh_state').select('last_attempted_at,last_success_at,next_retry_at,failure_count,last_error,last_http_status').eq('book_id', bookId).eq('provider', PROVIDER).maybeSingle()
   ]);
@@ -154,8 +156,15 @@ async function refreshBook(admin: any, bookId: string, force: boolean) {
   const claim = await admin.rpc('claim_goodreads_rating_refresh', { p_book_id: bookId, p_force: force });
   if (claim.error) throw new Error(`Could not claim Goodreads refresh: ${claim.error.message}`);
   if (claim.data !== true) return { book_id: bookId, ok: true, status: 'not_due', cached: true };
+  const editions = editionsResult.data || [];
+  const preferredEditionId = libraryResult.data?.current_edition_id || bookResult.data.reference_edition_id;
+  const edition = editions.find((row: any) => row.id === preferredEditionId)
+    || editions.find((row: any) => row.isbn13 || row.isbn10)
+    || {};
   const book = {
     ...bookResult.data,
+    isbn13: edition.isbn13 || null,
+    isbn10: edition.isbn10 || null,
     author: String(authorResult.data?.authors?.name || authorResult.data?.authors?.[0]?.name || bookResult.data.authors || '').split(',')[0].trim()
   };
   const identity = goodreadsBookIdentity(existing?.provider_book_id) || goodreadsBookIdentity(existing?.source_url);
@@ -179,9 +188,11 @@ async function refreshBook(admin: any, bookId: string, force: boolean) {
   }
 }
 
-async function authorise(req: Request, url: string, anon: string, service: string) {
+async function authorise(req: Request, url: string, anon: string, service: string, schedulerToken: string) {
   const auth = req.headers.get('Authorization') || '';
   const apiKey = req.headers.get('apikey') || '';
+  const suppliedSchedulerToken = req.headers.get('x-goodreads-scheduler-token') || '';
+  if (schedulerToken && suppliedSchedulerToken === schedulerToken) return { service: true, scheduler: true };
   if (auth === `Bearer ${service}` || apiKey === service) return { service: true };
   if (!auth) return null;
   const user = createClient(url, anon, { global: { headers: { Authorization: auth } } });
@@ -198,7 +209,8 @@ Deno.serve(async (req: Request) => {
     const url = Deno.env.get('SUPABASE_URL')!;
     const anon = Deno.env.get('SUPABASE_ANON_KEY')!;
     const service = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const caller = await authorise(req, url, anon, service);
+    const schedulerToken = Deno.env.get('GOODREADS_SCHEDULER_TOKEN') || '';
+    const caller = await authorise(req, url, anon, service, schedulerToken);
     if (!caller) return json({ error: 'Not authorized' }, 401);
     const body = await req.json().catch(() => ({}));
     const force = body?.force === true;
@@ -208,15 +220,15 @@ Deno.serve(async (req: Request) => {
     else if (Array.isArray(body?.book_ids)) bookIds = body.book_ids.map(String);
     else {
       if (!caller.service) return json({ error: 'book_id required' }, 400);
-      const requested = Number(body?.batch_size || 6);
-      const batchSize = Math.min(MAX_GOODREADS_BATCH_SIZE, Math.max(1, Number.isFinite(requested) ? Math.floor(requested) : 6));
+      const requested = Number(body?.batch_size || DEFAULT_GOODREADS_BATCH_SIZE);
+      const batchSize = Math.min(MAX_GOODREADS_BATCH_SIZE, Math.max(1, Number.isFinite(requested) ? Math.floor(requested) : DEFAULT_GOODREADS_BATCH_SIZE));
       const due = await admin.rpc('select_due_goodreads_rating_books', { p_limit: batchSize });
       if (due.error) throw new Error(`Could not select due Goodreads books: ${due.error.message}`);
       bookIds = (due.data || []).map((row: any) => String(row.book_id));
     }
     bookIds = [...new Set(bookIds)].slice(0, MAX_GOODREADS_BATCH_SIZE);
     if (!bookIds.length) return json({ ok: true, processed: 0, results: [] });
-    const results = await processSequentially(bookIds, bookId => refreshBook(admin, bookId, force));
+    const results = await processSequentially(bookIds, (bookId: string) => refreshBook(admin, bookId, force));
     return json({ ok: results.every(result => result.ok || result.status === 'unresolved' || result.status === 'retry_scheduled'), processed: results.length, results });
   } catch (error) {
     console.error(error);

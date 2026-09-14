@@ -1,5 +1,7 @@
 export const GOODREADS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const MAX_GOODREADS_BATCH_SIZE = 8;
+export const DEFAULT_GOODREADS_BATCH_SIZE = 6;
+export const GOODREADS_RUNS_PER_DAY = 2;
 
 export function cleanText(value) {
   return String(value ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -15,6 +17,15 @@ export function normalizeText(value) {
 
 export function cleanIsbn(value) {
   return String(value ?? '').replace(/[^0-9Xx]/g, '').toUpperCase();
+}
+
+export function goodreadsDiscoveryQueries(book) {
+  return [cleanIsbn(book?.isbn13), cleanIsbn(book?.isbn10), `${cleanText(book?.title)} ${cleanText(book?.author)}`.trim()]
+    .filter(Boolean);
+}
+
+export function weeklyRefreshCapacity(batchSize = DEFAULT_GOODREADS_BATCH_SIZE, runsPerDay = GOODREADS_RUNS_PER_DAY) {
+  return Math.max(0, Math.floor(batchSize)) * Math.max(0, Math.floor(runsPerDay)) * 7;
 }
 
 export function textSimilarity(left, right) {
@@ -87,15 +98,15 @@ export function validateGoodreadsCandidate(book, candidate) {
   const conflictingIsbn = expectedIsbns.length > 0 && exposedIsbns.length > 0 && !exactIsbn;
   const titleScore = textSimilarity(book?.title, candidate.title);
   const authorScore = authorSimilarity(book?.author, candidate.authors);
-  if (conflictingIsbn) return { matched: false, reason: 'isbn_mismatch', titleScore, authorScore };
   if (exactIsbn && titleScore >= 0.72 && authorScore >= 0.72) return { matched: true, confidence: 'isbn', titleScore, authorScore };
+  if (conflictingIsbn && (titleScore < 0.95 || authorScore < 0.95)) return { matched: false, reason: 'isbn_mismatch', titleScore, authorScore };
   if (titleScore >= 0.9 && authorScore >= 0.9) return { matched: true, confidence: 'title_author', titleScore, authorScore };
   return { matched: false, reason: 'insufficient_confidence', titleScore, authorScore };
 }
 
 export function goodreadsBookIdentity(value) {
   const text = String(value || '').trim();
-  const fromUrl = text.match(/^https:\/\/(?:www\.)?goodreads\.com\/book\/show\/(\d+)(?:[./?#_-]|$)/i);
+  const fromUrl = text.match(/^https:\/\/(?:www\.)?goodreads\.com\/(?:en\/)?book\/show\/(\d+)(?:[./?#_-]|$)/i);
   const fromId = text.match(/^(\d+)$/);
   const providerBookId = fromUrl?.[1] || fromId?.[1] || null;
   return providerBookId ? {
