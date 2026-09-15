@@ -10,12 +10,11 @@ test('distinguishes route identity from same-route data refreshes', () => {
 });
 
 test('snapshot comparison ignores route and viewport state but detects data changes', () => {
-  const initial = { books: [{ id: '1', title: 'A' }], upNext: [], recommendations: [], aiRecommendations: [], chapters: [], readingCardNotes: [], route: { name: 'home' }, scroll: { home: 900 } };
+  const initial = { books: [{ id: '1', title: 'A' }], upNext: [], recommendations: [], aiRecommendations: [], chapters: [], route: { name: 'home' }, scroll: { home: 900 } };
   const viewportOnly = { ...initial, route: { name: 'library' }, scroll: { home: 0 } };
   const changed = { ...initial, books: [{ id: '1', title: 'Updated' }] };
   assert.equal(snapshotFingerprint(initial), snapshotFingerprint(viewportOnly));
   assert.notEqual(snapshotFingerprint(initial), snapshotFingerprint(changed));
-  assert.notEqual(snapshotFingerprint(initial), snapshotFingerprint({ ...initial, readingCardNotes: [{ book_id: '1', note_text: 'New' }] }));
 });
 
 test('detail comparison detects edition mutations without changing route identity', () => {

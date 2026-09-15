@@ -471,7 +471,7 @@ async function init() {
     if (!nextSession) {
       libraryLoaded = false;
       sessionBootstrapUser = null;
-      store.update({ books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], readingCardNotes: [], detail: null });
+      store.update({ books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], detail: null });
       paint(authView(store.value.authMode));
       return;
     }

@@ -36,15 +36,7 @@ test('currently-reading carousel and wishlist render directly', async ({ page })
   await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('[data-current-card]')).toHaveCount(2);
   await expect(page.locator('[data-carousel-dot]')).toHaveCount(2);
-  await expect(page.locator('[data-current-card="current-1"] .librarian-note')).toContainText('You have moved quickly through this section.');
-  await expect(page.locator('[data-current-card="current-2"] .librarian-note')).toHaveCount(0);
-  const noteFits = await page.locator('[data-current-card="current-1"]').evaluate(card => {
-    const note = card.querySelector('.librarian-note').getBoundingClientRect();
-    const actions = card.querySelector('.hero-actions').getBoundingClientRect();
-    const bounds = card.getBoundingClientRect();
-    return note.top >= bounds.top && actions.bottom <= bounds.bottom;
-  });
-  expect(noteFits).toBe(true);
+  await expect(page.locator('[data-current-card] .book-librarian-note, [data-current-card] .librarian-note')).toHaveCount(0);
   await page.locator('[data-route="wishlist"]').first().click();
   await expect(page.getByRole('heading', { name: 'Wishlist' })).toBeVisible();
   await expect(page.locator('.book-card')).toHaveCount(1);
@@ -74,11 +66,29 @@ test('mobile current-reading cards stay compact without context and grow without
     };
   });
   expect(layout.compact.height).toBeLessThan(340);
-  expect(layout.contextual.height).toBeGreaterThanOrEqual(layout.compact.height);
+  expect(layout.contextual.height).toBeLessThan(340);
   expect(layout.compactActionsBottom).toBeLessThanOrEqual(layout.compactBottom);
   expect(layout.compactCoverHeight).toBeGreaterThan(180);
   expect(layout.progressHeight).toBe(10);
   expect(layout.dots.top).toBeGreaterThanOrEqual(Math.max(layout.compact.bottom, layout.contextual.bottom));
+});
+
+test('latest Librarian note appears only on the current book detail between ratings and Synopsis', async ({ page }) => {
+  await page.goto('/tests/e2e/fixture.html#/book/current-1');
+  const note = page.locator('.book-librarian-note');
+  await expect(note).toContainText('You have moved quickly through this section.');
+  const order = await page.locator('.detail-copy-v4').evaluate(root => ({
+    rating: [...root.children].indexOf(root.querySelector('.rating-primary-row')),
+    note: [...root.children].indexOf(root.querySelector('.book-librarian-note')),
+    synopsis: [...root.children].indexOf(root.querySelector('.book-synopsis')),
+    clipped: root.querySelector('.book-librarian-note p').scrollHeight > root.querySelector('.book-librarian-note p').clientHeight
+  }));
+  expect(order.rating).toBeLessThan(order.note);
+  expect(order.note).toBeLessThan(order.synopsis);
+  expect(order.clipped).toBe(false);
+
+  await page.goto('/tests/e2e/fixture.html#/book/read-1');
+  await expect(page.locator('.book-librarian-note')).toHaveCount(0);
 });
 
 test('header mark is visible and carousel memory follows ordered membership', async ({ page }) => {
@@ -296,11 +306,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('58');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('59');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '58')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v58');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '59')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v59');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -312,7 +322,7 @@ test.describe('service-worker-controlled document', () => {
       channel.port1.onmessage = event => resolve(event.data);
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
-    expect(state).toMatchObject({ generation: '58', shell_cache: 'reading-room-shell-v58', cover_cache: 'reading-room-covers-v3' });
+    expect(state).toMatchObject({ generation: '59', shell_cache: 'reading-room-shell-v59', cover_cache: 'reading-room-covers-v3' });
     expect(state.cover_cache_hits).toBeGreaterThanOrEqual(0);
     expect(state.cover_cache_misses).toBeGreaterThanOrEqual(0);
     expect(state.cover_network_fetches).toBeGreaterThanOrEqual(0);
