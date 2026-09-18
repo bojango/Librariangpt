@@ -581,6 +581,26 @@ main.route-enter{animation:route-enter 160ms ease-out both}
   .bottom-nav{border-radius:22px!important;background:#f7f4ec!important;backdrop-filter:none!important;box-shadow:0 10px 30px rgba(43,40,34,.1)!important;padding:7px!important}
 }
 
+/* Scoped Reading Room refinements. */
+.book-librarian-note{margin:-8px 0 24px;padding:15px 18px 16px 20px;border:0;border-left:3px solid #f7f4ec;background:var(--accent-dark);color:#f7f4ec}
+.book-librarian-note-label{margin-bottom:7px;color:#f7f4ec}
+.book-librarian-note p{color:#f7f4ec}
+.saved-quote-v40 blockquote{font-style:italic}
+.current-reading-card-v36{align-items:stretch;padding:clamp(20px,2.4vw,28px)}
+.current-reading-card-v36 .hero-copy{display:flex;flex-direction:column}
+.current-reading-card-v36 .hero-actions{margin-top:auto}
+.nav-btn{gap:0!important}
+.nav-active-indicator{bottom:3px}
+@media(max-width:899px){
+  .bottom-nav{min-height:56px!important;padding:4px 7px!important}
+  .bottom-nav.compact{min-height:48px!important;padding:1px 7px!important}
+  .bottom-nav.compact .nav-active-indicator{bottom:2px}
+}
+@media(max-width:700px){
+  .book-librarian-note{margin:-4px 0 21px;padding:13px 14px 14px 16px}
+  .current-reading-card-v36{padding:14px!important}
+}
+
 /* PRESS: only controls and cards that already navigate or mutate state. */
 .book-card,.upnext-card,.recommended-card,.recommended-list-card,.rating-user,.cover-option{transform:translateY(0) scale(1);transition:transform var(--motion-release) var(--ease-premium),box-shadow var(--motion-release) ease,background-color var(--motion-release) ease;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .book-card .cover{box-shadow:0 7px 16px rgba(49,43,34,.11)!important;transition:transform var(--motion-release) var(--ease-premium),box-shadow var(--motion-release) ease!important}
