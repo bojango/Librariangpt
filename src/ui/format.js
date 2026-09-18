@@ -39,6 +39,20 @@ export function readingDurationText(startedAt, completedAt = null, now = new Dat
   return days === 0 ? 'Started today' : `${days} day${days === 1 ? '' : 's'} reading`;
 }
 
+export function pagesPerDay(book, now = new Date()) {
+  const days = readingDayCount(book?.started_at, book?.completed_at, now);
+  const pages = book?.completed_at ? Number(book?.total_pages) : Number(book?.current_page);
+  if (days == null || !Number.isFinite(pages) || pages <= 0) return null;
+  return pages / Math.max(1, days);
+}
+
+export function estimatedWordCount(book) {
+  const pages = Number(book?.edition_page_count || book?.total_pages);
+  if (!Number.isFinite(pages) || pages <= 0) return null;
+  // Estimate assumes a compact trade-book average of 250 words per page.
+  return Math.round(pages * 250);
+}
+
 export function progressPct(book) {
   const value = Number(book.progress_percent);
   return Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;

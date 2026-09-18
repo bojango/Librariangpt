@@ -23,11 +23,14 @@ export function filteredBooks(state, routeName) {
 }
 
 function card(book, index) {
-  return `<article class="book-card" data-open-book="${book.id}" tabindex="0" role="button" aria-label="Open ${esc(book.title)}">${cover(book, '', { eager: index < 6, high: index < 3 })}<div class="book-title">${esc(book.title)}</div><div class="book-author">${esc(book.authors || 'Unknown author')}</div></article>`;
+  const eager = book.overall_status === 'Currently Reading' || index < 6;
+  const high = book.overall_status === 'Currently Reading' || index < 3;
+  return `<article class="book-card" data-open-book="${book.id}" tabindex="0" role="button" aria-label="Open ${esc(book.title)}">${cover(book, '', { eager, high })}<div class="book-title">${esc(book.title)}</div><div class="book-author">${esc(book.authors || 'Unknown author')}</div></article>`;
 }
 
 export function libraryView(state, routeName) {
   const books = filteredBooks(state, routeName);
   const filter = routeName === 'wishlist' ? 'Wishlist' : state.filters.library;
-  return chrome(`<div class="page-heading"><p class="eyebrow">Catalogue</p><h1>${routeName === 'wishlist' ? 'Wishlist' : filter === 'All' ? 'Library' : esc(filter)}</h1><p>${books.length} ${books.length === 1 ? 'book' : 'books'} in this view.</p></div><div class="toolbar"><button class="btn btn-primary" data-add-book type="button">Add book</button><input id="library-search" class="input search" data-library-search="${routeName}" type="search" placeholder="Search title, author, genre or series" value="${esc(state.queries[routeName] || '')}">${routeName === 'library' ? `<div class="filters">${FILTERS.map(item => `<button class="filter ${filter === item ? 'active' : ''}" data-filter="${item}">${item}</button>`).join('')}</div>` : ''}</div><div class="library-grid">${books.map(card).join('')}</div>`, routeName);
+  const cards = books.map(card).join('');
+  return chrome(`<div class="page-heading"><p class="eyebrow">Catalogue</p><h1>${routeName === 'wishlist' ? 'Wishlist' : filter === 'All' ? 'Library' : esc(filter)}</h1><p>${books.length} ${books.length === 1 ? 'book' : 'books'} in this view.</p></div><div class="toolbar"><button class="btn btn-primary" data-add-book type="button">Add book</button><input id="library-search" class="input search" data-library-search="${routeName}" type="search" placeholder="Search title, author, genre or series" value="${esc(state.queries[routeName] || '')}">${routeName === 'library' ? `<div class="filters">${FILTERS.map(item => `<button class="filter ${filter === item ? 'active' : ''}" data-filter="${item}">${item}</button>`).join('')}</div>` : ''}</div><div class="library-grid">${cards}</div>`, routeName);
 }

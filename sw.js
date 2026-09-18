@@ -1,4 +1,4 @@
-const GENERATION = '60';
+const GENERATION = '61';
 const SHELL = `reading-room-shell-v${GENERATION}`;
 const COVERS = 'reading-room-covers-v3';
 const APP_SHELL = [

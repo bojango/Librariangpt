@@ -1,5 +1,5 @@
 import { chrome } from '../ui/chrome.js';
-import { cover as baseCover, esc, fmtDate, progressPct, progressText, readingDurationText, statusPill } from '../ui/format.js';
+import { cover as baseCover, esc, estimatedWordCount, fmtDate, pagesPerDay, progressPct, progressText, readingDayCount, statusPill } from '../ui/format.js';
 import { selectGoodreadsRating } from '../utils/metadata.js';
 import { relatedBooksMarkup } from '../features/related-books.js';
 import { librarianNoteMarkup } from './librarian-note.js';
@@ -43,13 +43,18 @@ function shortSynopsis(text, max = 390) {
 function actions(book) {
   const reading = book.overall_status === 'Currently Reading';
   const canStart = ['Owned - Unread', 'Paused'].includes(book.overall_status) || (book.ownership_status === 'Owned' && !['Currently Reading', 'Read'].includes(book.overall_status));
-  return `<div class="detail-actions">${reading ? `<button class="btn btn-primary" data-progress="${book.id}">Update progress</button>` : ''}${canStart ? `<button class="btn btn-primary" data-start="${book.id}">${book.overall_status === 'Paused' ? 'Resume reading' : 'Start reading'}</button>` : ''}${reading ? `<button class="btn" data-finish="${book.id}">Finish</button><button class="btn" data-pause="${book.id}">Pause</button><button class="btn btn-danger" data-dnf="${book.id}">DNF</button>` : ''}${book.overall_status !== 'Wishlist' && book.ownership_status !== 'Owned' ? `<button class="btn wishlist-action" data-wishlist="${book.id}"><span class="wishlist-heart" aria-hidden="true">♡</span>Add to wishlist</button>` : ''}<button class="btn" data-cover-picker="${book.id}">Edit cover</button></div>`;
+  return `<div class="detail-actions ${reading ? 'progress-actions' : ''}">${reading ? `<button class="btn btn-primary" data-progress="${book.id}">Update progress</button>` : ''}${canStart ? `<button class="btn btn-primary" data-start="${book.id}">${book.overall_status === 'Paused' ? 'Resume reading' : 'Start reading'}</button>` : ''}${reading ? `<button class="btn" data-finish="${book.id}">Finish</button><button class="btn" data-pause="${book.id}">Pause</button><button class="btn btn-danger" data-dnf="${book.id}">DNF</button>` : ''}${book.overall_status !== 'Wishlist' && book.ownership_status !== 'Owned' ? `<button class="btn wishlist-action" data-wishlist="${book.id}"><span class="wishlist-heart" aria-hidden="true">♡</span>Add to wishlist</button>` : ''}<button class="btn" data-cover-picker="${book.id}">Edit cover</button></div>`;
 }
 
 function progress(book, chapter) {
   if (book.overall_status !== 'Currently Reading') return '';
   const pct = progressPct(book);
   return `<div class="progress-block"><div class="progress-meta"><span>${esc(progressText(book))}</span><span>${book.total_pages ? `${Math.round(pct)}%` : ''}</span></div>${chapter ? `<div class="chapter-progress-line">${esc(chapter)}</div>` : ''}<div class="progress-track"><div class="progress-fill" data-progress-book="${book.id}" data-progress-value="${pct}" style="--progress:${pct}%"></div></div></div>`;
+}
+
+function progressSection(book, chapter) {
+  if (book.overall_status !== 'Currently Reading') return '';
+  return `<section class="progress-section"><h2>Progress</h2>${progress(book, chapter)}${actions(book)}</section>`;
 }
 
 function pageLabel(quote) {
@@ -69,14 +74,32 @@ function exactCopy(book) {
 }
 
 function metadataRows(book) {
-  const rows = [['ISBN', book.isbn13 || book.isbn10], ['Publisher', [book.publisher, book.imprint].filter(Boolean).join(' · ')], ['Edition', [book.edition_year, book.edition_format].filter(Boolean).join(' · ')], ['Edition statement', book.edition_statement], ['Printing / impression', book.printing_impression], ['Printer code / number line', book.number_line], ['Original publication', book.original_publication_year], ['Language', book.language], ['Country', book.country], ['Series', book.series ? `${book.series}${book.series_order ? ` #${book.series_order}` : ''}` : null], ['Signed', book.signed === true ? 'Yes' : book.signed === false ? 'No' : null], ['Condition', book.condition], ['Dimensions', book.physical_dimensions], ['Metadata source', book.edition_metadata_source]].filter(([, value]) => value !== null && value !== undefined && String(value).trim());
-  const pages = book.edition_page_count || book.total_pages;
-  return `<div class="metadata-row"><span>Pages</span><strong class="metadata-edit-value">${pages ? esc(pages) : 'Not recorded'} <button class="text-action" type="button" data-page-count>Edit</button></strong></div>${rows.map(([key, value]) => `<div class="metadata-row"><span>${esc(key)}</span><strong>${esc(value)}</strong></div>`).join('')}`;
+  const rows = [['ISBN', book.isbn13 || book.isbn10], ['Publisher', [book.publisher, book.imprint].filter(Boolean).join(' · ')], ['Edition', [book.edition_year, book.edition_format].filter(Boolean).join(' · ')], ['Edition statement', book.edition_statement], ['Printing / impression', book.printing_impression], ['Original publication', book.original_publication_year], ['Language', book.language], ['Country', book.country], ['Series', book.series ? `${book.series}${book.series_order ? ` #${book.series_order}` : ''}` : null], ['Signed', book.signed === true ? 'Yes' : book.signed === false ? 'No' : null], ['Condition', book.condition]].filter(([, value]) => value !== null && value !== undefined && String(value).trim());
+  return rows.map(([key, value]) => `<div class="metadata-row"><span>${esc(key)}</span><strong>${esc(value)}</strong></div>`).join('');
+}
+
+function technicalMetadataRows(book) {
+  const rows = [['Dimensions', book.physical_dimensions], ['Metadata source', book.edition_metadata_source], ['Printer code / number line', book.number_line]].filter(([, value]) => value !== null && value !== undefined && String(value).trim());
+  return rows.map(([key, value]) => `<div class="metadata-row"><span>${esc(key)}</span><strong>${esc(value)}</strong></div>`).join('');
 }
 
 function metadata(detail) {
   const book = detail.book;
-  return `<details class="metadata-accordion"><summary><span><strong>Book & edition details</strong><small>ISBN, publisher, printing, format and source data</small></span><span class="accordion-plus">+</span></summary><div class="metadata-list"><div class="book-admin-entry"><div><span class="book-admin-entry-label">Library record</span><strong>Edit status, reading dates and edition data</strong></div><button class="btn" type="button" data-book-admin>Edit book settings</button></div><div class="edition-browser-entry"><div><span>Edition catalogue</span><strong>Browse and switch between known editions</strong></div><button class="btn" type="button" data-editions>Browse editions</button></div>${exactCopy(book)}${metadataRows(book)}<div class="metadata-row"><span>Data</span><strong><button class="text-action" data-refresh-metadata>Refresh book data</button></strong></div></div></details>`;
+  return `<details class="metadata-accordion"><summary><span><strong>Book & edition details</strong><small>Library record, edition controls and technical source data</small></span><span class="accordion-plus">+</span></summary><div class="metadata-list"><div class="book-admin-entry"><div><span class="book-admin-entry-label">Library record</span><strong>Edit status, reading dates and edition data</strong></div><button class="btn" type="button" data-book-admin>Edit book settings</button></div><div class="edition-browser-entry"><div><span>Edition catalogue</span><strong>Browse and switch between known editions</strong></div><button class="btn" type="button" data-editions>Browse editions</button></div>${exactCopy(book)}${technicalMetadataRows(book)}<div class="metadata-row"><span>Data</span><strong><button class="text-action" data-refresh-metadata>Refresh book data</button></strong></div></div></details>`;
+}
+
+function visibleMetadata(book) {
+  const pages = book.edition_page_count || book.total_pages;
+  return `<section class="visible-metadata"><h2>Book details</h2><div class="visible-metadata-list">${`<div class="metadata-row"><span>Pages</span><strong>${pages ? esc(pages) : 'Not recorded'}</strong></div>`}${metadataRows(book)}</div></section>`;
+}
+
+function readingStats(book) {
+  const days = readingDayCount(book.started_at, book.completed_at);
+  const perDay = pagesPerDay(book);
+  const words = estimatedWordCount(book);
+  const dateFinished = book.completed_at ? fmtDate(book.completed_at) : 'Not recorded';
+  const value = (n, suffix = '') => n == null ? 'Not recorded' : `${Number.isInteger(n) ? n : n.toFixed(1)}${suffix}`;
+  return `<section class="reading-stats"><h2>Reading stats</h2><div class="reading-stats-grid"><div><small>Started</small><strong>${fmtDate(book.started_at)}</strong></div><div><small>Finished</small><strong>${dateFinished}</strong></div><div><small>Days reading</small><strong>${days == null ? 'Not recorded' : days}</strong></div><div><small>Pages / day</small><strong>${value(perDay)}</strong></div><div><small>Length</small><strong>${book.total_pages ? `${Number(book.total_pages).toLocaleString('en-GB')} pages` : 'Not recorded'}</strong></div><div><small>Est. word count</small><strong>${words == null ? 'Not recorded' : `≈${words.toLocaleString('en-GB')} words`}</strong></div></div></section>`;
 }
 
 export function bookDetailView(state) {
@@ -90,8 +113,7 @@ export function bookDetailView(state) {
   const chapterRow = state.chapters.find(row => row.id === book.id);
   const chapter = chapterRow?.current_chapter_title || (chapterRow?.current_chapter_number ? `Chapter ${chapterRow.current_chapter_number}` : '');
   const review = book.review_notes || book.user_review || '';
-  const readingDuration = readingDurationText(book.started_at, book.completed_at);
   const fictionNonfictionLabel = String(book.fiction_nonfiction || '').trim() || 'Book';
-  const content = `<button class="back-btn" data-back>← Back</button><section class="detail-header" data-book-id="${book.id}" data-library-detail="ready">${cover(book)}<div class="detail-copy detail-copy-v4"><p class="eyebrow">${esc(fictionNonfictionLabel)}</p><h1>${esc(book.title)}</h1><div class="hero-author">${esc(book.authors || 'Unknown author')}</div><div class="meta"><span class="status-group">${statuses.map(statusPill).join('')}</span>${tags.map(tag => `<span class="badge">${esc(tag)}</span>`).join('')}${recommendation?.match_score_10 != null ? `<span class="badge accent">Predicted fit ${Number(recommendation.match_score_10).toFixed(1)}/10</span>` : ''}</div><div class="rating-strip rating-primary-row">${goodreads ? ratingCard(goodreads) : goodreadsUnavailableCard()}${userRatingCard(book)}</div>${librarianNoteMarkup(book, detail.latestReadingNote)}<section class="book-synopsis"><h2>Synopsis</h2><p><span class="synopsis-text">${esc(synopsis.short)}</span>${synopsis.truncated ? ` <button class="read-more" type="button" data-synopsis data-short="${esc(synopsis.short)}" data-full="${esc(synopsis.full)}">Read more</button>` : ''}</p></section>${quotesSection(detail)}${progress(book, chapter)}${actions(book)}${review ? `<section class="review-panel"><p class="eyebrow">Your review</p><p>${esc(review)}</p><button class="text-action" type="button" data-review="${book.id}">Edit rating & review</button></section>` : ''}<div class="reading-dates"><div><small>Started</small><strong>${fmtDate(book.started_at)}</strong>${readingDuration ? `<span class="badge accent">${esc(readingDuration)}</span>` : ''}</div><div><small>Finished</small><strong>${fmtDate(book.completed_at)}</strong></div><div><small>Length</small><strong>${book.total_pages ? `${esc(book.total_pages)} pages` : 'Not recorded'}</strong></div></div>${recommendation?.why_recommended ? `<section class="recommendation-panel"><p class="eyebrow">Librarian note</p><h2>Why it was recommended</h2><p>${esc(recommendation.why_recommended)}</p>${recommendation.outcome ? `<span class="badge">Prediction: ${esc(recommendation.outcome)}</span>` : ''}</section>` : ''}${metadata(detail)}${relatedBooksMarkup(book)}</div></section>`;
+  const content = `<button class="back-btn" data-back>← Back</button><section class="detail-header" data-book-id="${book.id}" data-library-detail="ready">${cover(book)}<div class="detail-copy detail-copy-v4"><p class="eyebrow">${esc(fictionNonfictionLabel)}</p><h1>${esc(book.title)}</h1><div class="hero-author">${esc(book.authors || 'Unknown author')}</div><div class="meta"><span class="status-group">${statuses.map(statusPill).join('')}</span>${tags.map(tag => `<span class="badge">${esc(tag)}</span>`).join('')}${recommendation?.match_score_10 != null ? `<span class="badge accent">Predicted fit ${Number(recommendation.match_score_10).toFixed(1)}/10</span>` : ''}</div><div class="rating-strip rating-primary-row">${goodreads ? ratingCard(goodreads) : goodreadsUnavailableCard()}${userRatingCard(book)}</div>${librarianNoteMarkup(book, detail.latestReadingNote)}<section class="book-synopsis"><h2>Synopsis</h2><p><span class="synopsis-text">${esc(synopsis.short)}</span>${synopsis.truncated ? ` <button class="read-more" type="button" data-synopsis data-short="${esc(synopsis.short)}" data-full="${esc(synopsis.full)}">Read more</button>` : ''}</p></section>${quotesSection(detail)}${progressSection(book, chapter)}${!['Currently Reading'].includes(book.overall_status) ? actions(book) : ''}${review ? `<section class="review-panel"><p class="eyebrow">Your review</p><p>${esc(review)}</p><button class="text-action" type="button" data-review="${book.id}">Edit rating & review</button></section>` : ''}${readingStats(book)}${visibleMetadata(book)}${recommendation?.why_recommended ? `<section class="recommendation-panel"><p class="eyebrow">Librarian note</p><h2>Why it was recommended</h2><p>${esc(recommendation.why_recommended)}</p>${recommendation.outcome ? `<span class="badge">Prediction: ${esc(recommendation.outcome)}</span>` : ''}</section>` : ''}${metadata(detail)}${relatedBooksMarkup(book)}</div></section>`;
   return chrome(content, state.route.returnTo || 'library');
 }

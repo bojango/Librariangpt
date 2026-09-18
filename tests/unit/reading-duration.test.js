@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readingAgeText, readingDayCount, readingDurationText } from '../../src/ui/format.js';
+import { estimatedWordCount, pagesPerDay, readingAgeText, readingDayCount, readingDurationText } from '../../src/ui/format.js';
 
 test('readingDayCount uses calendar-day difference and never goes negative', () => {
   assert.equal(readingDayCount('2026-09-01', null, new Date('2026-09-11T12:00:00Z')), 10);
@@ -18,4 +18,12 @@ test('readingAgeText stays compact for current-reading cards', () => {
 test('readingDurationText describes completed books without using the current date', () => {
   assert.equal(readingDurationText('2026-09-01', '2026-09-05', new Date('2030-01-01T12:00:00Z')), 'Read in 4 days');
   assert.equal(readingDurationText('2026-09-11', '2026-09-11', new Date('2030-01-01T12:00:00Z')), 'Read in < 1 day');
+});
+
+test('pagesPerDay uses progress for current books and final pages for completed books', () => {
+  assert.equal(pagesPerDay({ started_at: '2026-09-01', current_page: 440 }, new Date('2026-09-11T12:00:00Z')), 44);
+  assert.equal(pagesPerDay({ started_at: '2026-09-01', completed_at: '2026-09-11', total_pages: 435 }, new Date('2030-01-01T12:00:00Z')), 43.5);
+  assert.equal(pagesPerDay({ started_at: '2026-09-11', current_page: 40 }, new Date('2026-09-11T12:00:00Z')), 40);
+  assert.equal(estimatedWordCount({ total_pages: 202 }), 50500);
+  assert.equal(estimatedWordCount({}), null);
 });

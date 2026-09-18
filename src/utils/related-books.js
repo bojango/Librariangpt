@@ -25,7 +25,48 @@ export function excludeSeriesFromAuthor(seriesBooks = [], authorBooks = []) {
 }
 
 export function relatedDiscoveryKey(item) {
-  return String(item?.discovery_id || item?.provider_id || normaliseTitle(item?.title));
+  return String(item?.book_id || item?.id || item?.discovery_id || item?.provider_id || normaliseTitle(item?.title));
+}
+
+export function normaliseRelatedItem(item = {}) {
+  const coverUrl = item.cover_url || item.cover_url_preferred || item.display_cover_url || item.cover || null;
+  return { ...item, cover_url: coverUrl };
+}
+
+function mergeItem(previous, next) {
+  const a = normaliseRelatedItem(previous);
+  const b = normaliseRelatedItem(next);
+  const merged = { ...a, ...b };
+  for (const key of Object.keys(a)) {
+    if ((merged[key] == null || merged[key] === '') && a[key] != null && a[key] !== '') merged[key] = a[key];
+  }
+  if (!b.cover_url && a.cover_url) merged.cover_url = a.cover_url;
+  return merged;
+}
+
+export function mergeRelatedItems(previous = [], next = []) {
+  const merged = new Map();
+  [...previous, ...next].forEach(item => {
+    if (!item?.title) return;
+    const key = relatedDiscoveryKey(item);
+    merged.set(key, merged.has(key) ? mergeItem(merged.get(key), item) : normaliseRelatedItem(item));
+  });
+  return [...merged.values()];
+}
+
+export function mergeRelatedData(cached, refreshed) {
+  if (!cached) return refreshed;
+  if (!refreshed) return cached;
+  const mergeShelf = (oldShelf, newShelf) => {
+    if (!oldShelf && !newShelf) return null;
+    if (!oldShelf) return newShelf;
+    if (!newShelf) return oldShelf;
+    const oldBooks = Array.isArray(oldShelf.books) ? oldShelf.books : [];
+    const newBooks = Array.isArray(newShelf.books) ? newShelf.books : [];
+    if (!newBooks.length && oldBooks.length) return oldShelf;
+    return { ...oldShelf, ...newShelf, books: mergeRelatedItems(oldBooks, newBooks) };
+  };
+  return { ...cached, ...refreshed, series: mergeShelf(cached.series, refreshed.series), author: mergeShelf(cached.author, refreshed.author) };
 }
 
 export function relatedDataFingerprint(data) {

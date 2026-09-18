@@ -108,8 +108,8 @@ test('edition mutation refreshes the same book without rendering Home', async ({
   await expect(page).toHaveURL(/#\/book\/book-1$/);
   await expect(page.locator('.detail-header[data-book-id="book-1"]')).toBeVisible();
   await page.locator('.metadata-accordion summary').click();
-  await expect(page.locator('.metadata-list')).toContainText('Hardcover');
-  await expect(page.locator('.metadata-list')).toContainText('2025');
+  await expect(page.locator('.visible-metadata-list')).toContainText('Hardcover');
+  await expect(page.locator('.visible-metadata-list')).toContainText('2025');
   expect(await page.evaluate(() => window.__homeRenderedDuringEdition)).toBe(false);
 
   await page.locator('.wordmark[data-route="home"]').click();
