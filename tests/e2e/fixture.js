@@ -27,7 +27,13 @@ function detailFor(book) {
   const ratings = book.id === 'extra-0'
     ? [{ provider: 'Open Library', rating_5: 4.9, rating_count: 1200, is_primary: true }, { provider: 'Goodreads', rating_5: 4.23, rating_count: 9876, source_url: 'https://www.goodreads.com/book/show/123' }]
     : [{ provider: 'Open Library', rating_5: 4.2, rating_count: 1200, is_primary: true }];
-  return { book, ratings, recommendation: null, quotes: [{ id: 'q1', page_start: 12, quote_text: 'A saved passage.', note: 'Fixture note' }], editions: [], enrichment: {}, refreshState: null, latestReadingNote: book.id === 'current-1' ? { book_id: 'current-1', note_text: 'You have moved quickly through this section.' } : null };
+  const accolades = book.id === 'current-1' ? [
+    { id: 'award-1', accolade_id: 'award-nebula', year: 2024, result: 'Winner', verified: true, source_url: 'https://example.test/nebula', sort_order: 1, accolade: { id: 'award-nebula', name: 'Nebula Award', short_name: 'N', type: 'Award' } },
+    { id: 'award-2', accolade_id: 'award-hugo', year: 2023, result: 'Winner', verified: true, source_url: 'https://example.test/hugo', sort_order: 2, accolade: { id: 'award-hugo', name: 'Hugo Award', short_name: 'H', type: 'Award' } },
+    { id: 'award-3', accolade_id: 'award-booker', year: 2022, result: 'Shortlisted', verified: true, source_url: 'https://example.test/booker', sort_order: 3, accolade: { id: 'award-booker', name: 'Booker Prize', short_name: 'B', type: 'Prize' } },
+    { id: 'award-4', accolade_id: 'award-nyt', year: 2021, result: 'Bestseller', verified: true, source_url: 'https://example.test/nyt', sort_order: 4, accolade: { id: 'award-nyt', name: 'New York Times Bestseller', short_name: 'NYT', type: 'Bestseller' } }
+  ] : [];
+  return { book, ratings, recommendation: null, quotes: [{ id: 'q1', page_start: 12, quote_text: 'A saved passage.', note: 'Fixture note' }], editions: [], enrichment: {}, refreshState: null, latestReadingNote: book.id === 'current-1' ? { book_id: 'current-1', note_text: 'You have moved quickly through this section.' } : null, accolades };
 }
 
 function paint(html, { reuseCovers = false, preserveScroll = null } = {}) {

@@ -7,8 +7,8 @@ globalThis.HTMLElement = class {};
 globalThis.customElements = { get: () => undefined, define: () => {} };
 const { bookDetailView } = await import('../../src/views/book-detail.js');
 
-function state(book = {}) {
-  return { detail: { book: { id: 'book-1', title: 'Into the Wild', authors: 'Jon Krakauer', overall_status: 'Currently Reading', ownership_status: 'Owned', current_page: 44, total_pages: 100, fiction_nonfiction: 'Nonfiction', ...book }, ratings: [], recommendation: null, quotes: [{ id: 'q1', quote_text: 'First paragraph\n\nSecond paragraph', page_start: 4, note: 'Keep this' }], editions: [], latestReadingNote: { note_text: 'A small note' } }, chapters: [], route: { name: 'book' } };
+function state(book = {}, accolades = []) {
+  return { detail: { book: { id: 'book-1', title: 'Into the Wild', authors: 'Jon Krakauer', overall_status: 'Currently Reading', ownership_status: 'Owned', current_page: 44, total_pages: 100, fiction_nonfiction: 'Nonfiction', ...book }, ratings: [], recommendation: null, quotes: [{ id: 'q1', quote_text: 'First paragraph\n\nSecond paragraph', page_start: 4, note: 'Keep this' }], editions: [], latestReadingNote: { note_text: 'A small note' }, accolades }, chapters: [], route: { name: 'book' } };
 }
 
 test('book detail maps fiction label, preserves quote newlines, and groups reading controls under Progress', () => {
@@ -20,6 +20,13 @@ test('book detail maps fiction label, preserves quote newlines, and groups readi
   assert.equal((html.match(/class="btn/g) || []).filter(x => x).length >= 5, true);
   assert.match(html, /class="visible-metadata"[\s\S]*Pages/);
   assert.ok(html.indexOf('class="metadata-accordion"') > html.indexOf('class="visible-metadata"'));
+});
+
+test('Nonfiction comes from detail data and Awards is placed after Synopsis before quotes', () => {
+  const html = bookDetailView(state({}, [{ id: 'a1', accolade_id: 'nebula', year: 2024, result: 'Winner', verified: true, source_url: 'https://example.test/nebula', accolade: { id: 'nebula', name: 'Nebula Award', type: 'Award' } }]));
+  assert.match(html, /<p class="eyebrow">Nonfiction<\/p>/);
+  assert.ok(html.indexOf('class="book-synopsis"') < html.indexOf('data-detail-slot="awards"'));
+  assert.ok(html.indexOf('data-detail-slot="awards"') < html.indexOf('data-detail-slot="quotes"'));
 });
 
 test('detail source keeps BOOK as fallback and loads fiction_nonfiction through v_library', async () => {
