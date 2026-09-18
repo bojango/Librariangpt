@@ -258,6 +258,7 @@ test('book navigation owns one zero position before restoring Home scroll once',
 });
 
 test('mobile nav uses route indexes and stays compact at the document bottom', async ({ page }) => {
+  test.skip((page.viewportSize()?.width || 0) >= 900, 'Mobile navigation behavior is not used by the desktop side rail.');
   await mockAuthenticatedLibrary(page);
   await page.goto('/#/home');
   const expectIndicatorCentred = async () => {

@@ -1,35 +1,118 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 
-const CORS={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
-const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{...CORS,'Content-Type':'application/json'}});
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+};
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 
-Deno.serve(async(req:Request)=>{
-  if(req.method==='OPTIONS')return new Response('ok',{headers:CORS});
-  if(req.method!=='POST')return json({error:'POST required'},405);
-  try{
-    const url=Deno.env.get('SUPABASE_URL')!,anon=Deno.env.get('SUPABASE_ANON_KEY')!,service=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,auth=req.headers.get('Authorization');
-    if(!auth)return json({error:'Authentication required'},401);
-    const user=createClient(url,anon,{global:{headers:{Authorization:auth}}});const ud=await user.auth.getUser();if(ud.error||!ud.data.user)return json({error:'Invalid session'},401);const own=await user.rpc('is_library_owner');if(own.error||own.data!==true)return json({error:'Not authorized'},403);
-    const body=await req.json(),bookId=String(body?.book_id||'');if(!bookId)return json({error:'book_id required'},400);
-    const admin=createClient(url,service);const exists=await admin.from('books').select('id').eq('id',bookId).maybeSingle();if(!exists.data)return json({error:'Book not found'},404);
-    await admin.from('books').update({metadata_status:'resolving',editions_status:'refreshing',metadata_error:null,editions_error:null}).eq('id',bookId);
-    await admin.from('library_events').insert({user_id:ud.data.user.id,book_id:bookId,event_type:'background_enrichment_started',source:'frontend',payload:{started_at:new Date().toISOString()}});
+Deno.serve(async (request: Request) => {
+  if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  if (request.method !== 'POST') return json({ error: 'POST required' }, 405);
 
-    const headers={Authorization:auth,apikey:anon,'Content-Type':'application/json'};
-    const call=async(slug:string,payload:any)=>{try{const r=await fetch(`${url}/functions/v1/${slug}`,{method:'POST',headers,body:JSON.stringify(payload)});const data=await r.json().catch(()=>null);return{slug,ok:r.ok,data}}catch(e){return{slug,ok:false,error:e?.message||String(e)}}};
-    const work=(async()=>{
-      const metadataResults=await Promise.allSettled([
-        call('content-enrichment',{book_id:bookId,force:true}),
-        call('edition-options',{book_id:bookId,force:true})
-      ]);
-      const goodreadsResult=await call('goodreads-rating-refresh',{book_id:bookId,force:false});
-      const detail=[...metadataResults.map((x:any)=>x.status==='fulfilled'?x.value:{ok:false,error:x.reason?.message||String(x.reason)}),goodreadsResult];
-      await admin.from('library_events').insert({user_id:ud.data.user.id,book_id:bookId,event_type:'background_enrichment_finished',source:'background',payload:{finished_at:new Date().toISOString(),results:detail}}).catch(()=>null);
+  try {
+    const url = Deno.env.get('SUPABASE_URL')!;
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const authorization = request.headers.get('Authorization');
+    if (!authorization) return json({ error: 'Authentication required' }, 401);
+
+    const user = createClient(url, anonKey, { global: { headers: { Authorization: authorization } } });
+    const userResult = await user.auth.getUser();
+    if (userResult.error || !userResult.data.user) return json({ error: 'Invalid session' }, 401);
+    const owner = await user.rpc('is_library_owner');
+    if (owner.error || owner.data !== true) return json({ error: 'Not authorized' }, 403);
+
+    const body = await request.json();
+    const bookId = String(body?.book_id || '');
+    const force = body?.force === true;
+    if (!bookId) return json({ error: 'book_id required' }, 400);
+
+    const admin = createClient(url, serviceKey);
+    const exists = await admin.from('books').select('id').eq('id', bookId).maybeSingle();
+    if (exists.error) throw exists.error;
+    if (!exists.data) return json({ error: 'Book not found' }, 404);
+
+    const initialState = await admin.from('books').update({
+      metadata_status: 'resolving', editions_status: 'refreshing', metadata_error: null, editions_error: null
+    }).eq('id', bookId);
+    if (initialState.error) throw initialState.error;
+
+    await admin.from('library_events').insert({
+      user_id: userResult.data.user.id,
+      book_id: bookId,
+      event_type: 'background_enrichment_started',
+      source: 'frontend',
+      payload: { started_at: new Date().toISOString(), order: ['edition-options', 'content-enrichment', 'goodreads-rating-refresh'] }
+    });
+
+    const headers = { Authorization: authorization, apikey: anonKey, 'Content-Type': 'application/json' };
+    const call = async (slug: string, payload: any) => {
+      const startedAt = Date.now();
+      try {
+        const response = await fetch(`${url}/functions/v1/${slug}`, { method: 'POST', headers, body: JSON.stringify(payload) });
+        const data = await response.json().catch(() => null);
+        return { slug, ok: response.ok && !data?.error, http_status: response.status, duration_ms: Date.now() - startedAt, data };
+      } catch (error) {
+        return { slug, ok: false, duration_ms: Date.now() - startedAt, error: (error as any)?.message || String(error) };
+      }
+    };
+
+    const work = (async () => {
+      const results: any[] = [];
+      // Edition discovery intentionally precedes content enrichment. Even a partial
+      // edition result can provide an ISBN/work identity for the content fallback.
+      results.push(await call('edition-options', { book_id: bookId, force }));
+      results.push(await call('content-enrichment', { book_id: bookId, force }));
+      results.push(await call('goodreads-rating-refresh', { book_id: bookId, force: false }));
+
+      try {
+        const [stateResult, libraryResult, editionsResult] = await Promise.all([
+          admin.from('books').select('metadata_status,editions_status').eq('id', bookId).single(),
+          admin.from('v_library').select('synopsis,cover_url,display_edition_id,isbn13,isbn10,total_pages').eq('id', bookId).single(),
+          admin.from('editions').select('id', { count: 'exact', head: true }).eq('book_id', bookId)
+        ]);
+        const state = stateResult.data || {};
+        const visible = libraryResult.data || {};
+        const editionCount = editionsResult.count || 0;
+        const finalPatch: any = {};
+        if (state.editions_status === 'refreshing') {
+          finalPatch.editions_status = editionCount ? 'partial' : 'failed';
+          finalPatch.editions_last_refreshed_at = new Date().toISOString();
+          finalPatch.editions_error = results[0]?.error || results[0]?.data?.error || 'Edition discovery did not finish cleanly.';
+        }
+        if (state.metadata_status === 'resolving') {
+          const hasUsableMetadata = Boolean(visible.synopsis || visible.cover_url || visible.display_edition_id || visible.isbn13 || visible.isbn10 || visible.total_pages);
+          finalPatch.metadata_status = hasUsableMetadata ? 'partial' : 'failed';
+          finalPatch.metadata_error = results[1]?.error || results[1]?.data?.error || 'Content enrichment did not finish cleanly.';
+          finalPatch.metadata_retry_after = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString();
+        }
+        if (Object.keys(finalPatch).length) await admin.from('books').update(finalPatch).eq('id', bookId);
+      } catch (error) {
+        results.push({ slug: 'state-finalizer', ok: false, error: (error as any)?.message || String(error) });
+      }
+
+      try {
+        await admin.from('library_events').insert({
+          user_id: userResult.data.user.id,
+          book_id: bookId,
+          event_type: 'background_enrichment_finished',
+          source: 'background',
+          payload: { finished_at: new Date().toISOString(), results }
+        });
+      } catch (error) {
+        console.error('Could not record background enrichment result', error);
+      }
     })();
-    // Supabase Edge background task survives after the HTTP response is returned.
-    // deno-lint-ignore no-explicit-any
-    const runtime:any=(globalThis as any).EdgeRuntime;
-    if(runtime?.waitUntil)runtime.waitUntil(work);else await work;
-    return json({ok:true,accepted:true,book_id:bookId,status:'background'} ,202);
-  }catch(e){console.error(e);return json({error:e?.message||'Could not start enrichment'},500)}
+
+    // Supabase Edge background tasks survive after the HTTP response is returned.
+    const runtime: any = (globalThis as any).EdgeRuntime;
+    if (runtime?.waitUntil) runtime.waitUntil(work);
+    else await work;
+    return json({ ok: true, accepted: true, book_id: bookId, status: 'background' }, 202);
+  } catch (error) {
+    console.error(error);
+    return json({ error: (error as any)?.message || 'Could not start enrichment' }, 500);
+  }
 });

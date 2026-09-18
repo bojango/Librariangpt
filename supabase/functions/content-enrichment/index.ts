@@ -1,37 +1,389 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
-const CORS={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
-const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{...CORS,'Content-Type':'application/json'}});
-const clean=(v:any)=>String(v??'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
-const norm=(v:any)=>clean(v).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim().replace(/^(the|a|an)\s+/,'');
-const isbn=(v:any)=>String(v??'').replace(/[^0-9Xx]/g,'').toUpperCase();
-const year=(v:any)=>{const m=String(v??'').match(/(?:^|\D)(1[0-9]{3}|20[0-9]{2}|2100)(?:\D|$)/);return m?Number(m[1]):null};
-const desc=(v:any)=>{const t=clean(typeof v==='string'?v:v?.value);return t?(t.length<=3000?t:t.slice(0,2997)+'…'):null};
-function valid(i:string){if(/^\d{13}$/.test(i)){const s=i.slice(0,12).split('').reduce((a,c,n)=>a+Number(c)*(n%2?3:1),0);return(10-s%10)%10===Number(i[12])}if(/^\d{9}[\dX]$/.test(i)){let s=0;for(let n=0;n<10;n++)s+=(i[n]==='X'?10:Number(i[n]))*(10-n);return s%11===0}return false}
-function sim(a:any,b:any){const A=norm(a),B=norm(b);if(!A||!B)return 0;if(A===B)return 1;if(A.includes(B)||B.includes(A))return .96;const as=new Set(A.split(' ').filter((x:string)=>x.length>1)),bs=new Set(B.split(' ').filter((x:string)=>x.length>1));return[...as].filter(x=>bs.has(x)).length/Math.max(as.size,bs.size)}
-function authorSim(target:any,cands:any[]=[]){if(!target)return .75;let best=0;for(const c of cands){best=Math.max(best,sim(target,c));const a=norm(target).split(' ').at(-1),b=norm(c).split(' ').at(-1);if(a&&b&&a===b)best=Math.max(best,.92)}return best}
-async function fj(url:string,ms=8500,asText=false){const c=new AbortController(),t=setTimeout(()=>c.abort(),ms);try{const r=await fetch(url,{signal:c.signal,redirect:'follow',headers:{'User-Agent':'Mozilla/5.0 (compatible; ReadingRoom/7.0; +personal-library)','Accept':asText?'text/html,application/xhtml+xml;q=0.9,*/*;q=0.8':'application/json,*/*;q=0.8'}});if(!r.ok)return null;return asText?await r.text():await r.json()}catch{return null}finally{clearTimeout(t)}}
-const gid=(v:any,t:string)=>v?.industryIdentifiers?.find((x:any)=>x?.type===t)?.identifier??null;
-const gcover=(v:any)=>{const l=v?.imageLinks||{};return[l.extraLarge,l.large,l.medium,l.small,l.thumbnail,l.smallThumbnail].find(Boolean)?.replace(/^http:/,'https:')||null};
-async function google(q:string){const u=new URL('https://www.googleapis.com/books/v1/volumes');u.searchParams.set('q',q);u.searchParams.set('maxResults','40');u.searchParams.set('projection','full');return fj(u.toString(),9000)}
-async function googleVolume(id:string){return id?fj(`https://www.googleapis.com/books/v1/volumes/${encodeURIComponent(id)}`,7500):null}
-function candidate(item:any,title:string,author:string,requestedIsbn=''){const v=item?.volumeInfo||{},authors=Array.isArray(v.authors)?v.authors:[],i13=isbn(gid(v,'ISBN_13')),i10=isbn(gid(v,'ISBN_10')),ids=[i13,i10].filter(valid),exact=Boolean(requestedIsbn&&ids.includes(requestedIsbn)),ts=sim(title,v.title),as=authorSim(author,authors);return{item,v,title:v.title||'',authors,isbn13:valid(i13)?i13:null,isbn10:valid(i10)?i10:null,exact,score:exact?1:ts*.76+as*.24};}
-async function upsertRating(admin:any,bookId:string,row:any){if(row?.rating_5==null||!Number.isFinite(Number(row.rating_5)))return false;const payload={book_id:bookId,provider:row.provider,rating_5:Number(row.rating_5),rating_count:row.rating_count==null?null:Number(row.rating_count),review_count:row.review_count==null?null:Number(row.review_count),source_url:row.source_url||null,provider_book_id:row.provider_book_id||null,is_primary:Boolean(row.is_primary),fetched_at:new Date().toISOString(),notes:row.notes||null};const {error}=await admin.from('public_ratings').upsert(payload,{onConflict:'book_id,provider'});return !error;}
-async function openLibraryRating(admin:any,bookId:string,workId:string|null){if(!workId)return null;const r=await fj(`https://openlibrary.org/works/${encodeURIComponent(workId)}/ratings.json`,6500);const avg=Number(r?.summary?.average),count=Number(r?.summary?.count);if(!Number.isFinite(avg)||!count)return null;const row={provider:'Open Library',rating_5:avg,rating_count:count,review_count:null,source_url:`https://openlibrary.org/works/${workId}`,provider_book_id:workId,is_primary:false,notes:'Automatically refreshed from Open Library work ratings.'};await upsertRating(admin,bookId,row);return row;}
+import {
+  buildEditionEnrichmentPatch,
+  chooseReferenceEdition,
+  cleanIsbn,
+  isCredibleEdition,
+  isValidIsbn,
+  sameEdition,
+  shouldAutoSelectReference
+} from '../_shared/edition-ranking.js';
 
-Deno.serve(async(req:Request)=>{if(req.method==='OPTIONS')return new Response('ok',{headers:CORS});if(req.method!=='POST')return json({error:'POST required'},405);let admin:any,bookId='';try{
- const auth=req.headers.get('Authorization');if(!auth)return json({error:'Authentication required'},401);const url=Deno.env.get('SUPABASE_URL')!,anon=Deno.env.get('SUPABASE_ANON_KEY')!,service=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;const user=createClient(url,anon,{global:{headers:{Authorization:auth}}});const ud=await user.auth.getUser();if(ud.error||!ud.data.user)return json({error:'Invalid session'},401);const own=await user.rpc('is_library_owner');if(own.error||own.data!==true)return json({error:'Not authorized'},403);admin=createClient(url,service);
- const body=await req.json();bookId=String(body?.book_id||'');if(!bookId)return json({error:'book_id required'},400);const q=await admin.from('v_library').select('*').eq('id',bookId).single();if(q.error||!q.data)return json({error:'Book not found'},404);const b=q.data;const core=await admin.from('books').select('cover_locked,synopsis,metadata_status,reference_edition_id').eq('id',bookId).single();
- await admin.from('books').update({metadata_status:'resolving',metadata_last_attempted_at:new Date().toISOString(),metadata_error:null}).eq('id',bookId);
- const title=b.title,author=String(b.authors||'').split(',')[0].trim(),existing=isbn(b.isbn13||b.isbn10),queries:string[]=[];if(existing&&valid(existing))queries.push(`isbn:${existing}`);queries.push(`intitle:"${title}"${author?` inauthor:"${author}"`:''}`,`"${title}"${author?` "${author}"`:''}`);
- const [storedVolume,...gs]=await Promise.all([googleVolume(String(b.google_books_volume_id||'')),...queries.map(google)]);let cs:any[]=[];if(storedVolume?.volumeInfo){const c=candidate(storedVolume,title,author,existing);if(c.score>=.58)cs.push({...c,score:Math.max(c.score,.92)})}for(const g of gs)for(const it of(Array.isArray(g?.items)?g.items:[])){const c=candidate(it,title,author,existing);if(c.title&&c.score>=.45&&(c.isbn13||c.isbn10))cs.push(c)}cs.sort((a,b)=>b.score-a.score);
- const dedup=new Map<string,any>();for(const c of cs){const k=c.isbn13||c.isbn10||c.item?.id;if(!dedup.has(k)||c.score>dedup.get(k).score)dedup.set(k,c)}cs=[...dedup.values()].sort((a,b)=>b.score-a.score);let top=cs[0]||null;
- let ol:any=null,work:any=null,workKey:string|null=b.open_library_work_id||null;if(existing&&valid(existing)){ol=await fj(`https://openlibrary.org/isbn/${encodeURIComponent(existing)}.json`,7000);workKey=workKey||ol?.works?.[0]?.key?.split('/').pop()||null;}if(workKey)work=await fj(`https://openlibrary.org/works/${encodeURIComponent(workKey)}.json`,5500);
- const ratingJobs=[openLibraryRating(admin,bookId,workKey)].map(p=>p.catch(()=>null));
- if(!top||top.score<.64){await Promise.allSettled(ratingJobs);const hasUsable=Boolean(b.synopsis||b.cover_url||b.display_edition_id||existing);await admin.from('books').update({metadata_status:hasUsable?'partial':'failed',metadata_retry_after:new Date(Date.now()+6*60*60*1000).toISOString(),metadata_error:hasUsable?'Provider refresh could not improve the existing verified record.':'No reliable Google Books/Open Library match'}).eq('id',bookId);return json({ok:hasUsable,status:hasUsable?'partial':'failed',message:hasUsable?'Existing metadata preserved; providers returned no better match.':'No reliable metadata match found.'});}
- const v=top.v||{},synopsis=b.synopsis||desc(v.description)||desc(work?.description)||null,olCover=Array.isArray(ol?.covers)&&ol.covers[0]?`https://covers.openlibrary.org/b/id/${ol.covers[0]}-L.jpg?default=false`:Array.isArray(work?.covers)&&work.covers[0]>0?`https://covers.openlibrary.org/b/id/${work.covers[0]}-L.jpg?default=false`:null,cover=b.cover_url||gcover(v)||olCover||null,pageCount=Number(v.pageCount||ol?.number_of_pages||b.total_pages||0)||null,i13=top.isbn13||null,i10=top.isbn10||null,olEditionId=String(ol?.key||'').match(/\/books\/(OL\d+M)/)?.[1]||null,olWorkId=workKey||null;
- let editionId=b.display_edition_id||null;if(!editionId&&(i13||i10)){const filt=[i13?`isbn13.eq.${i13}`:null,i10?`isbn10.eq.${i10}`:null].filter(Boolean).join(',');const ex=await admin.from('editions').select('id,book_id').or(filt).maybeSingle();if(ex.data?.book_id===bookId)editionId=ex.data.id;else if(!ex.data){const ins=await admin.from('editions').insert({book_id:bookId,owned:false,preferred_copy:false,is_reference:true,isbn13:i13,isbn10:i10,publisher:v.publisher||null,publication_year:year(v.publishedDate),language:v.language||null,format:v.printType||null,page_count:pageCount,cover_url:cover,cover_source:cover?'Google Books/Open Library':null,cover_verified:Boolean(cover),google_books_volume_id:top.item?.id||null,open_library_edition_id:olEditionId,open_library_work_id:olWorkId,metadata_source:'resolver_v7',metadata_last_fetched_at:new Date().toISOString(),metadata_match_confidence:`${Math.round(top.score*100)}% match`,metadata_payload:{google_books:top.item,open_library:ol,open_library_work:work}}).select('id').single();if(!ins.error)editionId=ins.data.id}}
- if(editionId){const eq=await admin.from('editions').select('cover_locked').eq('id',editionId).single();const p:any={metadata_last_fetched_at:new Date().toISOString(),metadata_source:'resolver_v7'};if(!b.isbn13&&i13)p.isbn13=i13;if(!b.isbn10&&i10)p.isbn10=i10;if(!b.publisher&&v.publisher)p.publisher=v.publisher;if(!b.edition_year&&year(v.publishedDate))p.publication_year=year(v.publishedDate);if(!b.edition_page_count&&pageCount)p.page_count=pageCount;if(!b.google_books_volume_id&&top.item?.id)p.google_books_volume_id=top.item.id;if(!b.open_library_edition_id&&olEditionId)p.open_library_edition_id=olEditionId;if(!b.open_library_work_id&&olWorkId)p.open_library_work_id=olWorkId;if(!eq.data?.cover_locked&&!b.cover_url&&cover){p.cover_url=cover;p.cover_source='Google Books/Open Library';p.cover_verified=true}await admin.from('editions').update(p).eq('id',editionId)}
- const bp:any={metadata_status:'resolved',metadata_confidence:top.score,metadata_resolved_at:new Date().toISOString(),metadata_retry_after:null,metadata_error:null,metadata_source:'resolver_v7',metadata_last_updated:new Date().toISOString().slice(0,10)};if(!b.synopsis&&synopsis)bp.synopsis=synopsis;if(!core.data?.reference_edition_id&&b.ownership_status!=='Owned'&&editionId)bp.reference_edition_id=editionId;if(!core.data?.cover_locked&&!b.cover_url&&cover){bp.cover_url_preferred=cover;bp.cover_source='Google Books/Open Library';bp.cover_verified=true}if(!b.primary_genre&&Array.isArray(v.categories)&&v.categories[0])bp.primary_genre=v.categories[0];if(!b.language&&v.language)bp.language=v.language;await admin.from('books').update(bp).eq('id',bookId);if(pageCount&&!b.total_pages)await admin.from('library_entries').update({total_pages:pageCount}).eq('book_id',bookId);
- if(v.averageRating!=null)await upsertRating(admin,bookId,{provider:'Google Books',rating_5:Number(v.averageRating),rating_count:v.ratingsCount??null,review_count:null,source_url:v.infoLink||`https://books.google.com/books?id=${top.item?.id||''}`,provider_book_id:top.item?.id||null,is_primary:false,notes:'Automatically refreshed from Google Books.'});
- const ratingResults=await Promise.allSettled(ratingJobs);return json({ok:true,status:'resolved',book_id:bookId,edition_id:editionId,confidence:top.score,isbn13:i13,isbn10:i10,page_count:pageCount,cover_url:cover,synopsis:Boolean(synopsis),google_books_volume_id:top.item?.id||null,ratings_refreshed:ratingResults.map(x=>x.status)});
-}catch(e){console.error(e);if(admin&&bookId)try{await admin.from('books').update({metadata_status:'partial',metadata_error:(e as any)?.message||'Resolver error',metadata_retry_after:new Date(Date.now()+6*60*60*1000).toISOString()}).eq('id',bookId)}catch{}return json({error:(e as any)?.message||'Content enrichment failed'},500)}});
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+};
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+const clean = (value: any) => String(value ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+const normalise = (value: any) => clean(value).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim().replace(/^(the|a|an)\s+/, '');
+const publicationYear = (value: any) => {
+  const match = String(value ?? '').match(/(?:^|\D)(1[0-9]{3}|20[0-9]{2}|2100)(?:\D|$)/);
+  return match ? Number(match[1]) : null;
+};
+const description = (value: any) => {
+  const content = clean(typeof value === 'string' ? value : value?.value);
+  return content ? (content.length <= 3000 ? content : `${content.slice(0, 2997)}…`) : null;
+};
+
+function similarity(left: any, right: any) {
+  const a = normalise(left);
+  const b = normalise(right);
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.includes(b) || b.includes(a)) return .96;
+  const leftWords = new Set(a.split(' ').filter((word: string) => word.length > 1));
+  const rightWords = new Set(b.split(' ').filter((word: string) => word.length > 1));
+  return [...leftWords].filter(word => rightWords.has(word)).length / Math.max(leftWords.size, rightWords.size);
+}
+
+function authorSimilarity(target: any, candidates: any[] = []) {
+  if (!target) return .75;
+  let best = 0;
+  for (const candidate of candidates) {
+    best = Math.max(best, similarity(target, candidate));
+    const targetSurname = normalise(target).split(' ').at(-1);
+    const candidateSurname = normalise(candidate).split(' ').at(-1);
+    if (targetSurname && targetSurname === candidateSurname) best = Math.max(best, .92);
+  }
+  return best;
+}
+
+async function fetchJson(url: string, timeoutMs = 8500) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      signal: controller.signal,
+      redirect: 'follow',
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ReadingRoom/8.0; +personal-library)', Accept: 'application/json,*/*;q=0.8' }
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+const googleIsbn = (volume: any, type: string) => volume?.industryIdentifiers?.find((entry: any) => entry?.type === type)?.identifier ?? null;
+const googleCover = (volume: any) => {
+  const links = volume?.imageLinks || {};
+  return [links.extraLarge, links.large, links.medium, links.small, links.thumbnail, links.smallThumbnail].find(Boolean)?.replace(/^http:/, 'https:') || null;
+};
+const openLibraryWorkId = (value: any) => String(value ?? '').match(/(?:\/works\/)?(OL\d+W)/i)?.[1]?.toUpperCase() || null;
+const openLibraryEditionId = (value: any) => String(value ?? '').match(/(?:\/books\/)?(OL\d+M)/i)?.[1]?.toUpperCase() || null;
+
+async function googleSearch(query: string) {
+  const url = new URL('https://www.googleapis.com/books/v1/volumes');
+  url.searchParams.set('q', query);
+  url.searchParams.set('maxResults', '40');
+  url.searchParams.set('projection', 'full');
+  return fetchJson(url.toString(), 9000);
+}
+
+async function googleVolume(id: string) {
+  return id ? fetchJson(`https://www.googleapis.com/books/v1/volumes/${encodeURIComponent(id)}`, 7500) : null;
+}
+
+function googleCandidate(item: any, title: string, author: string, requestedIsbn = '') {
+  const volume = item?.volumeInfo || {};
+  const authors = Array.isArray(volume.authors) ? volume.authors : [];
+  const isbn13 = cleanIsbn(googleIsbn(volume, 'ISBN_13'));
+  const isbn10 = cleanIsbn(googleIsbn(volume, 'ISBN_10'));
+  const identifiers = [isbn13, isbn10].filter(isValidIsbn);
+  const exact = Boolean(requestedIsbn && identifiers.includes(requestedIsbn));
+  const score = exact ? 1 : similarity(title, volume.title) * .76 + authorSimilarity(author, authors) * .24;
+  return {
+    item, volume, title: volume.title || '', authors,
+    isbn13: isValidIsbn(isbn13) ? isbn13 : null,
+    isbn10: isValidIsbn(isbn10) ? isbn10 : null,
+    exact, score
+  };
+}
+
+async function upsertRating(admin: any, bookId: string, row: any) {
+  if (row?.rating_5 == null || !Number.isFinite(Number(row.rating_5))) return false;
+  const payload = {
+    book_id: bookId, provider: row.provider, rating_5: Number(row.rating_5),
+    rating_count: row.rating_count == null ? null : Number(row.rating_count),
+    review_count: row.review_count == null ? null : Number(row.review_count),
+    source_url: row.source_url || null, provider_book_id: row.provider_book_id || null,
+    is_primary: Boolean(row.is_primary), fetched_at: new Date().toISOString(), notes: row.notes || null
+  };
+  const { error } = await admin.from('public_ratings').upsert(payload, { onConflict: 'book_id,provider' });
+  return !error;
+}
+
+async function openLibraryRating(admin: any, bookId: string, workId: string | null) {
+  if (!workId) return null;
+  const result = await fetchJson(`https://openlibrary.org/works/${encodeURIComponent(workId)}/ratings.json`, 6500);
+  const average = Number(result?.summary?.average);
+  const count = Number(result?.summary?.count);
+  if (!Number.isFinite(average) || !count) return null;
+  const row = {
+    provider: 'Open Library', rating_5: average, rating_count: count, review_count: null,
+    source_url: `https://openlibrary.org/works/${workId}`, provider_book_id: workId,
+    is_primary: false, notes: 'Automatically refreshed from Open Library work ratings.'
+  };
+  await upsertRating(admin, bookId, row);
+  return row;
+}
+
+function activeEdition(book: any, editions: any[]) {
+  const ids = [book.current_edition_id, book.reference_edition_id, book.display_edition_id].filter(Boolean);
+  for (const id of ids) {
+    const edition = editions.find(row => row.id === id);
+    if (edition) return edition;
+  }
+  return null;
+}
+
+Deno.serve(async (request: Request) => {
+  if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  if (request.method !== 'POST') return json({ error: 'POST required' }, 405);
+
+  let admin: any;
+  let bookId = '';
+  let loadedBook: any = null;
+  let loadedEditions: any[] = [];
+  let originalMetadataStatus: string | null = null;
+  try {
+    const authorization = request.headers.get('Authorization');
+    if (!authorization) return json({ error: 'Authentication required' }, 401);
+    const url = Deno.env.get('SUPABASE_URL')!;
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const user = createClient(url, anonKey, { global: { headers: { Authorization: authorization } } });
+    const userResult = await user.auth.getUser();
+    if (userResult.error || !userResult.data.user) return json({ error: 'Invalid session' }, 401);
+    const owner = await user.rpc('is_library_owner');
+    if (owner.error || owner.data !== true) return json({ error: 'Not authorized' }, 403);
+    admin = createClient(url, serviceKey);
+
+    const body = await request.json();
+    bookId = String(body?.book_id || '');
+    if (!bookId) return json({ error: 'book_id required' }, 400);
+
+    const [bookResult, coreResult, editionsResult] = await Promise.all([
+      admin.from('v_library').select('*').eq('id', bookId).single(),
+      admin.from('books').select('cover_locked,cover_url_preferred,synopsis,metadata_status,reference_edition_id,original_publication_year,primary_genre,language').eq('id', bookId).single(),
+      admin.from('editions').select('*').eq('book_id', bookId)
+    ]);
+    if (bookResult.error || !bookResult.data) return json({ error: 'Book not found' }, 404);
+    if (coreResult.error) throw coreResult.error;
+    if (editionsResult.error) throw editionsResult.error;
+    loadedBook = { ...bookResult.data, reference_edition_id: coreResult.data.reference_edition_id };
+    loadedEditions = editionsResult.data || [];
+    originalMetadataStatus = coreResult.data.metadata_status || null;
+
+    const resolving = await admin.from('books').update({ metadata_status: 'resolving', metadata_last_attempted_at: new Date().toISOString(), metadata_error: null }).eq('id', bookId);
+    if (resolving.error) throw resolving.error;
+
+    const title = loadedBook.title;
+    const author = String(loadedBook.authors || '').split(',')[0].trim();
+    const selectedEdition = activeEdition(loadedBook, loadedEditions);
+    const existingIsbn = cleanIsbn(selectedEdition?.isbn13 || selectedEdition?.isbn10 || loadedBook.isbn13 || loadedBook.isbn10);
+    const queries: string[] = [];
+    if (existingIsbn && isValidIsbn(existingIsbn)) queries.push(`isbn:${existingIsbn}`);
+    queries.push(`intitle:"${title}"${author ? ` inauthor:"${author}"` : ''}`, `"${title}"${author ? ` "${author}"` : ''}`);
+
+    const [storedVolume, ...googleResults] = await Promise.all([
+      googleVolume(String(selectedEdition?.google_books_volume_id || loadedBook.google_books_volume_id || '')),
+      ...queries.map(googleSearch)
+    ]);
+    let candidates: any[] = [];
+    if (storedVolume?.volumeInfo) {
+      const candidate = googleCandidate(storedVolume, title, author, existingIsbn);
+      if (candidate.score >= .58) candidates.push({ ...candidate, score: Math.max(candidate.score, .92) });
+    }
+    for (const result of googleResults) {
+      for (const item of Array.isArray(result?.items) ? result.items : []) {
+        const candidate = googleCandidate(item, title, author, existingIsbn);
+        if (candidate.title && candidate.score >= .45 && (candidate.isbn13 || candidate.isbn10)) candidates.push(candidate);
+      }
+    }
+    const deduplicated = new Map<string, any>();
+    for (const candidate of candidates) {
+      const key = candidate.isbn13 || candidate.isbn10 || candidate.item?.id;
+      if (!deduplicated.has(key) || candidate.score > deduplicated.get(key).score) deduplicated.set(key, candidate);
+    }
+    candidates = [...deduplicated.values()].sort((left, right) => right.score - left.score);
+    let top = candidates[0] || null;
+
+    let openLibraryEdition: any = null;
+    let workId: string | null = selectedEdition?.open_library_work_id
+      || loadedEditions.find(edition => edition.open_library_work_id)?.open_library_work_id
+      || null;
+    if (existingIsbn && isValidIsbn(existingIsbn)) {
+      openLibraryEdition = await fetchJson(`https://openlibrary.org/isbn/${encodeURIComponent(existingIsbn)}.json`, 7000);
+      workId = workId || openLibraryWorkId(openLibraryEdition?.works?.[0]?.key);
+    }
+
+    let fallbackUsed = false;
+    let fallbackEdition: any = null;
+    if (!top || top.score < .64) {
+      fallbackEdition = isCredibleEdition(selectedEdition, workId)
+        ? selectedEdition
+        : chooseReferenceEdition(loadedEditions, { workId });
+      if (fallbackEdition) {
+        fallbackUsed = true;
+        const fallbackIsbn = cleanIsbn(fallbackEdition.isbn13 || fallbackEdition.isbn10);
+        if (fallbackIsbn && isValidIsbn(fallbackIsbn) && fallbackIsbn !== existingIsbn) {
+          openLibraryEdition = await fetchJson(`https://openlibrary.org/isbn/${encodeURIComponent(fallbackIsbn)}.json`, 7000);
+        }
+        workId = fallbackEdition.open_library_work_id || workId || openLibraryWorkId(openLibraryEdition?.works?.[0]?.key);
+        top = {
+          item: null, volume: {}, isbn13: fallbackEdition.isbn13 || null, isbn10: fallbackEdition.isbn10 || null,
+          score: workId ? .86 : .72, fallbackEdition
+        };
+      }
+    }
+
+    let work: any = null;
+    if (workId) work = await fetchJson(`https://openlibrary.org/works/${encodeURIComponent(workId)}.json`, 6500);
+    const ratingJobs = [openLibraryRating(admin, bookId, workId).catch(() => null)];
+
+    if (!top || top.score < .64) {
+      await Promise.allSettled(ratingJobs);
+      const hasUsable = Boolean(loadedBook.synopsis || loadedBook.cover_url || loadedBook.display_edition_id || loadedEditions.some(edition => isCredibleEdition(edition)));
+      const status = hasUsable && coreResult.data.metadata_status === 'resolved' ? 'resolved' : hasUsable ? 'partial' : 'failed';
+      const metadataError = hasUsable
+        ? 'Provider refresh could not improve the existing record; valid metadata was preserved.'
+        : 'No reliable Google Books/Open Library or discovered-edition match';
+      const update = await admin.from('books').update({
+        metadata_status: status,
+        metadata_retry_after: status === 'resolved' ? null : new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+        metadata_error: status === 'resolved' ? null : metadataError
+      }).eq('id', bookId);
+      if (update.error) throw update.error;
+      return json({ ok: hasUsable, status, message: metadataError });
+    }
+
+    const volume = top.volume || {};
+    const fallback = top.fallbackEdition || fallbackEdition || {};
+    const synopsis = loadedBook.synopsis || description(volume.description) || description(work?.description) || null;
+    const openLibraryCoverUrl = Array.isArray(openLibraryEdition?.covers) && openLibraryEdition.covers[0]
+      ? `https://covers.openlibrary.org/b/id/${openLibraryEdition.covers[0]}-L.jpg?default=false`
+      : Array.isArray(work?.covers) && work.covers[0] > 0
+        ? `https://covers.openlibrary.org/b/id/${work.covers[0]}-L.jpg?default=false`
+        : null;
+    const coverUrl = fallback.cover_url || googleCover(volume) || openLibraryCoverUrl || null;
+    const pageCount = Number(fallback.page_count || volume.pageCount || openLibraryEdition?.number_of_pages || 0) || null;
+    const isbn13 = top.isbn13 || fallback.isbn13 || null;
+    const isbn10 = top.isbn10 || fallback.isbn10 || null;
+    const candidateEdition = {
+      isbn13, isbn10,
+      publisher: fallback.publisher || volume.publisher || null,
+      publication_year: fallback.publication_year || publicationYear(volume.publishedDate),
+      publication_date: fallback.publication_date || (/^\d{4}-\d{2}-\d{2}$/.test(String(volume.publishedDate || '')) ? volume.publishedDate : null),
+      language: fallback.language || volume.language || null,
+      format: fallback.format || volume.printType || null,
+      binding: fallback.binding || null,
+      edition_statement: fallback.edition_statement || null,
+      page_count: pageCount,
+      cover_url: coverUrl,
+      cover_source: fallback.cover_source || (googleCover(volume) ? 'Google Books' : openLibraryCoverUrl ? 'Open Library' : null),
+      google_books_volume_id: top.item?.id || fallback.google_books_volume_id || null,
+      open_library_edition_id: fallback.open_library_edition_id || openLibraryEditionId(openLibraryEdition?.key),
+      open_library_work_id: workId,
+      metadata_source: fallbackUsed ? 'resolver_v8_edition_fallback' : 'resolver_v8',
+      metadata_match_confidence: fallbackUsed ? 'Discovered edition / same work' : `${Math.round(top.score * 100)}% match`,
+      metadata_payload: {
+        ...(fallback.metadata_payload || {}), google_books: top.item || undefined,
+        open_library: openLibraryEdition || undefined, open_library_work: work || undefined
+      }
+    };
+
+    let editionId = fallback.id || null;
+    let matchedEdition = editionId ? loadedEditions.find(edition => edition.id === editionId) : loadedEditions.find(edition => sameEdition(edition, candidateEdition));
+    if (matchedEdition) editionId = matchedEdition.id;
+    if (!matchedEdition && (isbn13 || isbn10 || candidateEdition.open_library_edition_id || candidateEdition.google_books_volume_id)) {
+      const insert = await admin.from('editions').insert({
+        book_id: bookId, owned: false, preferred_copy: false, is_reference: false,
+        cover_verified: Boolean(coverUrl), metadata_last_fetched_at: new Date().toISOString(), ...candidateEdition
+      }).select('*').single();
+      if (!insert.error && insert.data) {
+        matchedEdition = insert.data;
+        loadedEditions.push(insert.data);
+        editionId = insert.data.id;
+      }
+    }
+    if (matchedEdition) {
+      const patch = buildEditionEnrichmentPatch(matchedEdition, candidateEdition, new Date().toISOString());
+      const update = await admin.from('editions').update(patch).eq('id', matchedEdition.id);
+      if (update.error) throw update.error;
+      Object.assign(matchedEdition, patch);
+    }
+
+    let autoReference: any = null;
+    if (shouldAutoSelectReference(loadedBook, loadedEditions)) {
+      autoReference = chooseReferenceEdition(loadedEditions, { workId });
+      if (autoReference) {
+        const clear = await admin.from('editions').update({ is_reference: false }).eq('book_id', bookId).eq('is_reference', true).eq('owned', false);
+        if (clear.error) throw clear.error;
+        const mark = await admin.from('editions').update({ is_reference: true }).eq('id', autoReference.id);
+        if (mark.error) throw mark.error;
+      }
+    }
+
+    const displayEditionAvailable = Boolean(editionId || autoReference || coreResult.data.reference_edition_id || loadedBook.current_edition_id);
+    const resolved = displayEditionAvailable && (!fallbackUsed || Boolean(synopsis));
+    const status = resolved ? 'resolved' : 'partial';
+    const partialMessage = resolved ? null : 'Resolved from a discovered edition; some work-level metadata is still unavailable.';
+    const bookPatch: any = {
+      metadata_status: status,
+      metadata_confidence: top.score,
+      metadata_retry_after: resolved ? null : new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+      metadata_error: partialMessage,
+      metadata_source: fallbackUsed ? 'resolver_v8_edition_fallback' : 'resolver_v8',
+      metadata_last_updated: new Date().toISOString().slice(0, 10)
+    };
+    if (resolved) bookPatch.metadata_resolved_at = new Date().toISOString();
+    if (!coreResult.data.synopsis && synopsis) bookPatch.synopsis = synopsis;
+    if (!coreResult.data.reference_edition_id && !loadedBook.current_edition_id && loadedBook.ownership_status === 'Not Owned' && autoReference) {
+      bookPatch.reference_edition_id = autoReference.id;
+    }
+    if (!coreResult.data.cover_locked && !coreResult.data.cover_url_preferred && loadedBook.ownership_status === 'Not Owned' && coverUrl) {
+      bookPatch.cover_url_preferred = coverUrl;
+      bookPatch.cover_source = candidateEdition.cover_source || 'Reference edition';
+      bookPatch.cover_verified = true;
+    }
+    if (!coreResult.data.primary_genre && Array.isArray(volume.categories) && volume.categories[0]) bookPatch.primary_genre = volume.categories[0];
+    if (!coreResult.data.language && (volume.language || fallback.language)) bookPatch.language = volume.language || fallback.language;
+    const originalYear = publicationYear(work?.first_publish_date || work?.first_publish_year);
+    if (!coreResult.data.original_publication_year && originalYear) bookPatch.original_publication_year = originalYear;
+    const bookUpdate = await admin.from('books').update(bookPatch).eq('id', bookId);
+    if (bookUpdate.error) throw bookUpdate.error;
+
+    if (volume.averageRating != null) {
+      await upsertRating(admin, bookId, {
+        provider: 'Google Books', rating_5: Number(volume.averageRating), rating_count: volume.ratingsCount ?? null,
+        review_count: null, source_url: volume.infoLink || `https://books.google.com/books?id=${top.item?.id || ''}`,
+        provider_book_id: top.item?.id || null, is_primary: false, notes: 'Automatically refreshed from Google Books.'
+      });
+    }
+    const ratingResults = await Promise.allSettled(ratingJobs);
+    return json({
+      ok: true, status, book_id: bookId, edition_id: editionId, reference_edition_id: autoReference?.id || coreResult.data.reference_edition_id || null,
+      confidence: top.score, fallback_used: fallbackUsed, isbn13, isbn10, page_count: pageCount,
+      cover_url: coverUrl, synopsis: Boolean(synopsis), google_books_volume_id: top.item?.id || null,
+      open_library_work_id: workId, ratings_refreshed: ratingResults.map(result => result.status)
+    });
+  } catch (error) {
+    console.error(error);
+    if (admin && bookId) {
+      try {
+        const hasUsable = Boolean(loadedBook?.synopsis || loadedBook?.cover_url || loadedBook?.display_edition_id || loadedEditions.some(edition => isCredibleEdition(edition)));
+        const preserveResolved = hasUsable && originalMetadataStatus === 'resolved';
+        await admin.from('books').update({
+          metadata_status: preserveResolved ? 'resolved' : hasUsable ? 'partial' : 'failed',
+          metadata_error: preserveResolved ? null : (error as any)?.message || 'Content enrichment failed',
+          metadata_retry_after: preserveResolved ? null : new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString()
+        }).eq('id', bookId);
+      } catch { /* Preserve the original failure. */ }
+    }
+    return json({ error: (error as any)?.message || 'Content enrichment failed' }, 500);
+  }
+});

@@ -70,7 +70,7 @@ test('no proportional mapping occurs and no safe match yields no rows', () => {
 
 test('chapter fallback telemetry code never adds chapter or TOC text to metadata', async () => {
   const source = await readFile(new URL('../../supabase/functions/chapter-map/index.ts', import.meta.url), 'utf8');
-  const metadataObjects = [...source.matchAll(/await log\([^\n]+(?:\n(?!\s*\);)[^\n]+)*\n?\s*\);/g)].map(match => match[0]).join('\n');
+  const metadataObjects = [...source.matchAll(/await log\([\s\S]*?\);/g)].map(match => match[0]).join('\n');
   assert.ok(metadataObjects.length > 0);
   assert.doesNotMatch(metadataObjects, /chapter_title|table_of_contents|\.title/);
 });
