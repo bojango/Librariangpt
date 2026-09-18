@@ -73,6 +73,35 @@ test('mobile current-reading cards stay compact without context and grow without
   expect(layout.dots.top).toBeGreaterThanOrEqual(Math.max(layout.compact.bottom, layout.contextual.bottom));
 });
 
+test('mobile reading layout balances the cover, fits all progress labels, and keeps Awards three-up', async ({ page }) => {
+  for (const width of [390, 402, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
+    const home = await page.locator('[data-current-card="current-2"]').evaluate(card => {
+      const cover = card.querySelector('.cover').getBoundingClientRect();
+      const copy = card.querySelector('.hero-copy').getBoundingClientRect();
+      return { cover: { top: cover.top, bottom: cover.bottom }, copy: { top: copy.top, bottom: copy.bottom }, overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth };
+    });
+    expect(Math.abs(home.cover.top - home.copy.top)).toBeLessThanOrEqual(1);
+    expect(Math.abs(home.cover.bottom - home.copy.bottom)).toBeLessThanOrEqual(1);
+    expect(home.overflow).toBe(false);
+
+    await page.goto('/tests/e2e/fixture.html#/book/current-1', { waitUntil: 'domcontentloaded' });
+    const detail = await page.locator('.detail-copy-v4').evaluate(root => {
+      const shelf = root.querySelector('.awards-shelf');
+      const tiles = [...shelf.querySelectorAll('.award-tile')].map(tile => { const r = tile.getBoundingClientRect(); return { left: r.left, right: r.right, width: r.width }; });
+      const buttons = [...root.querySelectorAll('.progress-actions .btn')].map(button => ({ text: button.textContent.trim(), fits: button.scrollWidth <= button.clientWidth }));
+      return { awardCount: tiles.length, shelf: { clientWidth: shelf.clientWidth, scrollWidth: shelf.scrollWidth }, firstThree: tiles.slice(0, 3), buttons, overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth };
+    });
+    expect(detail.awardCount).toBe(4);
+    expect(detail.shelf.scrollWidth).toBeGreaterThan(detail.shelf.clientWidth);
+    expect(detail.firstThree.at(-1).right - detail.firstThree[0].left).toBeLessThanOrEqual(detail.shelf.clientWidth + 1);
+    expect(detail.buttons).toHaveLength(5);
+    expect(detail.buttons.every(button => button.fits)).toBe(true);
+    expect(detail.overflow).toBe(false);
+  }
+});
+
 test('latest Librarian note appears only on the current book detail between ratings and Synopsis', async ({ page }) => {
   await page.goto('/tests/e2e/fixture.html#/book/current-1');
   const note = page.locator('.book-librarian-note');

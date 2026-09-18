@@ -613,6 +613,33 @@ main.route-enter{animation:route-enter 160ms ease-out both}
 .book-librarian-note{margin:-8px 0 24px!important;padding:3px 0 3px 14px!important;border:0!important;border-left:2px solid rgba(68,86,67,.55)!important;background:transparent!important;color:#514d47!important}.book-librarian-note-label{margin-bottom:5px!important;color:#59422d!important}.book-librarian-note p{color:#59422d!important;font:400 13px/1.5 Georgia,serif!important;white-space:normal!important}.saved-quote-v40 blockquote{white-space:pre-line!important}
 @media(max-width:700px){.current-reading-card-v36{grid-template-columns:minmax(122px,30vw) minmax(0,1fr)!important;gap:20px!important;padding:18px 16px!important}.progress-actions{gap:3px!important}.progress-actions .btn{padding:8px 4px;font-size:10px}.reading-stats-grid{gap:8px}.reading-stats-grid>div{padding:11px 10px}.visible-metadata{margin-top:24px}}
 
+/* Awards and mobile reading controls v62.  Keep the information column in the
+   same grid row as the cover; content is distributed rather than nudged. */
+.current-reading-card-v36{align-items:stretch!important}
+.current-reading-card-v36>.cover,.current-reading-card-v36>.hero-copy{align-self:stretch!important}
+.current-reading-card-v36 .hero-copy{justify-content:space-between!important;min-height:0}
+.current-reading-card-v36 .hero-copy>.progress-block{margin-block:auto!important}
+.current-reading-card-v36 .hero-actions{margin-top:0!important}
+.progress-actions{display:grid!important;grid-template-columns:minmax(0,1.7fr) repeat(3,minmax(0,.8fr)) minmax(0,1.1fr);align-items:stretch;gap:3px!important;width:100%}
+.progress-actions .btn,.progress-actions .btn-primary{min-width:0!important;width:100%;padding:8px 3px!important;font-size:clamp(9px,2.55vw,11px)!important;line-height:1.08!important;letter-spacing:-.025em;overflow:hidden;text-overflow:clip;white-space:nowrap}
+.progress-actions .btn-primary{grid-column:1!important}
+.book-librarian-note{padding:3px 14px 3px 14px!important}
+.awards-section{margin:25px 0 27px;padding:0;min-width:0}
+.awards-section>h2{margin:0 0 12px;font:500 clamp(25px,4.5vw,34px)/1 Georgia,serif;color:#171613}
+.awards-shelf{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 2 * 10px)/3);gap:10px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;scrollbar-width:none;padding:2px 1px 10px;touch-action:pan-x pan-y pinch-zoom}
+.awards-shelf::-webkit-scrollbar{display:none}
+.award-tile{display:grid;grid-template-rows:62px minmax(2.3em,auto) auto;align-content:start;gap:6px;min-width:0;padding:9px 5px 7px;border:1px solid rgba(23,22,19,.12);background:rgba(255,255,255,.22);color:#171613;text-align:center;text-decoration:none;scroll-snap-align:start;scroll-snap-stop:always}
+.award-tile:focus-visible{outline:2px solid #59422d;outline-offset:3px}
+.award-logo{display:grid;place-items:center;min-width:0;height:62px}
+.award-logo-image{display:block;max-width:100%;max-height:58px;object-fit:contain}
+.award-logo-image[hidden]+.award-logo-fallback{display:grid}
+.award-logo-fallback{display:grid;place-items:center;width:52px;height:52px;border:1px solid rgba(89,66,45,.42);border-radius:50%;color:#59422d;font:600 15px/1 Georgia,serif;letter-spacing:.04em}
+.award-logo-image+.award-logo-fallback{display:none}
+.award-name{font:500 clamp(11px,2.8vw,15px)/1.1 Georgia,serif;overflow-wrap:anywhere}
+.award-status{color:#756d61;font:700 9px/1.2 Inter,ui-sans-serif,sans-serif;letter-spacing:.045em;text-transform:uppercase;overflow-wrap:anywhere}
+@media(max-width:370px){.progress-actions .btn,.progress-actions .btn-primary{font-size:9px!important;padding-inline:2px!important}.awards-shelf{gap:8px;grid-auto-columns:calc((100% - 16px)/3)}}
+@media(prefers-reduced-motion:reduce){.awards-shelf{scroll-behavior:auto}}
+
 /* PRESS: only controls and cards that already navigate or mutate state. */
 .book-card,.upnext-card,.recommended-card,.recommended-list-card,.rating-user,.cover-option{transform:translateY(0) scale(1);transition:transform var(--motion-release) var(--ease-premium),box-shadow var(--motion-release) ease,background-color var(--motion-release) ease;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .book-card .cover{box-shadow:0 7px 16px rgba(49,43,34,.11)!important;transition:transform var(--motion-release) var(--ease-premium),box-shadow var(--motion-release) ease!important}

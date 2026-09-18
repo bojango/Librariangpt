@@ -10,12 +10,21 @@ function editionLabel(e){return [e.owned?'Owned copy':e.is_reference?'Reference 
 function splitList(v){return String(v||'').split(',').map(x=>x.trim()).filter(Boolean);}
 
 async function fetchBundle(id){
- const [bookQ,editionsQ]=await Promise.all([
+ const [bookQ,editionsQ,accoladesQ,bookAccoladesQ]=await Promise.all([
    supabase.from('v_library').select('*').eq('id',id).single(),
-   supabase.from('editions').select('*').eq('book_id',id).order('owned',{ascending:false}).order('preferred_copy',{ascending:false}).order('publication_year',{ascending:false})
+   supabase.from('editions').select('*').eq('book_id',id).order('owned',{ascending:false}).order('preferred_copy',{ascending:false}).order('publication_year',{ascending:false}),
+   supabase.from('accolades').select('id,name,short_name,type,logo_url,logo_alt,official_url').order('name'),
+   supabase.from('book_accolades').select('id,accolade_id,year,category,result,source_url,source_name,verified,sort_order,accolade:accolades(id,name,short_name,type,logo_url,logo_alt,official_url)').eq('book_id',id).order('sort_order',{ascending:true,nullsFirst:false}).order('year',{ascending:false,nullsFirst:false})
  ]);
- if(bookQ.error)throw bookQ.error;if(editionsQ.error)throw editionsQ.error;
- return {book:bookQ.data,editions:editionsQ.data||[]};
+ if(bookQ.error)throw bookQ.error;if(editionsQ.error)throw editionsQ.error;if(accoladesQ.error)throw accoladesQ.error;if(bookAccoladesQ.error)throw bookAccoladesQ.error;
+ return {book:bookQ.data,editions:editionsQ.data||[],accolades:accoladesQ.data||[],bookAccolades:bookAccoladesQ.data||[]};
+}
+
+function accoladesFields(bundle){
+ const rows=bundle.bookAccolades||[];
+ return `<p class="admin-help">Only verified, source-backed recognitions appear on the book page. Use a specific book-level source; a general “award-winning author” claim is not enough.</p>
+ <div class="admin-accolade-list">${rows.length?rows.map(row=>`<form class="admin-accolade-row" data-accolade-row="${esc(row.id)}"><strong>${esc(row.accolade?.name||'Recognition')}</strong><div class="admin-grid two"><label>Year<input name="year" type="number" min="0" max="3000" value="${esc(row.year??'')}"></label><label>Result<select name="result">${['Winner','Bestseller','Finalist','Shortlisted','Longlisted','Nominee','Recognition'].map(x=>option(x,x,row.result)).join('')}</select></label></div><label>Category<input name="category" value="${esc(row.category||'')}"></label><label>Source URL<input name="source_url" type="url" required value="${esc(row.source_url||'')}"></label><label>Source name<input name="source_name" value="${esc(row.source_name||'')}"></label><label>Display order<input name="sort_order" type="number" value="${esc(row.sort_order??'')}"></label><label class="admin-check"><input name="verified" type="checkbox" ${row.verified?'checked':''}> Verified for this book</label><div><button class="btn" type="submit">Save recognition</button><button class="text-action" type="button" data-delete-accolade="${esc(row.id)}">Remove</button></div></form>`).join(''):'<p class="admin-empty">No recognitions recorded.</p>'}</div>
+ <form class="admin-accolade-add" data-accolade-add><h3>Add recognition</h3><label>Catalogue entry<select name="accolade_id"><option value="">Create a new catalogue entry</option>${bundle.accolades.map(a=>option(a.id,`${a.name} · ${a.type}`,null)).join('')}</select></label><div class="admin-new-accolade"><label>New accolade name<input name="name"></label><div class="admin-grid two"><label>Type<select name="type">${['Award','Prize','Bestseller','Recognition'].map(x=>option(x,x,'Recognition')).join('')}</select></label><label>Short mark<input name="short_name" maxlength="12"></label></div><label>Official URL<input name="official_url" type="url"></label><label>Logo URL (optional)<input name="logo_url" type="url"></label><label>Logo alt text<input name="logo_alt"></label></div><div class="admin-grid two"><label>Year<input name="year" type="number" min="0" max="3000"></label><label>Result<select name="result">${['Winner','Bestseller','Finalist','Shortlisted','Longlisted','Nominee','Recognition'].map(x=>option(x,x,'Recognition')).join('')}</select></label></div><label>Category<input name="category"></label><label>Source URL<input name="source_url" type="url" required></label><label>Source name<input name="source_name"></label><label>Display order<input name="sort_order" type="number"></label><label class="admin-check"><input name="verified" type="checkbox"> Verified for display</label><button class="btn btn-primary" type="submit">Add recognition</button></form>`;
 }
 
 function editionFields(e){
@@ -91,6 +100,8 @@ function renderModal(bundle){
     <label>Book notes<textarea name="book_notes" rows="4">${esc(book.notes||'')}</textarea></label>
    </div></details>
 
+   <details class="admin-section"><summary>Awards & recognition</summary><div class="admin-section-body">${accoladesFields(bundle)}</div></details>
+
    <details class="admin-section"><summary>Edition details</summary><div class="admin-section-body">
     ${editions.length>1?`<label>Edition to edit<select id="admin-edition-select">${editions.map(e=>option(e.id,editionLabel(e),selected?.id)).join('')}</select></label>`:''}
     <div id="admin-edition-fields">${editionFields(selected)}</div>
@@ -106,11 +117,20 @@ function renderModal(bundle){
  const edSelect=modalRoot.querySelector('#admin-edition-select');
  if(edSelect)edSelect.addEventListener('change',()=>{const e=editions.find(x=>x.id===edSelect.value)||null;modalRoot.querySelector('#admin-edition-fields').innerHTML=editionFields(e);});
  modalRoot.querySelector('#book-admin-form')?.addEventListener('submit',e=>saveForm(e,bundle));
+ modalRoot.querySelectorAll('[data-accolade-row]').forEach(form=>form.addEventListener('submit',event=>saveAccoladeRow(event,bundle.book.id)));
+ modalRoot.querySelector('[data-accolade-add]')?.addEventListener('submit',event=>addAccolade(event,bundle.book.id));
+ modalRoot.querySelectorAll('[data-delete-accolade]').forEach(button=>button.addEventListener('click',()=>deleteAccolade(button.dataset.deleteAccolade,bundle.book.id)));
  const confirm=modalRoot.querySelector('[data-delete-confirm]');
  modalRoot.querySelector('[data-delete-book]')?.addEventListener('click',e=>{e.currentTarget.hidden=true;confirm.hidden=false;});
  modalRoot.querySelector('[data-delete-cancel]')?.addEventListener('click',()=>{confirm.hidden=true;modalRoot.querySelector('[data-delete-book]').hidden=false;});
  modalRoot.querySelector('[data-delete-permanent]')?.addEventListener('click',async e=>{e.currentTarget.disabled=true;try{const {error}=await supabase.rpc('delete_library_book',{p_book_id:book.id});if(error)throw error;closeModal();toast(`${book.title} deleted.`);location.hash='#/library';window.dispatchEvent(new CustomEvent('reading-room:refresh'));}catch(err){toast(err.message||'Could not delete book',true);e.currentTarget.disabled=false;}});
 }
+
+const nullableNumber=value=>String(value||'').trim()===''?null:Number(value);
+async function reloadAccolades(bookId){closeModal();renderModal(await fetchBundle(bookId));}
+async function saveAccoladeRow(event,bookId){event.preventDefault();const form=event.currentTarget;const fd=new FormData(form);const {error}=await supabase.from('book_accolades').update({year:nullableNumber(fd.get('year')),result:fd.get('result'),category:fd.get('category')||null,source_url:fd.get('source_url'),source_name:fd.get('source_name')||null,sort_order:nullableNumber(fd.get('sort_order')),verified:fd.get('verified')==='on'}).eq('id',form.dataset.accoladeRow);if(error){toast(error.message||'Could not save recognition',true);return;}toast('Recognition saved.');await reloadAccolades(bookId);window.dispatchEvent(new CustomEvent('reading-room:refresh'));}
+async function deleteAccolade(id,bookId){if(!confirm('Remove this recognition from the book?'))return;const {error}=await supabase.from('book_accolades').delete().eq('id',id);if(error){toast(error.message||'Could not remove recognition',true);return;}toast('Recognition removed.');await reloadAccolades(bookId);window.dispatchEvent(new CustomEvent('reading-room:refresh'));}
+async function addAccolade(event,bookId){event.preventDefault();const form=event.currentTarget;const fd=new FormData(form);let accoladeId=fd.get('accolade_id');try{if(!accoladeId){const name=String(fd.get('name')||'').trim();if(!name)throw new Error('Choose an existing accolade or enter a catalogue name.');const {data,error}=await supabase.from('accolades').upsert({name,type:fd.get('type'),short_name:fd.get('short_name')||null,official_url:fd.get('official_url')||null,logo_url:fd.get('logo_url')||null,logo_alt:fd.get('logo_alt')||null},{onConflict:'name'}).select('id').single();if(error)throw error;accoladeId=data.id;}const {error}=await supabase.from('book_accolades').insert({book_id:bookId,accolade_id:accoladeId,year:nullableNumber(fd.get('year')),result:fd.get('result'),category:fd.get('category')||null,source_url:fd.get('source_url'),source_name:fd.get('source_name')||null,sort_order:nullableNumber(fd.get('sort_order')),verified:fd.get('verified')==='on'});if(error)throw error;toast('Recognition added.');await reloadAccolades(bookId);window.dispatchEvent(new CustomEvent('reading-room:refresh'));}catch(error){toast(error.message||'Could not add recognition',true);}}
 
 async function saveForm(event,bundle){
  event.preventDefault();const form=event.currentTarget;const submit=form.querySelector('button[type="submit"]');submit.disabled=true;submit.textContent='Saving…';
