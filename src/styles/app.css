@@ -643,11 +643,13 @@ main.route-enter{animation:route-enter 160ms ease-out both}
 /* Keep the current-reading copy clear of its cover on small screens. */
 @media(max-width:700px){
   .current-reading-track-v36>.hero.current-reading-card-v36{
-    padding:15px 16px!important;
+    height:auto!important;
+    min-height:0!important;
+    padding:12px 16px!important;
     column-gap:18px!important;
     grid-template-columns:minmax(122px,30vw) minmax(0,1fr)!important;
     grid-template-rows:auto;
-    align-items:start!important;
+    align-items:stretch!important;
   }
   .current-reading-card-v36>.cover{
     width:100%!important;
@@ -656,7 +658,12 @@ main.route-enter{animation:route-enter 160ms ease-out both}
     min-height:0!important;
     align-self:start!important;
   }
-  .current-reading-card-v36 .hero-copy{align-self:start!important;padding-inline-start:2px!important;}
+  .current-reading-card-v36 .hero-copy{
+    align-self:stretch!important;
+    justify-content:space-between!important;
+    padding-inline-start:2px!important;
+  }
+  .current-reading-card-v36 .hero-copy>.progress-block{margin:0!important;}
 }
 
 /* PRESS: only controls and cards that already navigate or mutate state. */

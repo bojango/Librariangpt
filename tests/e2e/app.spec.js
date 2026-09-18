@@ -84,8 +84,8 @@ test('mobile reading layout balances the cover, fits all progress labels, and ke
       return { cover: { top: cover.top, bottom: cover.bottom, right: cover.right }, copy: { top: copy.top, bottom: copy.bottom, left: copy.left }, paddingTop: parseFloat(style.paddingTop), paddingBottom: parseFloat(style.paddingBottom), overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth };
     });
     expect(home.copy.left - home.cover.right).toBeGreaterThanOrEqual(18);
-    expect(home.paddingTop).toBe(15);
-    expect(home.paddingBottom).toBe(15);
+    expect(home.paddingTop).toBe(12);
+    expect(home.paddingBottom).toBe(12);
     expect(home.overflow).toBe(false);
 
     await page.goto('/tests/e2e/fixture.html#/book/current-1', { waitUntil: 'domcontentloaded' });
@@ -337,11 +337,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('64');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('65');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '64')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v64');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '65')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v65');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -353,7 +353,7 @@ test.describe('service-worker-controlled document', () => {
       channel.port1.onmessage = event => resolve(event.data);
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
-    expect(state).toMatchObject({ generation: '64', shell_cache: 'reading-room-shell-v64', cover_cache: 'reading-room-covers-v3' });
+    expect(state).toMatchObject({ generation: '65', shell_cache: 'reading-room-shell-v65', cover_cache: 'reading-room-covers-v3' });
     expect(state.cover_cache_hits).toBeGreaterThanOrEqual(0);
     expect(state.cover_cache_misses).toBeGreaterThanOrEqual(0);
     expect(state.cover_network_fetches).toBeGreaterThanOrEqual(0);
