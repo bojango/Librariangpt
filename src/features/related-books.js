@@ -7,6 +7,8 @@ import {
   relatedDataFingerprint,
   relatedDiscoveryKey,
   relatedStatus,
+  mergeRelatedData,
+  normaliseRelatedItem,
   writeRelatedCache
 } from '../utils/related-books.js';
 
@@ -19,6 +21,7 @@ function statusBadge(item) {
 }
 
 function card(item) {
+  item = normaliseRelatedItem(item);
   const isExternal = item.kind === 'external';
   const attrs = isExternal
     ? `data-related-external="${esc(relatedDiscoveryKey(item))}" tabindex="0" role="button" aria-label="View ${esc(item.title)}"`
@@ -101,9 +104,10 @@ class RelatedBooksElement extends HTMLElement {
       const { invoke } = await libraryModule();
       const data = await invoke('related-books', { book_id: bookId });
       if (!this.isConnected || request !== this.#request || this.dataset.bookId !== bookId) return;
-      writeRelatedCache(globalThis.localStorage, bookId, data);
-      const nextFingerprint = relatedDataFingerprint(data);
-      if (!cached || nextFingerprint !== renderedFingerprint) this.#render(data, bookId);
+      const merged = mergeRelatedData(cached, data);
+      writeRelatedCache(globalThis.localStorage, bookId, merged);
+      const nextFingerprint = relatedDataFingerprint(merged);
+      if (!cached || nextFingerprint !== renderedFingerprint) this.#render(merged, bookId);
     } catch (error) {
       if (!this.isConnected || request !== this.#request) return;
       console.info('[Reading Room] related books unavailable:', error?.message || error);

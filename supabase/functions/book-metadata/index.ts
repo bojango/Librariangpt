@@ -7,6 +7,7 @@ const CORS = {
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 const cleanIsbn = (value: unknown) => String(value ?? '').replace(/[^0-9Xx]/g, '').toUpperCase();
+const fictionNonfiction = (value: unknown) => ['Fiction', 'Nonfiction'].includes(String(value ?? '').trim()) ? String(value).trim() : null;
 
 function validIsbn(isbn: string) {
   if (/^\d{13}$/.test(isbn)) {
@@ -165,6 +166,7 @@ Deno.serve(async (req: Request) => {
     const admin = createClient(supabaseUrl, serviceKey);
     const body = await req.json();
     const owned = Boolean(body?.owned);
+    const requestedFictionNonfiction = fictionNonfiction(body?.fiction_nonfiction);
     const setPreferred = body?.set_preferred !== false;
     let bookId = body?.book_id ? String(body.book_id) : null;
     let existingBook: any = null;
@@ -198,6 +200,7 @@ Deno.serve(async (req: Request) => {
       const inserted = await admin.from('books').insert({
         title: metadata.title, subtitle: metadata.subtitle,
         original_publication_year: metadata.original_publication_year,
+        fiction_nonfiction: requestedFictionNonfiction,
         primary_genre: metadata.categories[0] || null,
         language: metadata.language, synopsis: metadata.synopsis,
         cover_url_preferred: metadata.cover_url, cover_source: metadata.cover_source,
@@ -218,6 +221,11 @@ Deno.serve(async (req: Request) => {
         reading_priority: body?.reading_priority || null, source: 'book-metadata'
       });
       if (libraryInsert.error) throw libraryInsert.error;
+    }
+
+    if (requestedFictionNonfiction) {
+      const classification = await admin.from('books').update({ fiction_nonfiction: requestedFictionNonfiction }).eq('id', bookId);
+      if (classification.error) throw classification.error;
     }
 
     const filters = [metadata.isbn13 ? `isbn13.eq.${metadata.isbn13}` : null, metadata.isbn10 ? `isbn10.eq.${metadata.isbn10}` : null].filter(Boolean).join(',');

@@ -6,6 +6,9 @@ import {
   RELATED_BOOKS_CACHE_MAX_AGE_MS,
   relatedDataFingerprint,
   relatedStatus,
+  mergeRelatedData,
+  mergeRelatedItems,
+  normaliseRelatedItem,
   writeRelatedCache
 } from '../../src/utils/related-books.js';
 
@@ -53,4 +56,27 @@ test('related-book cache expires after the fallback window', () => {
   const data = { author: { name: 'Michael Crichton', books: [{ title: 'Sphere' }] } };
   writeRelatedCache(storage, 'jurassic-park', data, 1_000);
   assert.equal(readRelatedCache(storage, 'jurassic-park', 1_000 + RELATED_BOOKS_CACHE_MAX_AGE_MS + 1), null);
+});
+
+test('refresh merges incomplete covers into cached related books without downgrading them', () => {
+  const cached = { series: { name: 'Silo', books: [{ kind: 'external', provider_id: 'ol-1', title: 'Shift', cover_url: 'https://covers/shift.jpg', synopsis: 'Useful' }] }, author: null };
+  const refreshed = { series: { name: 'Silo', books: [{ kind: 'external', provider_id: 'ol-1', title: 'Shift', cover_url: null }] }, author: null };
+  const merged = mergeRelatedData(cached, refreshed);
+  assert.equal(merged.series.books[0].cover_url, 'https://covers/shift.jpg');
+  assert.equal(merged.series.books[0].synopsis, 'Useful');
+});
+
+test('empty or partial provider shelves retain a valid cached shelf', () => {
+  const cached = { series: { name: 'Silo', books: [{ title: 'Shift' }] }, author: { name: 'Hugh Howey', books: [{ title: 'Beacon 23' }] } };
+  const refreshed = { series: { name: 'Silo', books: [] }, author: null };
+  const merged = mergeRelatedData(cached, refreshed);
+  assert.equal(merged.series.books.length, 1);
+  assert.equal(merged.author.books.length, 1);
+});
+
+test('duplicate related books merge deterministically and cover fields normalize for rendering', () => {
+  const books = mergeRelatedItems([{ book_id: 'library-1', title: 'Dune', cover_url_preferred: 'https://covers/dune.jpg' }], [{ book_id: 'library-1', title: 'Dune', authors: 'Frank Herbert', cover_url: null }]);
+  assert.equal(books.length, 1);
+  assert.equal(books[0].cover_url, 'https://covers/dune.jpg');
+  assert.equal(normaliseRelatedItem({ title: 'Dune', cover_url_preferred: 'https://covers/dune.jpg' }).cover_url, 'https://covers/dune.jpg');
 });

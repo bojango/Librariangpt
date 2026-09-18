@@ -54,18 +54,19 @@ function chapterFor(state, bookId) {
   return title && number && title.toLowerCase() !== `chapter ${number}`.toLowerCase() ? `Chapter ${number}: ${title}` : title || `Chapter ${number}`;
 }
 
-function currentCard(book, state, index) {
+function currentCard(book, state) {
   const pct = progressPct(book);
   const chapter = chapterFor(state, book.id);
   const title = currentTitlePresentation(book.title);
   const readingAge = readingAgeText(book.started_at);
-  return `<section class="hero current-reading-card-v36" data-current-card="${book.id}" data-open-book="${book.id}">${cover(book, '', { eager: index === 0, high: index === 0 })}<div class="hero-copy"><p class="eyebrow current-reading-label"><span aria-hidden="true"></span>Currently reading</p><h1${title.className ? ` class="${title.className}" data-title-variant="${title.className.replace('current-title-', '').replace('-v37', '')}" style="${title.style}"` : ''}>${esc(book.title)}</h1><div class="hero-author">${esc(book.authors || '')}${readingAge ? ` <small>· ${esc(readingAge)}</small>` : ''}</div><div class="progress-block"><div class="progress-meta"><span>${esc(progressText(book))}</span><span>${book.total_pages ? `${Math.round(pct)}%` : ''}</span></div>${chapter ? `<div class="chapter-progress-line">${esc(chapter)}</div>` : ''}<div class="progress-track"><div class="progress-fill" data-progress-book="${book.id}" data-progress-value="${pct}" style="--progress:${pct}%"></div></div></div><div class="hero-actions"><button class="btn btn-primary" data-progress="${book.id}">Update progress</button><button class="btn" data-open-book="${book.id}">Open book</button></div></div></section>`;
+  return `<section class="hero current-reading-card-v36" data-current-card="${book.id}" data-open-book="${book.id}">${cover(book, '', { eager: true, high: true })}<div class="hero-copy"><p class="eyebrow current-reading-label"><span aria-hidden="true"></span>Currently reading</p><h1${title.className ? ` class="${title.className}" data-title-variant="${title.className.replace('current-title-', '').replace('-v37', '')}" style="${title.style}"` : ''}>${esc(book.title)}</h1><div class="hero-author">${esc(book.authors || '')}${readingAge ? ` <small>· ${esc(readingAge)}</small>` : ''}</div><div class="progress-block"><div class="progress-meta"><span>${esc(progressText(book))}</span><span>${book.total_pages ? `${Math.round(pct)}%` : ''}</span></div>${chapter ? `<div class="chapter-progress-line">${esc(chapter)}</div>` : ''}<div class="progress-track"><div class="progress-fill" data-progress-book="${book.id}" data-progress-value="${pct}" style="--progress:${pct}%"></div></div></div><div class="hero-actions"><button class="btn btn-primary" data-progress="${book.id}">Update progress</button><button class="btn" data-open-book="${book.id}">Open book</button></div></div></section>`;
 }
 
 function currentReading(state) {
   const books = currentlyReadingBooks(state.books);
   if (!books.length) return `<section class="hero"><div class="hero-copy"><p class="eyebrow">Reading terminal</p><h1>Nothing currently open.</h1><div class="hero-author">Your owned-unread shelf is sitting there, judging with remarkable restraint.</div><div class="hero-actions"><button class="btn btn-primary" data-route="library">Browse library</button></div></div></section>`;
-  return `<div class="current-reading-carousel-v36" data-carousel><div class="current-reading-track-v36" aria-label="Currently reading books">${books.map((book, index) => currentCard(book, state, index)).join('')}</div><div class="current-reading-dots-v36"><div class="current-reading-dot-rail-v36">${books.map((book, index) => `<button class="current-reading-dot-v36" data-carousel-dot="${index}" aria-label="Show ${esc(book.title)}"></button>`).join('')}<span class="current-reading-indicator-v36" aria-hidden="true"></span></div></div></div>`;
+  const cards = books.map(book => currentCard(book, state)).join('');
+  return `<div class="current-reading-carousel-v36" data-carousel><div class="current-reading-track-v36" aria-label="Currently reading books">${cards}</div><div class="current-reading-dots-v36"><div class="current-reading-dot-rail-v36">${books.map((book, index) => `<button class="current-reading-dot-v36" data-carousel-dot="${index}" aria-label="Show ${esc(book.title)}"></button>`).join('')}<span class="current-reading-indicator-v36" aria-hidden="true"></span></div></div></div>`;
 }
 
 function upNextCard(item) {
