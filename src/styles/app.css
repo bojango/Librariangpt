@@ -640,6 +640,25 @@ main.route-enter{animation:route-enter 160ms ease-out both}
 @media(max-width:370px){.progress-actions .btn,.progress-actions .btn-primary{font-size:9px!important;padding-inline:2px!important}.awards-shelf{gap:8px;grid-auto-columns:calc((100% - 16px)/3)}}
 @media(prefers-reduced-motion:reduce){.awards-shelf{scroll-behavior:auto}}
 
+/* Keep the current-reading copy clear of its cover on small screens. */
+@media(max-width:700px){
+  .current-reading-track-v36>.hero.current-reading-card-v36{
+    padding:15px 16px!important;
+    column-gap:18px!important;
+    grid-template-columns:minmax(122px,30vw) minmax(0,1fr)!important;
+    grid-template-rows:auto;
+    align-items:start!important;
+  }
+  .current-reading-card-v36>.cover{
+    width:100%!important;
+    height:auto!important;
+    max-width:100%!important;
+    min-height:0!important;
+    align-self:start!important;
+  }
+  .current-reading-card-v36 .hero-copy{align-self:start!important;padding-inline-start:2px!important;}
+}
+
 /* PRESS: only controls and cards that already navigate or mutate state. */
 .book-card,.upnext-card,.recommended-card,.recommended-list-card,.rating-user,.cover-option{transform:translateY(0) scale(1);transition:transform var(--motion-release) var(--ease-premium),box-shadow var(--motion-release) ease,background-color var(--motion-release) ease;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .book-card .cover{box-shadow:0 7px 16px rgba(49,43,34,.11)!important;transition:transform var(--motion-release) var(--ease-premium),box-shadow var(--motion-release) ease!important}
