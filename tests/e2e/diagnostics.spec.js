@@ -48,6 +48,21 @@ test('Test Mode off creates no API, database, event stream or indicator', async 
   expect(databases).not.toContain('reading-room-diagnostics-v1');
 });
 
+test('authenticated menu opens and closes the Appearance editor', async ({ page }) => {
+  await mockApplication(page);
+  await page.goto('/#/home');
+  await expect(page.locator('[data-current-card]')).toBeVisible();
+  await page.locator('[data-menu]').click();
+  await page.getByRole('button', { name: 'Customise appearance' }).click();
+  const editor = page.getByRole('dialog', { name: 'Customise interface' });
+  await expect(editor).toBeVisible();
+  for (const name of ['Preset', 'Typography', 'Colours', 'Geometry & density', 'Navigation', 'Labels & titles']) {
+    await expect(editor.getByRole('tab', { name })).toBeVisible();
+  }
+  await editor.getByRole('button', { name: 'Close appearance editor' }).click();
+  await expect(editor).toHaveCount(0);
+});
+
 test('Test Mode records ordered route, paint, title, cover, scroll and lifecycle evidence', async ({ page }) => {
   await mockApplication(page);
   await page.goto('/?test=1#/home');

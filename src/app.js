@@ -9,7 +9,7 @@ import { libraryView } from './views/library.js';
 import { profileView } from './views/profile.js';
 import { bookDetailView } from './views/book-detail.js';
 import { loadingBookView } from './views/loading.js';
-import { closeModal, toast } from './ui/feedback.js';
+import { closeModal, showModal, toast } from './ui/feedback.js';
 import { openAddBook } from './features/add-book.js';
 import { addToWishlist, confirmPause, openCoverPicker, openDnf, openFinish, openPageCount, openProgress, openReview, openStart, refreshMetadata } from './features/reading-actions.js';
 import { openRecommendation, openRecommendationsPage, openUpNextDetails, openUpNextManager } from './features/home-actions.js';
