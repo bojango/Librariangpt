@@ -1237,3 +1237,35 @@ html[data-theme="terminal"] .current-reading-card-v36 .progress-fill {
     padding: 27px 31px !important;
   }
 }
+
+/* Current reading carousel spacing v74. */
+.current-reading-track-v36 {
+  transition: height .18s ease;
+}
+.current-reading-dots-v36 {
+  height: 14px !important;
+  margin-top: 5px !important;
+}
+.current-reading-carousel-v36 {
+  margin-bottom: 8px !important;
+}
+.current-reading-carousel-v36 ~ .section {
+  margin-top: 10px !important;
+}
+@media (max-width: 700px) {
+  .current-reading-dots-v36 {
+    height: 12px !important;
+    margin-top: 4px !important;
+  }
+  .current-reading-carousel-v36 {
+    margin-bottom: 6px !important;
+  }
+  .current-reading-carousel-v36 ~ .section {
+    margin-top: 8px !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .current-reading-track-v36 {
+    transition: none;
+  }
+}

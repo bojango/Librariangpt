@@ -15,6 +15,8 @@ export function initialiseCarousel(root) {
   let frame = 0;
   const activate = index => {
     const safe = Math.max(0, Math.min(cards.length - 1, index));
+    const activeCard = cards[safe];
+    if (activeCard) track.style.height = `${activeCard.offsetHeight}px`;
     dots.forEach((dot, position) => dot.setAttribute('aria-current', position === safe ? 'true' : 'false'));
     if (indicator && dots[safe]) indicator.style.transform = `translate3d(${dots[safe].offsetLeft}px,0,0)`;
     try {
