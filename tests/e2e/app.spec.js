@@ -340,11 +340,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('70');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('71');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '70')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v70');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '71')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v71');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -357,8 +357,8 @@ test.describe('service-worker-controlled document', () => {
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
     expect(state).toMatchObject({
-      generation: '70',
-      shell_cache: 'reading-room-shell-v70',
+      generation: '71',
+      shell_cache: 'reading-room-shell-v71',
       cover_cache: 'reading-room-covers-v3',
       award_logo_cache: 'reading-room-award-logos-v1',
       award_logo_cache_hits: 0,

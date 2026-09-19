@@ -1004,6 +1004,12 @@ html[style*="--user-nav-label-size"] .nav-label { font-size:var(--user-nav-label
   font-weight: 400;
   font-display: swap;
 }
+@font-face { font-family: "Commit Mono Local"; src: url("../../assets/fonts/commit-mono-regular.woff2") format("woff2"); font-style: normal; font-weight: 400; font-display: swap; }
+@font-face { font-family: "Commit Mono Local"; src: url("../../assets/fonts/commit-mono-semibold.woff2") format("woff2"); font-style: normal; font-weight: 600; font-display: swap; }
+@font-face { font-family: "IBM Plex Mono Local"; src: url("../../assets/fonts/ibm-plex-mono-regular.woff2") format("woff2"); font-style: normal; font-weight: 400; font-display: swap; }
+@font-face { font-family: "IBM Plex Mono Local"; src: url("../../assets/fonts/ibm-plex-mono-semibold.woff2") format("woff2"); font-style: normal; font-weight: 600; font-display: swap; }
+@font-face { font-family: "Space Mono Local"; src: url("../../assets/fonts/space-mono-regular.woff2") format("woff2"); font-style: normal; font-weight: 400; font-display: swap; }
+@font-face { font-family: "Space Mono Local"; src: url("../../assets/fonts/space-mono-bold.woff2") format("woff2"); font-style: normal; font-weight: 700; font-display: swap; }
 @font-face {
   font-family: "JetBrains Mono Local";
   src: url("../../assets/fonts/jetbrains-mono-semibold.ttf") format("truetype");

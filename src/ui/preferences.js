@@ -3,8 +3,39 @@ import { UI_COPY, setCopyOverrides } from './copy.js';
 
 export const PREFERENCES_STORAGE_KEY = 'reading-room-ui-preferences-v1';
 export const FONT_OPTIONS = Object.freeze([
-  ['default', 'Reading Room Default'], ['jetbrains-mono', 'JetBrains Mono'], ['system-mono', 'System Mono']
+  ['reading-room-default', 'Reading Room Default'],
+  ['jetbrains-mono', 'JetBrains Mono'],
+  ['commit-mono', 'Commit Mono'],
+  ['ibm-plex-mono', 'IBM Plex Mono'],
+  ['space-mono', 'Space Mono'],
+  ['system-mono', 'System Mono']
 ]);
+export const FONT_STACKS = Object.freeze({
+  'reading-room-default': 'Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  'jetbrains-mono': '"JetBrains Mono Local", ui-monospace, monospace',
+  'commit-mono': '"Commit Mono Local", ui-monospace, monospace',
+  'ibm-plex-mono': '"IBM Plex Mono Local", ui-monospace, monospace',
+  'space-mono': '"Space Mono Local", ui-monospace, monospace',
+  'system-mono': 'ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace'
+});
+export const CANONICAL_APPEARANCE = Object.freeze({
+  'reading-room': Object.freeze({
+    baseSize: 16, headingScale: 1, lineHeight: 1.48, letterSpacing: 0, fontWeight: '400',
+    bg: '#F1EEE5', surface: '#F7F4EC', surfaceAlt: '#E9E5DA', text: '#171613', muted: '#656158', border: '#D0CDC4', accent: '#171613', activeBg: '#171613', activeText: '#F1EEE5',
+    cardRadius: 0, controlRadius: 0, borderWidth: 1, density: 1, navHeight: 56, navIconSize: 19, navLabelSize: 10, showNavLabels: true
+  }),
+  terminal: Object.freeze({
+    baseSize: 15, headingScale: 1, lineHeight: 1.48, letterSpacing: 0, fontWeight: '400',
+    bg: '#EEE5C4', surface: '#EEE5C4', surfaceAlt: '#E6DBB8', text: '#1B1914', muted: '#625D4D', border: '#625D4D', accent: '#1B1914', activeBg: '#1B1914', activeText: '#EEE5C4',
+    cardRadius: 6, controlRadius: 4, borderWidth: 1, density: 1, navHeight: 54, navIconSize: 17, navLabelSize: 8, showNavLabels: true
+  })
+});
+export function canonicalAppearance(theme) { return CANONICAL_APPEARANCE[normaliseTheme(theme)]; }
+export function effectiveAppearance(preferences, theme) {
+  const safe = normalisePreferences(preferences || {});
+  const active = normaliseTheme(theme);
+  return { ...canonicalAppearance(active), ...safe.appearanceOverrides[active] };
+}
 export const APPEARANCE_SECTIONS = Object.freeze({
   typography: ['font', 'baseSize', 'headingScale', 'lineHeight', 'letterSpacing', 'fontWeight'],
   colours: ['bg', 'surface', 'surfaceAlt', 'text', 'muted', 'border', 'accent', 'activeBg', 'activeText'],
@@ -60,8 +91,9 @@ export function applyPreferences(preferences, theme = preferences?.selectedTheme
   const safe = normalisePreferences(preferences || {}); const active = normaliseTheme(theme); const values = safe.appearanceOverrides[active] || {};
   const vars = { bg:'--user-bg', surface:'--user-surface', surfaceAlt:'--user-surface-alt', text:'--user-text', muted:'--user-muted', border:'--user-border', accent:'--user-accent', activeBg:'--user-active-bg', activeText:'--user-active-text', cardRadius:'--user-card-radius', controlRadius:'--user-control-radius', borderWidth:'--user-border-width', density:'--user-density-scale', navHeight:'--user-nav-height', navIconSize:'--user-nav-icon-size', navLabelSize:'--user-nav-label-size', showNavLabels:'--user-show-nav-labels', baseSize:'--user-base-font-size', headingScale:'--user-heading-scale', lineHeight:'--user-line-height', letterSpacing:'--user-letter-spacing', fontWeight:'--user-font-weight' };
   Object.values(vars).forEach(key => doc.documentElement.style.removeProperty(key));
+  doc.documentElement.style.removeProperty('--user-font');
   Object.entries(values).forEach(([key, value]) => {
-    if (key === 'font') styleSet(doc, '--user-font', value === 'jetbrains-mono' ? '"JetBrains Mono Local", ui-monospace, monospace' : value === 'system-mono' ? 'ui-monospace, "SFMono-Regular", Consolas, monospace' : '');
+    if (key === 'font' && FONT_STACKS[value]) styleSet(doc, '--user-font', FONT_STACKS[value]);
     else if (vars[key]) styleSet(doc, vars[key], numberKeys.has(key) ? `${value}${['baseSize','cardRadius','controlRadius','borderWidth','navHeight','navIconSize','navLabelSize'].includes(key) ? 'px' : key === 'letterSpacing' ? 'em' : ''}` : value);
   });
   setCopyOverrides(safe.copyOverrides); return safe;

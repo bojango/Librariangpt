@@ -1,4 +1,4 @@
-const GENERATION = '70';
+const GENERATION = '71';
 const SHELL = `reading-room-shell-v${GENERATION}`;
 const COVERS = 'reading-room-covers-v3';
 const AWARD_LOGOS = 'reading-room-award-logos-v1';
@@ -17,6 +17,12 @@ const APP_SHELL = [
   './assets/open-library.svg',
   './assets/fonts/jetbrains-mono-regular.ttf',
   './assets/fonts/jetbrains-mono-semibold.ttf',
+  './assets/fonts/commit-mono-regular.woff2',
+  './assets/fonts/commit-mono-semibold.woff2',
+  './assets/fonts/ibm-plex-mono-regular.woff2',
+  './assets/fonts/ibm-plex-mono-semibold.woff2',
+  './assets/fonts/space-mono-regular.woff2',
+  './assets/fonts/space-mono-bold.woff2',
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];
