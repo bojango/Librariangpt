@@ -1202,3 +1202,38 @@ html[data-theme="terminal"] { --terminal-bg:var(--user-bg,#eee5c4); --terminal-s
 html[style*="--user-font"] body,html[style*="--user-font"] button,html[style*="--user-font"] input,html[style*="--user-font"] select,html[style*="--user-font"] textarea { font-family:var(--user-font)!important; }
 html[style*="--user-nav-icon-size"] .nav-icon svg { width:var(--user-nav-icon-size)!important;height:var(--user-nav-icon-size)!important; }
 html[style*="--user-nav-label-size"] .nav-label { font-size:var(--user-nav-label-size)!important; }
+
+/* Current reading card spacing + terminal contrast v73. */
+html[data-theme="reading-room"] .current-reading-track-v36 > .hero.current-reading-card-v36 {
+  padding: clamp(35px, calc(3vw + 15px), 43px) !important;
+}
+html[data-theme="terminal"] .current-reading-track-v36 > .hero.current-reading-card-v36 {
+  padding: clamp(29px, calc(3vw + 15px), 39px) !important;
+  border-color: var(--terminal-active-bg) !important;
+  background: var(--terminal-active-bg) !important;
+  color: #fff !important;
+}
+html[data-theme="terminal"] .current-reading-card-v36 :is(.eyebrow, .hero-author, .progress-meta) {
+  color: #fff !important;
+}
+html[data-theme="terminal"] .current-reading-card-v36 .hero-actions .btn {
+  border-color: #fff !important;
+  color: #fff !important;
+}
+html[data-theme="terminal"] .current-reading-card-v36 .hero-actions .btn-primary {
+  border-color: #fff !important;
+  background: #fff !important;
+  color: var(--terminal-active-bg) !important;
+}
+html[data-theme="terminal"] .current-reading-card-v36 .progress-track {
+  background: rgba(255,255,255,.24) !important;
+}
+html[data-theme="terminal"] .current-reading-card-v36 .progress-fill {
+  background: #fff !important;
+}
+@media (max-width: 700px) {
+  html[data-theme="reading-room"] .current-reading-track-v36 > .hero.current-reading-card-v36,
+  html[data-theme="terminal"] .current-reading-track-v36 > .hero.current-reading-card-v36 {
+    padding: 27px 31px !important;
+  }
+}
