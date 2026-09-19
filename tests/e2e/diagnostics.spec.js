@@ -48,7 +48,7 @@ test('Test Mode off creates no API, database, event stream or indicator', async 
   expect(databases).not.toContain('reading-room-diagnostics-v1');
 });
 
-test('authenticated menu opens and closes the Appearance editor', async ({ page }) => {
+test('Appearance editor saves typed slider values cleanly without rerendering the route', async ({ page }) => {
   await mockApplication(page);
   await page.goto('/#/home');
   await expect(page.locator('[data-current-card]')).toBeVisible();
@@ -59,8 +59,34 @@ test('authenticated menu opens and closes the Appearance editor', async ({ page 
   for (const name of ['Preset', 'Typography', 'Colours', 'Geometry & density', 'Navigation', 'Labels & titles']) {
     await expect(editor.getByRole('tab', { name })).toBeVisible();
   }
+  await editor.getByRole('tab', { name: 'Typography' }).click();
+  const headingScale = editor.locator('input[data-pref="headingScale"]');
+  const headingOutput = editor.locator('output[data-pref-output="headingScale"]');
+  await expect(headingOutput).toHaveText('1.00 · Default');
+  await page.evaluate(() => {
+    window.__appearanceRouteMutations = 0;
+    new MutationObserver(records => { window.__appearanceRouteMutations += records.length; }).observe(document.querySelector('#app'), { childList: true, subtree: true });
+  });
+  await headingScale.evaluate(input => { input.value = '1.15'; input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await expect(headingOutput).toHaveText('1.15');
+  await expect(editor.locator('[data-appearance-dirty]')).toHaveText('Unsaved changes');
+  expect(await page.evaluate(() => window.__appearanceRouteMutations)).toBe(0);
+  await editor.getByRole('button', { name: 'Save' }).click();
+  await expect(page.locator('#toast')).toHaveText('Appearance saved.');
+  await expect(editor.locator('[data-appearance-dirty]')).toHaveText('');
+  let closeDialogCount = 0;
+  page.on('dialog', dialog => { closeDialogCount += 1; dialog.dismiss(); });
   await editor.getByRole('button', { name: 'Close appearance editor' }).click();
   await expect(editor).toHaveCount(0);
+  expect(closeDialogCount).toBe(0);
+  await page.locator('[data-menu]').click();
+  await page.getByRole('button', { name: 'Customise appearance' }).click();
+  await editor.getByRole('tab', { name: 'Typography' }).click();
+  await expect(editor.locator('input[data-pref="headingScale"]')).toHaveValue('1.15');
+  await headingScale.evaluate(input => { input.value = '1.2'; input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await editor.getByRole('button', { name: 'Close appearance editor' }).click();
+  await expect.poll(() => closeDialogCount).toBe(1);
+  await expect(editor).toBeVisible();
 });
 
 test('Test Mode records ordered route, paint, title, cover, scroll and lifecycle evidence', async ({ page }) => {

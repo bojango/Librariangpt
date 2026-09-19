@@ -28,7 +28,7 @@ import { isGoodreadsRefreshDue } from './utils/metadata.js';
 import { maybeMapCurrentChapters } from './features/chapter-map.js';
 import { activateAwardLogos } from './features/accolades.js';
 import { applyTheme, initialiseTheme, savedTheme, themeSelectorMarkup } from './ui/theme.js';
-import { FONT_OPTIONS, applyPreferences, cachePreferences, copySectionReset, effectiveAppearance, readCachedPreferences, loadRemotePreferences, normalisePreferences, saveRemotePreferences, sectionReset, themeReset } from './ui/preferences.js';
+import { FONT_OPTIONS, applyPreferences, cachePreferences, copySectionReset, effectiveAppearance, preferenceStatesEqual, readCachedPreferences, loadRemotePreferences, normalisePreferences, saveRemotePreferences, sectionReset, themeReset, updateAppearanceDraft, updateCopyDraft, validHex } from './ui/preferences.js';
 import { UI_COPY } from './ui/copy.js';
 import { escapeHtml } from './utils/text.js';
 
@@ -450,8 +450,9 @@ function appearanceEditorMarkup(draft, theme, section = 'preset') {
   const values = effectiveAppearance(draft, active);
   const inherited = key => !(key in overrides);
   const sections = [['preset', 'Preset'], ['typography', 'Typography'], ['colours', 'Colours'], ['geometry', 'Geometry & density'], ['navigation', 'Navigation'], ['labels', 'Labels & titles']];
-  const number = (key, label, min, max, step = 1) => `<label class="appearance-field">${label}<output>${values[key]}${['baseSize','cardRadius','controlRadius','borderWidth','navHeight','navIconSize','navLabelSize'].includes(key) ? 'px' : ''}${inherited(key) ? ' · Default' : ''}</output><input type="range" data-pref="${key}" min="${min}" max="${max}" step="${step}" value="${values[key]}"></label>`;
-  const colour = (key, label) => `<label class="appearance-field">${label}<output>${values[key]}${inherited(key) ? ' · Default' : ''}</output><span class="appearance-colour"><input type="color" data-pref="${key}" value="${values[key]}"><input class="input" data-pref="${key}" value="${values[key]}" aria-label="${label} hex value${inherited(key) ? ', canonical default' : ''}" maxlength="7"></span></label>`;
+  const format = (key, value) => ['baseSize','cardRadius','controlRadius','borderWidth','navHeight','navIconSize','navLabelSize'].includes(key) ? `${value}px` : ['headingScale','lineHeight','letterSpacing','density'].includes(key) ? Number(value).toFixed(2) : value;
+  const number = (key, label, min, max, step = 1) => `<label class="appearance-field">${label}<output data-pref-output="${key}">${format(key, values[key])}${inherited(key) ? ' · Default' : ''}</output><input type="range" data-pref="${key}" min="${min}" max="${max}" step="${step}" value="${values[key]}"></label>`;
+  const colour = (key, label) => `<label class="appearance-field">${label}<output data-pref-output="${key}">${values[key]}${inherited(key) ? ' · Default' : ''}</output><span class="appearance-colour"><input type="color" data-pref="${key}" value="${values[key]}"><input class="input" data-pref="${key}" value="${values[key]}" aria-label="${label} hex value${inherited(key) ? ', canonical default' : ''}" maxlength="7"></span></label>`;
   const copyGroups = { nav:['nav.home','nav.library','nav.wishlist','nav.profile'], home:['home.currentlyReading','home.upNext','home.recommended','home.manage','home.seeMore','home.updateProgress','home.openBook'], library:['library.title','library.wishlist'], profile:['profile.title','profile.stats','profile.tasteProfile','profile.history','profile.readingRecord','profile.strongSignals','profile.frictionSignals','profile.completedReads'], book:['book.back','book.synopsis','book.librarianNote','book.yourReview','book.whyRecommended','book.progress'] };
   let body = '';
   if (section === 'preset') body = `<div class="theme-selector" role="radiogroup" aria-label="Appearance preset">${[['reading-room','Reading Room'],['terminal','Terminal']].map(([id,label]) => `<button class="theme-option ${id === active ? 'active' : ''}" data-editor-theme="${id}" role="radio" aria-checked="${id === active}">${label}${Object.keys(draft.appearanceOverrides[id] || {}).length ? ' · Modified' : ''}</button>`).join('')}</div><p class="appearance-help">Customisations are saved separately for each canonical preset.</p>`;
@@ -466,27 +467,58 @@ function appearanceEditorMarkup(draft, theme, section = 'preset') {
 function openAppearanceEditor() {
   let saved = normalisePreferences(preferences); let draft = normalisePreferences(preferences); let theme = savedTheme(); let section = 'preset';
   const root = showModal(appearanceEditorMarkup(draft, theme, section), 'appearance-backdrop');
-  const repaint = () => { root.querySelector('.modal').innerHTML = appearanceEditorMarkup(draft, theme, section); root.querySelector('[data-appearance-dirty]').textContent = JSON.stringify(draft) === JSON.stringify(saved) ? '' : 'Unsaved changes'; };
-  const preview = () => { applyPreferences(draft, theme); renderRoute({ ...store.value.route }, { mode: 'refresh', detail: store.value.detail }); };
-  root.querySelector('.modal').classList.add('appearance-modal');
-  root.addEventListener('click', async event => {
+  const modal = root.querySelector('.modal');
+  const dirty = () => !preferenceStatesEqual(draft, saved);
+  const syncDirty = () => { const slot = root.querySelector('[data-appearance-dirty]'); if (slot) slot.textContent = dirty() ? 'Unsaved changes' : ''; };
+  const repaint = () => { root.querySelector('.modal').innerHTML = appearanceEditorMarkup(draft, theme, section); syncDirty(); };
+  const previewAppearance = () => applyPreferences(draft, theme);
+  const previewCopy = () => { previewAppearance(); renderRoute({ ...store.value.route }, { mode: 'refresh', detail: store.value.detail }); };
+  const syncAppearanceOutput = key => {
+    const output = root.querySelector(`[data-pref-output="${key}"]`);
+    if (!output) return;
+    const value = effectiveAppearance(draft, theme)[key];
+    const inherited = !(key in draft.appearanceOverrides[theme]);
+    const formatted = ['baseSize','cardRadius','controlRadius','borderWidth','navHeight','navIconSize','navLabelSize'].includes(key) ? `${value}px` : ['headingScale','lineHeight','letterSpacing','density'].includes(key) ? Number(value).toFixed(2) : value;
+    output.textContent = `${formatted}${inherited ? ' · Default' : ''}`;
+  };
+  modal.classList.add('appearance-modal');
+  modal.addEventListener('click', async event => {
     const target = event.target.closest('button'); if (!target) return;
-    if (target.matches('[data-appearance-close]')) { if (JSON.stringify(draft) !== JSON.stringify(saved) && !confirm('Discard unsaved appearance changes?')) return; applyPreferences(saved, theme); closeModal(); return; }
+    if (target.matches('[data-appearance-close]')) { if (dirty() && !confirm('Discard unsaved appearance changes?')) return; draft = normalisePreferences(saved); theme = draft.selectedTheme; applyTheme(theme); previewAppearance(); closeModal(); return; }
     if (target.dataset.appearanceSection) { section = target.dataset.appearanceSection; repaint(); return; }
-    if (target.dataset.editorTheme) { theme = target.dataset.editorTheme; applyTheme(theme); draft.selectedTheme = theme; preview(); repaint(); return; }
-    if (target.matches('[data-appearance-revert]')) { draft = normalisePreferences(saved); theme = draft.selectedTheme; applyTheme(theme); preview(); repaint(); return; }
-    if (target.matches('[data-appearance-reset-section]')) { if (section === 'labels') draft.copyOverrides = {}; else draft = sectionReset(draft, theme, section); preview(); repaint(); return; }
-    if (target.matches('[data-appearance-reset-theme]')) { if (!confirm('Reset this theme to its canonical appearance?')) return; draft = themeReset(draft, theme); preview(); repaint(); return; }
-    if (target.dataset.copyResetSection) { draft = copySectionReset(draft, target.dataset.copyResetSection); preview(); repaint(); return; }
-    if (target.matches('[data-appearance-save]')) { try { draft.selectedTheme = theme; preferences = await saveRemotePreferences(supabase, store.value.session.user.id, draft); cachePreferences(preferences); saved = normalisePreferences(preferences); toast('Appearance saved.'); repaint(); } catch (error) { toast(error.message || 'Could not save appearance.', true); } }
+    if (target.dataset.editorTheme) { theme = target.dataset.editorTheme; draft.selectedTheme = theme; applyTheme(theme); previewAppearance(); repaint(); return; }
+    if (target.matches('[data-appearance-revert]')) { draft = normalisePreferences(saved); theme = draft.selectedTheme; applyTheme(theme); previewAppearance(); repaint(); return; }
+    if (target.matches('[data-appearance-reset-section]')) { if (section === 'labels') { draft.copyOverrides = {}; previewCopy(); } else { draft = sectionReset(draft, theme, section); previewAppearance(); } repaint(); return; }
+    if (target.matches('[data-appearance-reset-theme]')) { if (!confirm('Reset this theme to its canonical appearance?')) return; draft = themeReset(draft, theme); previewAppearance(); repaint(); return; }
+    if (target.dataset.copyResetSection) { draft = copySectionReset(draft, target.dataset.copyResetSection); previewCopy(); repaint(); return; }
+    if (target.matches('[data-appearance-save]')) { try { draft.selectedTheme = theme; const committed = normalisePreferences(await saveRemotePreferences(supabase, store.value.session.user.id, draft)); preferences = committed; saved = normalisePreferences(committed); draft = normalisePreferences(committed); cachePreferences(committed); previewAppearance(); toast('Appearance saved.'); repaint(); } catch (error) { toast(error.message || 'Could not save appearance.', true); } }
   });
-  root.addEventListener('input', event => {
+  modal.addEventListener('input', event => {
     const input = event.target; const key = input.dataset.pref; const copyKey = input.dataset.copyKey;
-    if (key) { const value = input.type === 'checkbox' ? input.checked : input.value; if (value === '') delete draft.appearanceOverrides[theme][key]; else draft.appearanceOverrides[theme][key] = value; }
-    if (copyKey) { if (input.value.trim()) draft.copyOverrides[copyKey] = input.value; else delete draft.copyOverrides[copyKey]; }
-    preview(); root.querySelector('[data-appearance-dirty]')?.replaceChildren('Unsaved changes');
+    if (key) {
+      const value = input.type === 'checkbox' ? input.checked : input.value;
+      const validColour = input.type === 'color' || !input.closest('.appearance-colour') || validHex(value);
+      draft = updateAppearanceDraft(draft, theme, key, value);
+      if (validColour) {
+        const colour = input.closest('.appearance-colour');
+        if (colour) {
+          const canonical = effectiveAppearance(draft, theme)[key];
+          colour.querySelector('input[type="color"]').value = canonical;
+          colour.querySelector('input.input').value = canonical;
+        }
+        syncAppearanceOutput(key);
+        previewAppearance();
+      }
+      syncDirty();
+    }
+    if (copyKey) { draft = updateCopyDraft(draft, copyKey, input.value); previewCopy(); syncDirty(); }
   });
-  root.addEventListener('change', event => { if (event.target.matches('input[type="color"]')) { const pair = event.target.parentElement.querySelector('input.input'); if (pair) pair.value = event.target.value.toUpperCase(); } });
+  modal.addEventListener('change', event => {
+    const input = event.target;
+    if (!input.matches('select[data-pref]')) return;
+    draft = updateAppearanceDraft(draft, theme, input.dataset.pref, input.value);
+    previewAppearance(); syncDirty();
+  });
 }
 
 function openMenu() {

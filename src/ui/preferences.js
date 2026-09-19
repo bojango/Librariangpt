@@ -79,6 +79,28 @@ export function normalisePreferences(input = {}) {
   for (const theme of Object.values(THEMES)) appearanceOverrides[theme] = validateAppearance(rawAppearance?.[theme]);
   return { version: 1, selectedTheme: normaliseTheme(input.selected_theme || input.selectedTheme), appearanceOverrides, copyOverrides: validateCopy(rawCopy) };
 }
+export function preferenceStatesEqual(left, right) {
+  return JSON.stringify(normalisePreferences(left)) === JSON.stringify(normalisePreferences(right));
+}
+export function updateAppearanceDraft(preferences, theme, key, value) {
+  const next = normalisePreferences(preferences);
+  const target = next.appearanceOverrides[normaliseTheme(theme)];
+  const validated = validateAppearance({ [key]: value });
+  if (colorKeys.has(key)) {
+    if (Object.hasOwn(validated, key)) target[key] = validated[key];
+    return next;
+  }
+  if (value === '') delete target[key];
+  else if (Object.hasOwn(validated, key)) target[key] = validated[key];
+  return next;
+}
+export function updateCopyDraft(preferences, key, value) {
+  const next = normalisePreferences(preferences);
+  const validated = validateCopy({ [key]: value });
+  if (Object.hasOwn(validated, key)) next.copyOverrides[key] = validated[key];
+  else delete next.copyOverrides[key];
+  return next;
+}
 export function readCachedPreferences(storage = window.localStorage) {
   try {
     const parsed = JSON.parse(storage.getItem(PREFERENCES_STORAGE_KEY) || '{}');

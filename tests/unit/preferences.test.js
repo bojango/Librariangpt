@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CANONICAL_APPEARANCE, FONT_OPTIONS, applyPreferences, effectiveAppearance, normalisePreferences, sectionReset, themeReset, validateAppearance, validateCopy, validHex } from '../../src/ui/preferences.js';
+import { CANONICAL_APPEARANCE, FONT_OPTIONS, applyPreferences, effectiveAppearance, normalisePreferences, preferenceStatesEqual, sectionReset, themeReset, updateAppearanceDraft, validateAppearance, validateCopy, validHex } from '../../src/ui/preferences.js';
 import { UI_COPY, setCopyOverrides, uiCopy, uiCopyHtml } from '../../src/ui/copy.js';
 
 test('appearance validation clamps ranges, allows all curated font IDs, and ignores unknown values', () => {
@@ -62,4 +62,17 @@ test('copy overrides are plain text, bounded, and always fall back to the regist
 test('legacy reading-room-theme selection remains compatible', () => {
   assert.equal(normalisePreferences({ selectedTheme: 'terminal' }).selectedTheme, 'terminal');
   assert.equal(normalisePreferences({ selectedTheme: 'untrusted' }).selectedTheme, 'reading-room');
+});
+
+test('appearance drafts are typed, normalised, and compare cleanly after save or canonical reset', () => {
+  const saved = normalisePreferences({ selectedTheme: 'terminal' });
+  const changed = updateAppearanceDraft(saved, 'terminal', 'headingScale', '1.15');
+  assert.equal(changed.appearanceOverrides.terminal.headingScale, 1.15);
+  assert.equal(typeof changed.appearanceOverrides.terminal.headingScale, 'number');
+  assert.equal(preferenceStatesEqual(changed, saved), false);
+  assert.equal(preferenceStatesEqual(changed, { ...changed, appearanceOverrides: { ...changed.appearanceOverrides, terminal: { headingScale: '1.15' } } }), true);
+  const committed = normalisePreferences(changed);
+  assert.equal(preferenceStatesEqual(changed, committed), true);
+  const reset = themeReset(changed, 'terminal');
+  assert.equal(preferenceStatesEqual(reset, saved), true);
 });

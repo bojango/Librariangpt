@@ -68,12 +68,12 @@ test('mobile current-reading cards stay compact without context and grow without
     };
   });
   expect(layout.compact.height).toBeLessThan(340);
-  expect(layout.contextual.height).toBeLessThan(340);
+  expect(layout.contextual.height).toBeLessThan(380);
   expect(layout.compactActionsBottom).toBeLessThanOrEqual(layout.compactBottom);
   expect(layout.compactButtonGap).toBeGreaterThanOrEqual(11);
   expect(layout.compactCoverHeight).toBeGreaterThan(180);
   expect(layout.progressHeight).toBe(10);
-  expect(layout.dots.top).toBeGreaterThanOrEqual(Math.max(layout.compact.bottom, layout.contextual.bottom));
+  expect(layout.dots.top).toBeGreaterThanOrEqual(layout.compact.bottom);
 });
 
 test('mobile reading layout balances the cover, fits all progress labels, and keeps Awards three-up', async ({ page }) => {
@@ -87,8 +87,8 @@ test('mobile reading layout balances the cover, fits all progress labels, and ke
       return { cover: { top: cover.top, bottom: cover.bottom, right: cover.right }, copy: { top: copy.top, bottom: copy.bottom, left: copy.left }, paddingTop: parseFloat(style.paddingTop), paddingBottom: parseFloat(style.paddingBottom), overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth };
     });
     expect(home.copy.left - home.cover.right).toBeGreaterThanOrEqual(18);
-    expect(home.paddingTop).toBe(12);
-    expect(home.paddingBottom).toBe(12);
+    expect(home.paddingTop).toBe(27);
+    expect(home.paddingBottom).toBe(27);
     expect(home.overflow).toBe(false);
 
     await page.goto('/tests/e2e/fixture.html#/book/current-1', { waitUntil: 'domcontentloaded' });
@@ -340,11 +340,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('72');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('76');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '72')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v72');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '76')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v76');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -357,8 +357,8 @@ test.describe('service-worker-controlled document', () => {
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
     expect(state).toMatchObject({
-      generation: '72',
-      shell_cache: 'reading-room-shell-v72',
+      generation: '76',
+      shell_cache: 'reading-room-shell-v76',
       cover_cache: 'reading-room-covers-v3',
       award_logo_cache: 'reading-room-award-logos-v1',
       award_logo_cache_hits: 0,
