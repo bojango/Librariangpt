@@ -1,9 +1,11 @@
-const ROUTES = new Set(['home', 'library', 'wishlist', 'stats']);
+const ROUTES = new Set(['home', 'library', 'wishlist', 'profile']);
 
 export function parseRoute(hash = location.hash) {
   const path = String(hash || '').replace(/^#\/?/, '');
   const [name, bookId] = path.split('/');
   if (name === 'book' && bookId) return { name: 'book', bookId: decodeURIComponent(bookId) };
+  // Keep bookmarked Stage 1 Stats links working without retaining a second page.
+  if (name === 'stats') return { name: 'profile', bookId: null };
   return { name: ROUTES.has(name) ? name : 'home', bookId: null };
 }
 

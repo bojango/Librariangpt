@@ -834,6 +834,101 @@ html[data-theme="terminal"] .modal, html[data-theme="terminal"] .book-admin-moda
 html[data-theme="terminal"] .modal :is(p, .quote-help-v40, .upnext-detail-author, .recommended-detail-author, .book-admin-head p) { color: var(--muted) !important; }
 html[data-theme="terminal"] .toast { border: 1px solid var(--text) !important; border-radius: 0 !important; background: var(--text) !important; color: var(--bg) !important; box-shadow: 4px 4px 0 rgba(23, 21, 18, .28) !important; }
 
+/* Private reader profile — shared markup, with skin-specific treatment below. */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.profile-page { max-width: 980px; }
+.profile-page-title { margin: 12px 0 18px; }
+.profile-page-title h1 { margin: 0; font: 500 clamp(32px,7vw,60px)/1 Georgia,serif; letter-spacing: -.04em; }
+.profile-card { display: grid; grid-template-columns: minmax(150px, 220px) minmax(0, 1fr); gap: clamp(20px,4vw,44px); align-items: center; padding: clamp(18px,4vw,34px); border: 1px solid var(--line); background: var(--panel); }
+.profile-avatar { width: 100%; max-width: 220px; aspect-ratio: 1 / 1; overflow: hidden; display: grid; place-items: center; border: 1px solid var(--line); background: var(--panel-2); }
+.profile-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.profile-avatar-placeholder { font: 500 clamp(52px,11vw,90px)/1 Georgia,serif; color: var(--muted); }
+.profile-identity { min-width: 0; }
+.profile-private { display: inline-block; padding: 4px 7px; border: 1px solid var(--line); color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .11em; }
+.profile-identity h2 { margin: 14px 0 3px; font: 500 clamp(28px,5vw,44px)/1 Georgia,serif; letter-spacing: -.035em; }
+.profile-handle,.profile-role,.profile-bio,.profile-upload-help { margin: 0; color: var(--muted); }
+.profile-handle { font-size: 13px; }
+.profile-role { margin-top: 13px; font-size: 13px; font-weight: 700; }
+.profile-bio { max-width: 600px; margin-top: 8px; line-height: 1.5; font-size: 13px; }
+.profile-upload { display: inline-flex; align-items: center; margin-top: 18px; position: relative; overflow: hidden; }
+.profile-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.profile-upload:focus-within { outline: 2px solid var(--text); outline-offset: 3px; }
+.profile-upload-help { margin-top: 6px; font-size: 10px; }
+.profile-tabs { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); margin-top: 18px; border: 1px solid var(--line); }
+.profile-tabs button { min-height: 46px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--muted); padding: 9px 8px; font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.profile-tabs button:last-child { border-right: 0; }
+.profile-tabs button.active { background: var(--text); color: var(--bg); }
+.profile-tabs button:focus-visible { outline: 2px solid var(--text); outline-offset: -4px; }
+.profile-tab-content { padding: clamp(20px,4vw,34px) 0 0; }
+.profile-section-heading { margin-bottom: 20px; padding-bottom: 13px; border-bottom: 1px solid var(--line); }
+.profile-section-heading h2 { margin: 0; font: 500 clamp(24px,4vw,34px)/1 Georgia,serif; letter-spacing: -.03em; }
+.profile-section-heading p:not(.eyebrow) { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.profile-stat-record { border-top: 1px solid var(--line); }
+.profile-stat-row { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: baseline; gap: 18px; min-height: 48px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.profile-stat-row span { color: var(--muted); font-size: 12px; font-weight: 750; letter-spacing: .07em; }
+.profile-stat-row strong { font: 600 clamp(20px,3vw,28px)/1 Georgia,serif; }
+.taste-prose { max-width: 760px; }
+.taste-prose p { margin: 0 0 15px; line-height: 1.66; color: var(--text); }
+.taste-signals { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; margin-top: 28px; }
+.taste-signals section { padding: 16px; border: 1px solid var(--line); background: var(--bg-soft); }
+.taste-signals h3,.history-year h3 { margin: 0; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+.taste-signals ul { display: grid; gap: 9px; margin: 14px 0 0; padding: 0; list-style: none; }
+.taste-signals li { display: grid; grid-template-columns: 15px 1fr; gap: 5px; font-size: 13px; line-height: 1.4; }
+.taste-signals li span { font-weight: 800; }
+.profile-empty-copy,.profile-empty { color: var(--muted); line-height: 1.5; }
+.history-year { margin: 30px 0; }
+.history-year h3 { padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.profile-history-list { border-bottom: 1px solid var(--line); }
+.profile-history-item { width: 100%; display: grid; grid-template-columns: 54px minmax(0,1fr); gap: 13px; align-items: center; padding: 11px 0; border: 0; border-top: 1px solid var(--line); background: transparent; color: inherit; text-align: left; }
+.profile-history-cover { width: 54px; aspect-ratio: 2 / 3; display: grid; place-items: center; overflow: hidden; background: var(--panel-2); color: var(--muted); font-size: 9px; font-weight: 800; }
+.profile-history-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.profile-history-copy { display: grid; min-width: 0; gap: 3px; }
+.profile-history-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-history-copy span,.profile-history-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.profile-history-copy span { font-size: 12px; }.profile-history-copy small { font-size: 10px; }
+.profile-history-item:hover strong { text-decoration: underline; text-underline-offset: 3px; }
+
+html[data-theme="terminal"] .profile-page-title h1,
+html[data-theme="terminal"] .profile-identity h2,
+html[data-theme="terminal"] .profile-section-heading h2,
+html[data-theme="terminal"] .profile-stat-row strong { font-family: var(--font-terminal) !important; font-weight: 700; letter-spacing: -.045em; text-transform: uppercase; }
+html[data-theme="terminal"] .profile-card,
+html[data-theme="terminal"] .profile-avatar,
+html[data-theme="terminal"] .profile-tabs,
+html[data-theme="terminal"] .taste-signals section { border-color: var(--text); border-radius: 0; background: var(--panel); box-shadow: none; }
+html[data-theme="terminal"] .profile-avatar { background: var(--panel-2); }
+html[data-theme="terminal"] .profile-avatar img { filter: grayscale(1) contrast(1.18); }
+html[data-theme="terminal"] .profile-avatar::after { content: ''; position: absolute; width: min(220px,100%); aspect-ratio: 1; pointer-events: none; background-image: radial-gradient(rgba(23,21,18,.25) .55px, transparent .7px); background-size: 3px 3px; mix-blend-mode: multiply; opacity: .42; }
+html[data-theme="terminal"] .profile-avatar { position: relative; }
+html[data-theme="terminal"] .profile-private,
+html[data-theme="terminal"] .profile-tabs button,
+html[data-theme="terminal"] .profile-stat-row span,
+html[data-theme="terminal"] .taste-signals h3,
+html[data-theme="terminal"] .history-year h3,
+html[data-theme="terminal"] .profile-history-copy,
+html[data-theme="terminal"] .profile-history-copy strong { font-family: var(--font-terminal); }
+html[data-theme="terminal"] .profile-private { border-color: var(--text); color: var(--text); }
+html[data-theme="terminal"] .profile-tabs button { border-color: var(--text); color: var(--text); border-radius: 0; }
+html[data-theme="terminal"] .profile-tabs button.active { background: var(--text); color: var(--bg); }
+html[data-theme="terminal"] .profile-stat-row,html[data-theme="terminal"] .profile-section-heading,html[data-theme="terminal"] .history-year h3,html[data-theme="terminal"] .profile-history-item,html[data-theme="terminal"] .profile-history-list { border-color: var(--line); }
+html[data-theme="terminal"] .taste-signals section { background: transparent; }
+html[data-theme="terminal"] .profile-history-item { border-radius: 0; }
+html[data-theme="terminal"] .profile-history-cover { border: 1px solid var(--text); border-radius: 0; }
+html[data-theme="terminal"] .profile-upload { border-radius: 0; }
+
+@media (max-width: 600px) {
+  .profile-card { grid-template-columns: 92px minmax(0,1fr); gap: 16px; padding: 16px; }
+  .profile-identity h2 { margin-top: 10px; font-size: clamp(25px,8vw,36px); }
+  .profile-role { margin-top: 9px; }.profile-bio { font-size: 12px; }.profile-upload { margin-top: 13px; }
+  .profile-tabs button { min-height: 50px; padding-inline: 4px; font-size: 10px; }
+  .taste-signals { grid-template-columns: 1fr; }
+}
+
+/* Reading Room's expanded desktop navigation occupies the upper-left viewport. */
+@media (min-width: 900px) {
+  html[data-theme="reading-room"] .profile-page { padding-top: 220px; }
+}
+
 /* Terminal navigation deliberately does not inherit Reading Room's floating pill. */
 @media (max-width: 899px) {
   html[data-theme="terminal"] .layout, html[data-theme="terminal"] body.rr-detail-page .layout { padding-bottom: calc(68px + var(--safe-bottom)) !important; }

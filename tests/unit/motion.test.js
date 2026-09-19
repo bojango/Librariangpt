@@ -71,7 +71,7 @@ test('tab navigation can explicitly expand the nav and reset its scroll baseline
 test('the shared nav indicator maps routes to deterministic indexes without geometry measurement', () => {
   const harness = createHarness();
   const controller = installMotionController({ getRoute: () => ({ name: 'home' }), goBack() {}, ...harness });
-  for (const [route, index] of Object.entries({ home: 0, library: 1, wishlist: 2, stats: 3 })) {
+  for (const [route, index] of Object.entries({ home: 0, library: 1, wishlist: 2, profile: 3 })) {
     controller.setNavRoute(route);
     assert.equal(harness.navStyle.get('--nav-index'), String(index));
   }
