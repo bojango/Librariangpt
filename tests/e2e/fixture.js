@@ -1,7 +1,7 @@
 import { homeView } from '../../src/views/home.js';
 import { libraryView } from '../../src/views/library.js';
 import { bookDetailView } from '../../src/views/book-detail.js';
-import { statsView } from '../../src/views/stats.js';
+import { profileView } from '../../src/views/profile.js';
 import { snapshotFingerprint } from '../../src/lifecycle.js';
 import { activateCovers, collectCoverImages, reuseCoverImages } from '../../src/ui/cover.js';
 import { initialiseCarousel } from '../../src/features/current-reading-carousel.js';
@@ -19,7 +19,9 @@ const state = {
   aiRecommendations: [{ recommendation_id: 'rec-1', title: 'Outside Pick', authors: 'AI Author', recommendation_strength: 'Strong', match_score_10: 8.8, why_recommended: 'A fixture recommendation.' }],
   upNext: [{ queue_id: 'queue-1', id: 'wish-1', title: 'Wish Book', authors: 'Future Author', position: 1, source: 'Manual', locked: true }],
   chapters: [{ id: 'current-1', current_chapter_number: '3', current_chapter_title: 'The Middle' }],
-  filters: { library: 'All', wishlist: 'Wishlist' }, queries: { library: '', wishlist: '' }, route: { name: 'home' }, detail: null
+  filters: { library: 'All', wishlist: 'Wishlist' }, queries: { library: '', wishlist: '' }, route: { name: 'home' }, profile: null,
+  tasteProfile: [{ dimension: 'Setting', preference: 'distinctive settings', direction: 'Positive', strength: 'Strong', confidence: 'High', evidence_count: 4, last_updated: '2026-09-18' }],
+  readingHistory: [], profileTab: 'stats', detail: null
 };
 const app = document.querySelector('#app');
 
@@ -48,8 +50,8 @@ function paint(html, { reuseCovers = false, preserveScroll = null } = {}) {
 function render(options = {}) {
   const hash = location.hash.replace(/^#\/?/, '');
   if (hash.startsWith('book/')) { const book = books.find(item => item.id === decodeURIComponent(hash.slice(5))); state.route = { name: 'book', bookId: book.id, returnTo: 'library' }; state.detail = detailFor(book); paint(bookDetailView(state), options); return; }
-  const name = ['library', 'wishlist', 'stats'].includes(hash) ? hash : 'home'; state.route = { name };
-  paint(name === 'home' ? homeView(state) : name === 'stats' ? statsView(state) : libraryView(state, name), options);
+  const name = hash === 'stats' ? 'profile' : ['library', 'wishlist', 'profile'].includes(hash) ? hash : 'home'; state.route = { name };
+  paint(name === 'home' ? homeView(state) : name === 'profile' ? profileView(state) : libraryView(state, name), options);
 }
 
 window.fixtureRefresh = patch => {

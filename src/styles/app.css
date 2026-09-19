@@ -714,3 +714,251 @@ main.swipe-settling{transform:translateX(var(--swipe-x,0));transition:transform 
   .book-card:active,.upnext-card:active,.recommended-card:active,.recommended-list-card:active,.rating-user:active,.cover-option:active{transform:none}
   .cover.cover-loaded>.cover-image{animation:none!important}
 }
+
+/*
+ * Skin tokens. Reading Room intentionally remains the default: the existing
+ * production styling above is its source of truth. Terminal is a compact,
+ * scoped layer so future skins can share component markup without page-by-page
+ * duplicate styles.
+ */
+html[data-theme="reading-room"] {
+  --skin-name: "Reading Room";
+  --font-reading-room: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-terminal: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+.appearance-copy { margin: 0 0 10px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.theme-selector { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); }
+.theme-option { min-height: 42px; border: 0; padding: 8px 10px; background: transparent; color: var(--text); font: inherit; font-size: 11px; font-weight: 700; letter-spacing: .035em; text-align: left; }
+.theme-option + .theme-option { border-left: 1px solid var(--line); }
+.theme-option.active { background: var(--accent-dark, var(--accent)); color: var(--bg-soft); }
+.theme-option:focus-visible { outline: 2px solid var(--accent-dark, var(--accent)); outline-offset: -3px; }
+
+html[data-theme="terminal"] {
+  color-scheme: light;
+  --skin-name: "Terminal";
+  --bg: #f3efe5 !important;
+  --bg-soft: #f8f5ed !important;
+  --panel: #fbf8f0 !important;
+  --panel-2: #e7e1d4 !important;
+  --text: #171512 !important;
+  --muted: #615c54 !important;
+  --faint: #817b70 !important;
+  --line: rgba(23, 21, 18, .55) !important;
+  --accent: #171512 !important;
+  --accent-dark: #171512;
+  --accent-soft: #e4ded0 !important;
+  --accent-subtle: #f0ebe1;
+  --danger: #862f29 !important;
+  --success: #315b43 !important;
+  --radius: 2px !important;
+  --terminal-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  --font-terminal: var(--terminal-mono);
+  --motion-press: 80ms;
+  --motion-release: 130ms;
+  --motion-turn: 160ms;
+}
+
+html[data-theme="terminal"], html[data-theme="terminal"] body { background: var(--bg) !important; color: var(--text) !important; }
+html[data-theme="terminal"] body,
+html[data-theme="terminal"] button,
+html[data-theme="terminal"] input,
+html[data-theme="terminal"] select,
+html[data-theme="terminal"] textarea { font-family: var(--font-terminal) !important; }
+html[data-theme="terminal"] ::selection { background: var(--text); color: var(--bg); }
+html[data-theme="terminal"] :is(.page-heading h1, .hero-copy h1, .detail-copy h1, .detail-copy-v4 h1, .section-header h2, .book-synopsis h2, .recommendation-panel h2, .progress-section>h2, .reading-stats>h2, .visible-metadata>h2, .awards-section>h2, .book-quotes-head-v40 h2, .modal h2, .sidebar-head h2, .auth-card h1, .stat strong, .rating-copy strong, .upnext-detail-meta h2, .recommended-detail-meta h2, .add30-head h2, .book-admin-head h2, .saved-quote-v40 blockquote) { font-family: var(--font-terminal) !important; font-weight: 650 !important; letter-spacing: -.035em !important; }
+html[data-theme="terminal"] :is(.eyebrow, .metadata-row span, .reading-dates small, .info small, .status-pill, .book-admin-entry-label, .admin-kicker, .award-status, .saved-quote-location-v40) { font-family: var(--font-terminal) !important; font-weight: 700 !important; letter-spacing: .09em !important; }
+
+html[data-theme="terminal"] .topbar { min-height: calc(62px + var(--safe-top)) !important; padding-block: calc(10px + var(--safe-top)) 10px !important; background: var(--bg) !important; border-bottom: 1px solid var(--text) !important; backdrop-filter: none !important; }
+html[data-theme="terminal"] .topbar .wordmark > span:not(.brand-mark)::after { font-family: var(--font-terminal) !important; font-size: clamp(17px, 2.7vw, 22px) !important; font-weight: 700 !important; letter-spacing: -.06em !important; }
+html[data-theme="terminal"] .topbar .wordmark > .brand-mark { width: 35px !important; height: 35px !important; }
+html[data-theme="terminal"] .icon-btn { width: 38px !important; border: 1px solid var(--text) !important; border-radius: 0 !important; background: transparent !important; color: var(--text) !important; }
+html[data-theme="terminal"] .icon-btn svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: square; stroke-linejoin: miter; }
+html[data-theme="terminal"] .back-btn { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-terminal) !important; font-size: 11px; font-weight: 700; text-decoration: none; }
+html[data-theme="terminal"] .back-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: square; stroke-linejoin: miter; }
+html[data-theme="terminal"] .menu-bars { gap: 4px; }
+html[data-theme="terminal"] .menu-bars i { height: 1px; }
+
+html[data-theme="terminal"] main { max-width: 1440px; padding-top: 18px; }
+html[data-theme="terminal"] .page-heading { margin-bottom: 26px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+html[data-theme="terminal"] .page-heading h1 { font-size: clamp(30px, 5.5vw, 54px) !important; text-transform: uppercase; }
+html[data-theme="terminal"] .page-heading p { max-width: 700px; }
+html[data-theme="terminal"] .eyebrow { color: var(--muted) !important; }
+html[data-theme="terminal"] .section { margin-block: 30px 36px; }
+html[data-theme="terminal"] .section-header { margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+html[data-theme="terminal"] .section-header h2 { font-size: clamp(19px, 3vw, 27px) !important; text-transform: uppercase; }
+html[data-theme="terminal"] .section-header button { color: var(--text) !important; font-family: var(--font-terminal) !important; font-size: 11px; font-weight: 700; text-decoration: none; }
+
+html[data-theme="terminal"] :is(.hero, .auth-card, .stat, .info, .review-panel, .recommendation-panel, .metadata-accordion, .reading-dates>div, .reading-stats-grid>div, .visible-metadata-list, .rating-card, .award-tile, .upnext-card, .recommended-card, .recommended-list-card, .cover-option, .cover-upload-v25, .admin-section, .book-admin-modal, .edition-browser-modal, .modal) { border-color: var(--line) !important; border-radius: 0 !important; background: var(--panel) !important; box-shadow: none !important; }
+html[data-theme="terminal"] .hero { min-height: 0; padding: clamp(18px, 3.4vw, 34px) !important; background: var(--panel) !important; }
+html[data-theme="terminal"] .hero::after { display: none; }
+html[data-theme="terminal"] .hero-copy h1, html[data-theme="terminal"] .detail-copy h1, html[data-theme="terminal"] .detail-copy-v4 h1 { text-transform: uppercase; }
+html[data-theme="terminal"] .hero-author, html[data-theme="terminal"] .book-author, html[data-theme="terminal"] .detail-copy p { color: var(--muted) !important; }
+html[data-theme="terminal"] .cover, html[data-theme="terminal"] .upnext-cover, html[data-theme="terminal"] .recommended-cover, html[data-theme="terminal"] .edition-cover { box-shadow: none !important; }
+html[data-theme="terminal"] .cover { border-radius: 0 !important; border: 1px solid var(--text); }
+html[data-theme="terminal"] .cover::before { display: none; }
+html[data-theme="terminal"] .book-card .cover { box-shadow: none !important; }
+html[data-theme="terminal"] .book-card:hover .cover { transform: translateY(-2px); box-shadow: 3px 3px 0 var(--text) !important; }
+html[data-theme="terminal"] .book-title { margin-top: 9px; font-family: var(--font-terminal); font-size: 13px; font-weight: 750; }
+html[data-theme="terminal"] .book-author { font-family: var(--font-terminal); font-size: 10px; }
+html[data-theme="terminal"] .library-grid { gap: 22px clamp(12px, 2vw, 20px); }
+
+html[data-theme="terminal"] :is(.btn, .filter, .input, .auth-tabs button, .theme-option, .queue-manager-actions button, .add-mode-switch button, .admin-section input, .admin-section select, .admin-section textarea) { border-color: var(--text) !important; border-radius: 0 !important; background: transparent !important; color: var(--text) !important; box-shadow: none !important; }
+html[data-theme="terminal"] .btn { min-height: 39px; padding: 9px 12px !important; font-size: 11px !important; font-weight: 750 !important; letter-spacing: .035em; text-transform: uppercase; }
+html[data-theme="terminal"] .btn-primary, html[data-theme="terminal"] .auth-tabs button.active, html[data-theme="terminal"] .add-mode-switch button.active { background: var(--text) !important; border-color: var(--text) !important; color: var(--bg) !important; }
+html[data-theme="terminal"] .btn-danger { border-color: var(--danger) !important; color: var(--danger) !important; }
+html[data-theme="terminal"] .input, html[data-theme="terminal"] .admin-section input, html[data-theme="terminal"] .admin-section select, html[data-theme="terminal"] .admin-section textarea { min-height: 42px; background: var(--bg-soft) !important; }
+html[data-theme="terminal"] :is(.input, .btn, .filter, .theme-option, .icon-btn, .nav-btn):focus-visible { outline: 2px solid var(--text) !important; outline-offset: 2px !important; }
+html[data-theme="terminal"] .filter.active { background: var(--text) !important; color: var(--bg) !important; border-color: var(--text) !important; }
+html[data-theme="terminal"] .progress-track { height: 6px; border-radius: 0 !important; background: var(--panel-2) !important; }
+html[data-theme="terminal"] .progress-fill { border-radius: 0 !important; background: var(--text) !important; }
+html[data-theme="terminal"] .badge, html[data-theme="terminal"] .status-pill { border: 1px solid var(--line); border-radius: 0 !important; background: transparent !important; color: var(--muted) !important; }
+html[data-theme="terminal"] .badge.accent, html[data-theme="terminal"] .status-currently-reading { background: var(--accent-soft) !important; color: var(--text) !important; }
+html[data-theme="terminal"] .recommendation-panel { border-left: 3px solid var(--text) !important; }
+html[data-theme="terminal"] .book-librarian-note { border-left-color: var(--text) !important; background: transparent !important; }
+html[data-theme="terminal"] .book-librarian-note :is(p, .book-librarian-note-label) { color: var(--text) !important; font-family: var(--font-terminal) !important; }
+html[data-theme="terminal"] :is(.metadata-accordion, .book-quotes-v40, .saved-quote-v40, .metadata-row, .edition-browser-entry, .book-admin-entry, .cover-upload-preview, .upnext-detail-reason, .recommended-detail-reason) { border-color: var(--line) !important; }
+html[data-theme="terminal"] :is(.metadata-row strong, .metadata-accordion summary strong, .reading-dates strong, .reading-stats-grid strong, .info strong, .award-name, .upnext-card h3, .recommended-card h3, .saved-quote-v40 blockquote) { color: var(--text) !important; }
+html[data-theme="terminal"] .saved-quote-v40 blockquote { font-style: normal; }
+
+html[data-theme="terminal"] .sidebar-backdrop, html[data-theme="terminal"] .modal-backdrop { background: rgba(23, 21, 18, .38) !important; backdrop-filter: none !important; }
+html[data-theme="terminal"] .sidebar-panel { background: var(--bg) !important; border-left: 1px solid var(--text); box-shadow: none !important; }
+html[data-theme="terminal"] .sidebar-head { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--text); }
+html[data-theme="terminal"] .sidebar-head h2 { text-transform: uppercase; font-size: 20px; }
+html[data-theme="terminal"] .sidebar-section { border-color: var(--line); }
+html[data-theme="terminal"] .sidebar-section h3 { color: var(--muted); }
+html[data-theme="terminal"] .appearance-copy { color: var(--muted); }
+html[data-theme="terminal"] .theme-selector { border-color: var(--text); }
+html[data-theme="terminal"] .theme-option.active { background: var(--text) !important; color: var(--bg) !important; }
+html[data-theme="terminal"] .modal, html[data-theme="terminal"] .book-admin-modal, html[data-theme="terminal"] .edition-browser-modal { background: var(--bg) !important; color: var(--text) !important; }
+html[data-theme="terminal"] .modal :is(p, .quote-help-v40, .upnext-detail-author, .recommended-detail-author, .book-admin-head p) { color: var(--muted) !important; }
+html[data-theme="terminal"] .toast { border: 1px solid var(--text) !important; border-radius: 0 !important; background: var(--text) !important; color: var(--bg) !important; box-shadow: 4px 4px 0 rgba(23, 21, 18, .28) !important; }
+
+/* Private reader profile — shared markup, with skin-specific treatment below. */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.profile-page { max-width: 980px; }
+.profile-page-title { margin: 12px 0 18px; }
+.profile-page-title h1 { margin: 0; font: 500 clamp(32px,7vw,60px)/1 Georgia,serif; letter-spacing: -.04em; }
+.profile-card { display: grid; grid-template-columns: minmax(150px, 220px) minmax(0, 1fr); gap: clamp(20px,4vw,44px); align-items: center; padding: clamp(18px,4vw,34px); border: 1px solid var(--line); background: var(--panel); }
+.profile-avatar { width: 100%; max-width: 220px; aspect-ratio: 1 / 1; overflow: hidden; display: grid; place-items: center; border: 1px solid var(--line); background: var(--panel-2); }
+.profile-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.profile-avatar-placeholder { font: 500 clamp(52px,11vw,90px)/1 Georgia,serif; color: var(--muted); }
+.profile-identity { min-width: 0; }
+.profile-private { display: inline-block; padding: 4px 7px; border: 1px solid var(--line); color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .11em; }
+.profile-identity h2 { margin: 14px 0 3px; font: 500 clamp(28px,5vw,44px)/1 Georgia,serif; letter-spacing: -.035em; }
+.profile-handle,.profile-role,.profile-bio,.profile-upload-help { margin: 0; color: var(--muted); }
+.profile-handle { font-size: 13px; }
+.profile-role { margin-top: 13px; font-size: 13px; font-weight: 700; }
+.profile-bio { max-width: 600px; margin-top: 8px; line-height: 1.5; font-size: 13px; }
+.profile-upload { display: inline-flex; align-items: center; margin-top: 18px; position: relative; overflow: hidden; }
+.profile-upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.profile-upload:focus-within { outline: 2px solid var(--text); outline-offset: 3px; }
+.profile-upload-help { margin-top: 6px; font-size: 10px; }
+.profile-tabs { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); margin-top: 18px; border: 1px solid var(--line); }
+.profile-tabs button { min-height: 46px; border: 0; border-right: 1px solid var(--line); background: transparent; color: var(--muted); padding: 9px 8px; font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.profile-tabs button:last-child { border-right: 0; }
+.profile-tabs button.active { background: var(--text); color: var(--bg); }
+.profile-tabs button:focus-visible { outline: 2px solid var(--text); outline-offset: -4px; }
+.profile-tab-content { padding: clamp(20px,4vw,34px) 0 0; }
+.profile-section-heading { margin-bottom: 20px; padding-bottom: 13px; border-bottom: 1px solid var(--line); }
+.profile-section-heading h2 { margin: 0; font: 500 clamp(24px,4vw,34px)/1 Georgia,serif; letter-spacing: -.03em; }
+.profile-section-heading p:not(.eyebrow) { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.profile-stat-record { border-top: 1px solid var(--line); }
+.profile-stat-row { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: baseline; gap: 18px; min-height: 48px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.profile-stat-row span { color: var(--muted); font-size: 12px; font-weight: 750; letter-spacing: .07em; }
+.profile-stat-row strong { font: 600 clamp(20px,3vw,28px)/1 Georgia,serif; }
+.taste-prose { max-width: 760px; }
+.taste-prose p { margin: 0 0 15px; line-height: 1.66; color: var(--text); }
+.taste-signals { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; margin-top: 28px; }
+.taste-signals section { padding: 16px; border: 1px solid var(--line); background: var(--bg-soft); }
+.taste-signals h3,.history-year h3 { margin: 0; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+.taste-signals ul { display: grid; gap: 9px; margin: 14px 0 0; padding: 0; list-style: none; }
+.taste-signals li { display: grid; grid-template-columns: 15px 1fr; gap: 5px; font-size: 13px; line-height: 1.4; }
+.taste-signals li span { font-weight: 800; }
+.profile-empty-copy,.profile-empty { color: var(--muted); line-height: 1.5; }
+.history-year { margin: 30px 0; }
+.history-year h3 { padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.profile-history-list { border-bottom: 1px solid var(--line); }
+.profile-history-item { width: 100%; display: grid; grid-template-columns: 54px minmax(0,1fr); gap: 13px; align-items: center; padding: 11px 0; border: 0; border-top: 1px solid var(--line); background: transparent; color: inherit; text-align: left; }
+.profile-history-cover { width: 54px; aspect-ratio: 2 / 3; display: grid; place-items: center; overflow: hidden; background: var(--panel-2); color: var(--muted); font-size: 9px; font-weight: 800; }
+.profile-history-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.profile-history-copy { display: grid; min-width: 0; gap: 3px; }
+.profile-history-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-history-copy span,.profile-history-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.profile-history-copy span { font-size: 12px; }.profile-history-copy small { font-size: 10px; }
+.profile-history-item:hover strong { text-decoration: underline; text-underline-offset: 3px; }
+
+html[data-theme="terminal"] .profile-page-title h1,
+html[data-theme="terminal"] .profile-identity h2,
+html[data-theme="terminal"] .profile-section-heading h2,
+html[data-theme="terminal"] .profile-stat-row strong { font-family: var(--font-terminal) !important; font-weight: 700; letter-spacing: -.045em; text-transform: uppercase; }
+html[data-theme="terminal"] .profile-card,
+html[data-theme="terminal"] .profile-avatar,
+html[data-theme="terminal"] .profile-tabs,
+html[data-theme="terminal"] .taste-signals section { border-color: var(--text); border-radius: 0; background: var(--panel); box-shadow: none; }
+html[data-theme="terminal"] .profile-avatar { background: var(--panel-2); }
+html[data-theme="terminal"] .profile-avatar img { filter: grayscale(1) contrast(1.18); }
+html[data-theme="terminal"] .profile-avatar::after { content: ''; position: absolute; width: min(220px,100%); aspect-ratio: 1; pointer-events: none; background-image: radial-gradient(rgba(23,21,18,.25) .55px, transparent .7px); background-size: 3px 3px; mix-blend-mode: multiply; opacity: .42; }
+html[data-theme="terminal"] .profile-avatar { position: relative; }
+html[data-theme="terminal"] .profile-private,
+html[data-theme="terminal"] .profile-tabs button,
+html[data-theme="terminal"] .profile-stat-row span,
+html[data-theme="terminal"] .taste-signals h3,
+html[data-theme="terminal"] .history-year h3,
+html[data-theme="terminal"] .profile-history-copy,
+html[data-theme="terminal"] .profile-history-copy strong { font-family: var(--font-terminal); }
+html[data-theme="terminal"] .profile-private { border-color: var(--text); color: var(--text); }
+html[data-theme="terminal"] .profile-tabs button { border-color: var(--text); color: var(--text); border-radius: 0; }
+html[data-theme="terminal"] .profile-tabs button.active { background: var(--text); color: var(--bg); }
+html[data-theme="terminal"] .profile-stat-row,html[data-theme="terminal"] .profile-section-heading,html[data-theme="terminal"] .history-year h3,html[data-theme="terminal"] .profile-history-item,html[data-theme="terminal"] .profile-history-list { border-color: var(--line); }
+html[data-theme="terminal"] .taste-signals section { background: transparent; }
+html[data-theme="terminal"] .profile-history-item { border-radius: 0; }
+html[data-theme="terminal"] .profile-history-cover { border: 1px solid var(--text); border-radius: 0; }
+html[data-theme="terminal"] .profile-upload { border-radius: 0; }
+
+@media (max-width: 600px) {
+  .profile-card { grid-template-columns: 92px minmax(0,1fr); gap: 16px; padding: 16px; }
+  .profile-identity h2 { margin-top: 10px; font-size: clamp(25px,8vw,36px); }
+  .profile-role { margin-top: 9px; }.profile-bio { font-size: 12px; }.profile-upload { margin-top: 13px; }
+  .profile-tabs button { min-height: 50px; padding-inline: 4px; font-size: 10px; }
+  .taste-signals { grid-template-columns: 1fr; }
+}
+
+/* Reading Room's expanded desktop navigation occupies the upper-left viewport. */
+@media (min-width: 900px) {
+  html[data-theme="reading-room"] .profile-page { padding-top: 220px; }
+}
+
+/* Terminal navigation deliberately does not inherit Reading Room's floating pill. */
+@media (max-width: 899px) {
+  html[data-theme="terminal"] .layout, html[data-theme="terminal"] body.rr-detail-page .layout { padding-bottom: calc(68px + var(--safe-bottom)) !important; }
+  html[data-theme="terminal"] .bottom-nav, html[data-theme="terminal"] .bottom-nav.compact { position: fixed; right: 0 !important; bottom: 0 !important; left: 0 !important; width: 100% !important; min-width: 100vw !important; max-width: 100vw !important; min-height: calc(62px + var(--safe-bottom)) !important; padding: 0 0 var(--safe-bottom) !important; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; transform: none !important; border: 0 !important; border-top: 1px solid var(--text) !important; border-radius: 0 !important; background: var(--bg) !important; box-shadow: none !important; backdrop-filter: none !important; }
+  html[data-theme="terminal"] .nav-btn, html[data-theme="terminal"] .bottom-nav.compact .nav-btn { min-width: 0; min-height: 61px; padding: 7px 3px !important; gap: 3px !important; border: 0 !important; border-right: 1px solid var(--line) !important; border-radius: 0 !important; color: var(--text) !important; }
+  html[data-theme="terminal"] .nav-btn:last-of-type { border-right: 0 !important; }
+  html[data-theme="terminal"] .nav-btn.active { background: var(--text) !important; color: var(--bg) !important; }
+  html[data-theme="terminal"] .nav-btn.active .nav-label { color: inherit !important; }
+  html[data-theme="terminal"] .bottom-nav.compact .nav-label { position: static !important; max-height: none !important; opacity: 1 !important; transform: none !important; }
+  html[data-theme="terminal"] .nav-icon svg { width: 19px; height: 19px; stroke-width: 1.6; }
+  html[data-theme="terminal"] .nav-label { font-family: var(--font-terminal); font-size: 9px !important; font-weight: 700 !important; letter-spacing: .025em; }
+  html[data-theme="terminal"] .nav-active-indicator { display: none; }
+}
+
+@media (min-width: 900px) {
+  html[data-theme="terminal"] .layout { padding-left: 196px !important; padding-bottom: 30px !important; }
+  html[data-theme="terminal"] .bottom-nav, html[data-theme="terminal"] .bottom-nav.compact { top: 0 !important; right: auto !important; bottom: 0 !important; left: 0 !important; width: 176px !important; max-width: 176px !important; min-width: 176px !important; min-height: 100dvh; padding: calc(18px + var(--safe-top)) 12px 18px !important; grid-template-columns: 1fr; grid-template-rows: repeat(4, min-content); align-content: start; gap: 2px; transform: none !important; border: 0 !important; border-right: 1px solid var(--text) !important; border-radius: 0 !important; background: var(--bg) !important; box-shadow: none !important; }
+  html[data-theme="terminal"] .nav-btn, html[data-theme="terminal"] .bottom-nav.compact .nav-btn { display: flex; min-height: 46px; padding: 8px 10px !important; gap: 10px !important; justify-items: initial; align-items: center; border-radius: 0 !important; color: var(--text) !important; text-align: left; }
+  html[data-theme="terminal"] .nav-btn.active { background: var(--text) !important; color: var(--bg) !important; }
+  html[data-theme="terminal"] .nav-btn.active .nav-label { color: inherit !important; }
+  html[data-theme="terminal"] .bottom-nav.compact .nav-label { position: static !important; max-height: none !important; opacity: 1 !important; transform: none !important; }
+  html[data-theme="terminal"] .nav-label { font-family: var(--font-terminal); font-size: 11px !important; font-weight: 700 !important; }
+  html[data-theme="terminal"] .nav-active-indicator { display: none; }
+}
+
+@media (max-width: 700px) {
+  html[data-theme="terminal"] .hero, html[data-theme="terminal"] .current-reading-track-v36 > .hero.current-reading-card-v36 { grid-template-columns: minmax(104px, 31vw) minmax(0, 1fr) !important; min-height: 0 !important; }
+  html[data-theme="terminal"] .detail-header[data-library-detail="ready"] { grid-template-columns: minmax(104px, 31vw) minmax(0, 1fr) !important; gap: 18px !important; }
+  html[data-theme="terminal"] .detail-header[data-library-detail="ready"] > .cover { width: 100% !important; }
+  html[data-theme="terminal"] .hero-copy h1, html[data-theme="terminal"] .detail-copy-v4 h1 { font-size: clamp(25px, 7.6vw, 40px) !important; }
+  html[data-theme="terminal"] .hero-actions { display: grid !important; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); width: 100%; }
+  html[data-theme="terminal"] .hero-actions .btn { min-width: 0 !important; width: 100%; padding-inline: 4px !important; font-size: 9px !important; letter-spacing: .01em; }
+}

@@ -24,27 +24,62 @@ async function optional(query, fallback = []) {
   catch (error) { console.info('[Reading Room] optional dataset unavailable:', error?.message || error); return fallback; }
 }
 
+async function signedAvatarUrl(path) {
+  if (!path) return null;
+  try {
+    const { data, error } = await supabase.storage.from('reader-avatars').createSignedUrl(path, 60 * 60);
+    if (error) throw error;
+    return data?.signedUrl || null;
+  } catch (error) {
+    console.info('[Reading Room] private avatar unavailable:', error?.message || error);
+    return null;
+  }
+}
+
 export function clearRequestDedupe() {
   requests.clear();
 }
 
 export function loadLibrarySnapshot() {
   return dedupe('library-snapshot', async () => {
-    const [books, recommendations, upNext, aiRecommendations, chapters] = await Promise.all([
+    const [books, recommendations, upNext, aiRecommendations, chapters, profile, tasteProfile, readingHistory] = await Promise.all([
       supabase.from('v_library').select('*').order('title'),
       optional(supabase.from('recommendations').select('book_id,recommendation_strength,match_score_10,recommendation_status,why_recommended,frontend_featured,frontend_shelf,user_interest,prediction_accuracy_5,outcome,date_recommended').order('match_score_10', { ascending: false, nullsFirst: false })),
       optional(supabase.from('v_up_next').select('*').order('position')),
       optional(supabase.from('v_ai_recommendations').select('*').order('display_rank', { ascending: true })),
-      optional(supabase.from('v_library_chapters').select('*').eq('overall_status', 'Currently Reading'))
+      optional(supabase.from('v_library_chapters').select('*').eq('overall_status', 'Currently Reading')),
+      optional(supabase.from('reader_profiles').select('display_name,handle,short_bio,avatar_path,updated_at').maybeSingle(), null),
+      optional(supabase.from('taste_profile').select('dimension,preference,direction,strength,confidence,evidence_count,last_updated').order('last_updated', { ascending: false, nullsFirst: false })),
+      optional(supabase.from('reading_sessions').select('id,book_id,edition_id,session_type,completed_at,started_at,user_rating_5,format_read,created_at').eq('status', 'Completed').order('completed_at', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }))
     ]);
+    const avatarUrl = await signedAvatarUrl(profile?.avatar_path);
     return {
       books: unwrap(books),
       recommendations,
       upNext,
       aiRecommendations,
-      chapters
+      chapters,
+      profile: profile ? { ...profile, avatarUrl } : null,
+      tasteProfile,
+      readingHistory
     };
   });
+}
+
+export async function uploadProfileAvatar(file) {
+  const user = (await supabase.auth.getUser()).data.user;
+  if (!user) throw new Error('You need to be signed in to upload a photo.');
+  const extension = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+  const path = `${user.id}/avatar.${extension}`;
+  const { error: storageError } = await supabase.storage.from('reader-avatars').upload(path, file, {
+    upsert: true,
+    contentType: file.type,
+    cacheControl: '3600'
+  });
+  if (storageError) throw storageError;
+  const { error: profileError } = await supabase.from('reader_profiles').upsert({ user_id: user.id, avatar_path: path }, { onConflict: 'user_id' });
+  if (profileError) throw profileError;
+  return path;
 }
 
 export function loadBookDetail(bookId) {

@@ -1,12 +1,12 @@
 import { supabase } from './data/supabase.js';
-import { clearRequestDedupe, invoke, loadBookDetail, refreshLibrary, rpc, setDataDiagnosticHook } from './data/library.js';
+import { clearRequestDedupe, invoke, loadBookDetail, refreshLibrary, rpc, setDataDiagnosticHook, uploadProfileAvatar } from './data/library.js';
 import { createAppState } from './state.js';
 import { createRouter } from './router.js';
 import { detailFingerprint, sameRoute, snapshotFingerprint } from './lifecycle.js';
 import { authView, claimView, errorView } from './views/auth.js';
 import { homeView } from './views/home.js';
 import { libraryView } from './views/library.js';
-import { statsView } from './views/stats.js';
+import { profileView } from './views/profile.js';
 import { bookDetailView } from './views/book-detail.js';
 import { loadingBookView } from './views/loading.js';
 import { closeModal, toast } from './ui/feedback.js';
@@ -27,8 +27,10 @@ import { diagnosticHistoryMarkup, diagnosticsMenuMarkup, openIssueMarker, syncTe
 import { isGoodreadsRefreshDue } from './utils/metadata.js';
 import { maybeMapCurrentChapters } from './features/chapter-map.js';
 import { activateAwardLogos } from './features/accolades.js';
+import { applyTheme, initialiseTheme, savedTheme, themeSelectorMarkup } from './ui/theme.js';
 
 const app = document.querySelector('#app');
+initialiseTheme();
 const store = createAppState();
 let router;
 let previousRoute = 'home';
@@ -88,7 +90,7 @@ function currentBook(id = store.value.route.bookId) {
 
 function saveCurrentScroll() {
   const name = store.value.route.name;
-  if (['home', 'library', 'wishlist'].includes(name)) store.saveScroll(name, window.scrollY);
+  if (['home', 'library', 'wishlist', 'profile'].includes(name)) store.saveScroll(name, window.scrollY);
 }
 
 function syncNavigation(current, next) {
@@ -218,7 +220,7 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
       : { preserveScroll: preservedY, reuseCovers: true, renderMode: mode };
   if (route.name === 'home') paint(homeView(store.value), options);
   else if (route.name === 'library' || route.name === 'wishlist') paint(libraryView(store.value, route.name), options);
-  else paint(statsView(store.value), options);
+  else paint(profileView(store.value), options);
   diagnostics.event('route_render_complete', { route: route.name, mode, render_generation: version });
 }
 
@@ -313,6 +315,13 @@ app.addEventListener('click', async event => {
   }
   if (target.closest('[data-refresh]')) { refresh(); return; }
   if (target.closest('[data-menu]')) { openMenu(); return; }
+  const profileTab = target.closest('[data-profile-tab]');
+  if (profileTab) {
+    store.value.profileTab = profileTab.dataset.profileTab;
+    paint(profileView(store.value), { preserveScroll: window.scrollY, reuseCovers: true });
+    app.querySelector(`[data-profile-tab="${store.value.profileTab}"]`)?.focus();
+    return;
+  }
   if (target.closest('[data-signout]')) { supabase.auth.signOut(); return; }
   if (target.closest('[data-add-book]')) { openAddBook(); return; }
   if (target.closest('[data-upnext-id]')) { openUpNextDetails(store.value.upNext.find(item => String(item.queue_id || item.id) === target.closest('[data-upnext-id]').dataset.upnextId), store.value.books); return; }
@@ -344,9 +353,44 @@ app.addEventListener('click', async event => {
 });
 
 app.addEventListener('keydown', event => {
+  const tab = event.target.closest('[data-profile-tab]');
+  if (tab && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+    event.preventDefault();
+    const tabs = [...app.querySelectorAll('[data-profile-tab]')];
+    const index = tabs.indexOf(tab);
+    const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+    tabs[nextIndex]?.click();
+    return;
+  }
   if (!['Enter', ' '].includes(event.key)) return;
   const item = event.target.closest('[data-open-book],[data-upnext-id],[data-recommendation-id]');
   if (item) { event.preventDefault(); item.click(); }
+});
+
+app.addEventListener('change', async event => {
+  const input = event.target.closest('[data-avatar-input]');
+  const file = input?.files?.[0];
+  if (!file) return;
+  const validTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
+  if (!validTypes.has(file.type) || file.size > 5 * 1024 * 1024) {
+    toast('Choose a JPG, PNG or WebP image up to 5 MB.', true);
+    input.value = '';
+    return;
+  }
+  const label = app.querySelector('[data-avatar-label]');
+  input.disabled = true;
+  if (label) label.textContent = 'UPLOADING…';
+  try {
+    await uploadProfileAvatar(file);
+    await refresh({ quiet: true });
+    toast('Profile photo updated.');
+  } catch (error) {
+    toast(error.message || 'Could not upload profile photo.', true);
+  } finally {
+    input.disabled = false;
+    input.value = '';
+    if (label) label.textContent = store.value.profile?.avatar_path ? 'CHANGE PHOTO' : 'UPLOAD PHOTO';
+  }
 });
 
 app.addEventListener('input', event => {
@@ -398,7 +442,8 @@ function toggleSynopsis(button) {
 function openMenu() {
   document.querySelector('.sidebar-backdrop')?.remove();
   const wrapper = document.createElement('div'); wrapper.className = 'sidebar-backdrop';
-  wrapper.innerHTML = `<aside class="sidebar-panel"><div class="sidebar-head"><h2>Reading Room</h2><button class="icon-btn" data-side-close>×</button></div><section class="sidebar-section"><h3>Library tools</h3><div class="sidebar-actions"><button class="btn" data-side-add>Add book</button><button class="btn" data-side-refresh>Refresh library data</button></div></section>${diagnosticsMenuMarkup(diagnostics)}<section class="sidebar-section"><div class="sidebar-actions"><button class="btn btn-danger" data-side-logout>Log out</button></div></section></aside>`;
+  const closeIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>';
+  wrapper.innerHTML = `<aside class="sidebar-panel" aria-label="Reading Room menu"><div class="sidebar-head"><h2>Reading Room</h2><button class="icon-btn" data-side-close aria-label="Close menu">${closeIcon}</button></div>${themeSelectorMarkup(savedTheme())}<section class="sidebar-section"><h3>Library tools</h3><div class="sidebar-actions"><button class="btn" data-side-add>Add book</button><button class="btn" data-side-refresh>Refresh library data</button></div></section>${diagnosticsMenuMarkup(diagnostics)}<section class="sidebar-section"><div class="sidebar-actions"><button class="btn btn-danger" data-side-logout>Log out</button></div></section></aside>`;
   document.body.append(wrapper);
   if (diagnostics.isEnabled()) diagnostics.listSessions().then(sessions => {
     const slot = wrapper.querySelector('[data-diag-history]');
@@ -406,6 +451,14 @@ function openMenu() {
   }).catch(() => {});
   wrapper.addEventListener('click', async event => {
     if (event.target === wrapper || event.target.closest('[data-side-close]')) wrapper.remove();
+    else if (event.target.closest('[data-theme-choice]')) {
+      applyTheme(event.target.closest('[data-theme-choice]').dataset.themeChoice);
+      wrapper.querySelectorAll('[data-theme-choice]').forEach(option => {
+        const selected = option.dataset.themeChoice === savedTheme();
+        option.classList.toggle('active', selected);
+        option.setAttribute('aria-checked', String(selected));
+      });
+    }
     else if (event.target.closest('[data-side-add]')) { wrapper.remove(); openAddBook(); }
     else if (event.target.closest('[data-side-refresh]')) { wrapper.remove(); refresh(); }
     else if (event.target.closest('[data-side-logout]')) supabase.auth.signOut();
@@ -473,7 +526,7 @@ async function init() {
     if (!nextSession) {
       libraryLoaded = false;
       sessionBootstrapUser = null;
-      store.update({ books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], detail: null });
+      store.update({ books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], profile: null, tasteProfile: [], readingHistory: [], detail: null });
       paint(authView(store.value.authMode));
       return;
     }

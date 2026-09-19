@@ -226,8 +226,8 @@ test('rapid route changes only leave the final route rendered', async ({ page })
     location.hash = '#/wishlist';
     location.hash = '#/stats';
   });
-  await expect(page.getByRole('heading', { name: 'Stats' })).toBeVisible();
-  await expect(page.locator('.page-heading h1')).toHaveCount(1);
+  await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible();
+  await expect(page.locator('.profile-page-title h1')).toHaveCount(1);
 });
 
 test('rapid Home to Library to Home navigation renders Home completely', async ({ page }) => {
@@ -340,11 +340,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('66');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('68');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '66')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v66');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '68')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v68');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -357,8 +357,8 @@ test.describe('service-worker-controlled document', () => {
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
     expect(state).toMatchObject({
-      generation: '66',
-      shell_cache: 'reading-room-shell-v66',
+      generation: '68',
+      shell_cache: 'reading-room-shell-v68',
       cover_cache: 'reading-room-covers-v3',
       award_logo_cache: 'reading-room-award-logos-v1',
       award_logo_cache_hits: 0,

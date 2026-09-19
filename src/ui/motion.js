@@ -1,7 +1,7 @@
 const DOWNWARD_THRESHOLD = 60;
 const UPWARD_THRESHOLD = 18;
 const SWIPE_THRESHOLD = 48;
-const NAV_INDEX = { home: 0, library: 1, wishlist: 2, stats: 3 };
+const NAV_INDEX = { home: 0, library: 1, wishlist: 2, profile: 3 };
 
 const reducedMotion = (win = window) => win.matchMedia('(prefers-reduced-motion: reduce)').matches;
 

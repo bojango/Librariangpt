@@ -272,7 +272,7 @@ test('mobile nav uses route indexes and stays compact at the document bottom', a
       return Math.abs((button.left + button.width / 2) - (indicator.left + indicator.width / 2));
     })).toBeLessThanOrEqual(1);
   };
-  for (const [route, index] of [['home', '0'], ['library', '1'], ['wishlist', '2'], ['stats', '3']]) {
+  for (const [route, index] of [['home', '0'], ['library', '1'], ['wishlist', '2'], ['profile', '3']]) {
     await page.locator(`.bottom-nav [data-route="${route}"]`).click();
     await expect(page.locator('#app')).toHaveAttribute('data-route-view', route);
     expect(await page.locator('.bottom-nav').evaluate(element => getComputedStyle(element).getPropertyValue('--nav-index').trim())).toBe(index);
@@ -288,7 +288,7 @@ test('mobile nav uses route indexes and stays compact at the document bottom', a
   });
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(resolve)));
   await expect(page.locator('.bottom-nav')).toHaveClass(/compact/);
-  for (const route of ['home', 'library', 'wishlist', 'stats']) {
+  for (const route of ['home', 'library', 'wishlist', 'profile']) {
     await page.locator(`.bottom-nav [data-route="${route}"]`).click();
     await expect(page.locator('#app')).toHaveAttribute('data-route-view', route);
     await expectIndicatorCentred();
