@@ -27,8 +27,10 @@ import { diagnosticHistoryMarkup, diagnosticsMenuMarkup, openIssueMarker, syncTe
 import { isGoodreadsRefreshDue } from './utils/metadata.js';
 import { maybeMapCurrentChapters } from './features/chapter-map.js';
 import { activateAwardLogos } from './features/accolades.js';
+import { applyTheme, initialiseTheme, savedTheme, themeSelectorMarkup } from './ui/theme.js';
 
 const app = document.querySelector('#app');
+initialiseTheme();
 const store = createAppState();
 let router;
 let previousRoute = 'home';
@@ -398,7 +400,8 @@ function toggleSynopsis(button) {
 function openMenu() {
   document.querySelector('.sidebar-backdrop')?.remove();
   const wrapper = document.createElement('div'); wrapper.className = 'sidebar-backdrop';
-  wrapper.innerHTML = `<aside class="sidebar-panel"><div class="sidebar-head"><h2>Reading Room</h2><button class="icon-btn" data-side-close>×</button></div><section class="sidebar-section"><h3>Library tools</h3><div class="sidebar-actions"><button class="btn" data-side-add>Add book</button><button class="btn" data-side-refresh>Refresh library data</button></div></section>${diagnosticsMenuMarkup(diagnostics)}<section class="sidebar-section"><div class="sidebar-actions"><button class="btn btn-danger" data-side-logout>Log out</button></div></section></aside>`;
+  const closeIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>';
+  wrapper.innerHTML = `<aside class="sidebar-panel" aria-label="Reading Room menu"><div class="sidebar-head"><h2>Reading Room</h2><button class="icon-btn" data-side-close aria-label="Close menu">${closeIcon}</button></div>${themeSelectorMarkup(savedTheme())}<section class="sidebar-section"><h3>Library tools</h3><div class="sidebar-actions"><button class="btn" data-side-add>Add book</button><button class="btn" data-side-refresh>Refresh library data</button></div></section>${diagnosticsMenuMarkup(diagnostics)}<section class="sidebar-section"><div class="sidebar-actions"><button class="btn btn-danger" data-side-logout>Log out</button></div></section></aside>`;
   document.body.append(wrapper);
   if (diagnostics.isEnabled()) diagnostics.listSessions().then(sessions => {
     const slot = wrapper.querySelector('[data-diag-history]');
@@ -406,6 +409,14 @@ function openMenu() {
   }).catch(() => {});
   wrapper.addEventListener('click', async event => {
     if (event.target === wrapper || event.target.closest('[data-side-close]')) wrapper.remove();
+    else if (event.target.closest('[data-theme-choice]')) {
+      applyTheme(event.target.closest('[data-theme-choice]').dataset.themeChoice);
+      wrapper.querySelectorAll('[data-theme-choice]').forEach(option => {
+        const selected = option.dataset.themeChoice === savedTheme();
+        option.classList.toggle('active', selected);
+        option.setAttribute('aria-checked', String(selected));
+      });
+    }
     else if (event.target.closest('[data-side-add]')) { wrapper.remove(); openAddBook(); }
     else if (event.target.closest('[data-side-refresh]')) { wrapper.remove(); refresh(); }
     else if (event.target.closest('[data-side-logout]')) supabase.auth.signOut();
