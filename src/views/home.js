@@ -1,6 +1,7 @@
 import { chrome } from '../ui/chrome.js';
 import { cover, esc, progressPct, progressText, readingAgeText } from '../ui/format.js';
 import { currentTitlePresentation } from '../utils/text.js';
+import { uiCopyHtml } from '../ui/copy.js';
 
 export const VISIBLE_UP_NEXT_COUNT = 5;
 
@@ -59,7 +60,7 @@ function currentCard(book, state) {
   const chapter = chapterFor(state, book.id);
   const title = currentTitlePresentation(book.title);
   const readingAge = readingAgeText(book.started_at);
-  return `<section class="hero current-reading-card-v36" data-current-card="${book.id}" data-open-book="${book.id}">${cover(book, '', { eager: true, high: true })}<div class="hero-copy"><p class="eyebrow current-reading-label"><span aria-hidden="true"></span>Currently reading</p><h1${title.className ? ` class="${title.className}" data-title-variant="${title.className.replace('current-title-', '').replace('-v37', '')}" style="${title.style}"` : ''}>${esc(book.title)}</h1><div class="hero-author">${esc(book.authors || '')}${readingAge ? ` <small>· ${esc(readingAge)}</small>` : ''}</div><div class="progress-block"><div class="progress-meta"><span>${esc(progressText(book))}</span><span>${book.total_pages ? `${Math.round(pct)}%` : ''}</span></div>${chapter ? `<div class="chapter-progress-line">${esc(chapter)}</div>` : ''}<div class="progress-track"><div class="progress-fill" data-progress-book="${book.id}" data-progress-value="${pct}" style="--progress:${pct}%"></div></div></div><div class="hero-actions"><button class="btn btn-primary" data-progress="${book.id}">Update progress</button><button class="btn" data-open-book="${book.id}">Open book</button></div></div></section>`;
+  return `<section class="hero current-reading-card-v36" data-current-card="${book.id}" data-open-book="${book.id}">${cover(book, '', { eager: true, high: true })}<div class="hero-copy"><p class="eyebrow current-reading-label"><span aria-hidden="true"></span>${uiCopyHtml('home.currentlyReading')}</p><h1${title.className ? ` class="${title.className}" data-title-variant="${title.className.replace('current-title-', '').replace('-v37', '')}" style="${title.style}"` : ''}>${esc(book.title)}</h1><div class="hero-author">${esc(book.authors || '')}${readingAge ? ` <small>· ${esc(readingAge)}</small>` : ''}</div><div class="progress-block"><div class="progress-meta"><span>${esc(progressText(book))}</span><span>${book.total_pages ? `${Math.round(pct)}%` : ''}</span></div>${chapter ? `<div class="chapter-progress-line">${esc(chapter)}</div>` : ''}<div class="progress-track"><div class="progress-fill" data-progress-book="${book.id}" data-progress-value="${pct}" style="--progress:${pct}%"></div></div></div><div class="hero-actions"><button class="btn btn-primary" data-progress="${book.id}">${uiCopyHtml('home.updateProgress')}</button><button class="btn" data-open-book="${book.id}">${uiCopyHtml('home.openBook')}</button></div></div></section>`;
 }
 
 function currentReading(state) {
@@ -75,7 +76,7 @@ function upNextCard(item) {
 
 function upNext(state) {
   const visible = state.upNext.slice(0, VISIBLE_UP_NEXT_COUNT);
-  return `<section class="section up-next-section" id="up-next-section"><div class="section-header"><h2>Up Next</h2><button class="upnext-manage" data-manage-upnext type="button">Manage</button></div>${visible.length ? `<div class="upnext-row">${visible.map(upNextCard).join('')}</div>` : '<div class="empty-shelf">Nothing queued yet.</div>'}</section>`;
+  return `<section class="section up-next-section" id="up-next-section"><div class="section-header"><h2>${uiCopyHtml('home.upNext')}</h2><button class="upnext-manage" data-manage-upnext type="button">${uiCopyHtml('home.manage')}</button></div>${visible.length ? `<div class="upnext-row">${visible.map(upNextCard).join('')}</div>` : '<div class="empty-shelf">Nothing queued yet.</div>'}</section>`;
 }
 
 function recommendationCard(item) {
@@ -84,7 +85,7 @@ function recommendationCard(item) {
 
 function recommendations(state) {
   const picks = homeRecommendations(state.aiRecommendations);
-  return `<section class="section ai-recommended-section" id="ai-recommended-section"><div class="section-header"><div><h2>Recommended for you</h2><p class="recommended-section-note">AI picks from beyond your library, shaped by what you actually enjoy.</p></div><button class="recommended-more" data-recommendations-page type="button" ${state.aiRecommendations.length ? '' : 'disabled'}>See more</button></div>${picks.length ? `<div class="recommended-row">${picks.map(recommendationCard).join('')}</div>` : '<div class="empty-shelf">No active recommendations right now.</div>'}</section>`;
+  return `<section class="section ai-recommended-section" id="ai-recommended-section"><div class="section-header"><div><h2>${uiCopyHtml('home.recommended')}</h2><p class="recommended-section-note">AI picks from beyond your library, shaped by what you actually enjoy.</p></div><button class="recommended-more" data-recommendations-page type="button" ${state.aiRecommendations.length ? '' : 'disabled'}>${uiCopyHtml('home.seeMore')}</button></div>${picks.length ? `<div class="recommended-row">${picks.map(recommendationCard).join('')}</div>` : '<div class="empty-shelf">No active recommendations right now.</div>'}</section>`;
 }
 
 export function homeView(state) {

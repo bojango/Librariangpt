@@ -159,6 +159,34 @@ h1, h2, h3, p { overflow-wrap: anywhere; }
   .modal-backdrop { align-items: center; }
 }
 
+/* User appearance overrides. These only receive values after validation in ui/preferences.js. */
+html { --user-density-scale: 1; --user-heading-scale: 1; --user-line-height: 1.48; }
+html:has(body) body { font-family: var(--user-font, inherit); font-size: var(--user-base-font-size, inherit); line-height: var(--user-line-height, inherit); letter-spacing: var(--user-letter-spacing, normal); font-weight: var(--user-font-weight, inherit); }
+html[data-theme="reading-room"] { --bg:var(--user-bg,#f1eee5)!important; --bg-soft:var(--user-surface,#f7f4ec)!important; --panel:var(--user-surface,#fbf9f3)!important; --panel-2:var(--user-surface-alt,#e9e5da)!important; --text:var(--user-text,#171613)!important; --muted:var(--user-muted,#656158)!important; --line:var(--user-border,rgba(23,22,19,.18))!important; --accent:var(--user-accent,#171613)!important; --radius:var(--user-card-radius,0px)!important; }
+html[data-theme="terminal"] { --terminal-bg:var(--user-bg,#eee5c4); --terminal-surface:var(--user-surface,#eee5c4); --terminal-surface-alt:var(--user-surface-alt,#e6dbb8); --terminal-text:var(--user-text,#1b1914); --terminal-muted:var(--user-muted,#625d4d); --terminal-border:var(--user-border,#625d4d); --terminal-active-bg:var(--user-active-bg,#1b1914); --terminal-active-text:var(--user-active-text,#eee5c4); --accent:var(--user-accent,var(--terminal-text))!important; --radius:var(--user-card-radius,var(--terminal-radius))!important; }
+html[style*="--user-heading-scale"] :is(.page-heading h1,.hero-copy h1,.detail-copy h1,.detail-copy-v4 h1,.section-header h2,.book-synopsis h2,.recommendation-panel h2,.progress-section>h2,.reading-stats>h2,.visible-metadata>h2,.modal h2,.profile-page-title h1,.profile-section-heading h2) { font-size: calc(1em * var(--user-heading-scale)) !important; }
+html:has(body) :is(.hero,.stat,.info,.review-panel,.recommendation-panel,.metadata-accordion,.reading-dates>div,.reading-stats-grid>div,.visible-metadata-list,.rating-card,.award-tile,.upnext-card,.recommended-card,.recommended-list-card,.modal,.profile-card,.taste-signals section) { border-radius: var(--user-card-radius, var(--terminal-radius, var(--radius))) !important; border-width: var(--user-border-width, 1px) !important; }
+html:has(body) :is(.btn,.filter,.input,.icon-btn,.nav-btn,.theme-option) { border-radius: var(--user-control-radius, var(--terminal-control-radius, 0px)) !important; }
+html:has(body) .section { margin-block: calc(30px * var(--user-density-scale, 1)) calc(36px * var(--user-density-scale, 1)); }
+html:has(body) .bottom-nav { min-height: var(--user-nav-height, var(--terminal-nav-height, 62px)) !important; }
+html:has(body) .nav-icon svg { width: var(--user-nav-icon-size, 17px) !important; height: var(--user-nav-icon-size, 17px) !important; }
+html:has(body) .nav-label { font-size: var(--user-nav-label-size, 10px) !important; }
+html[style*="--user-show-nav-labels: false"] .nav-label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+.appearance-modal { width: min(760px,100%) !important; max-height: min(88dvh,820px) !important; }
+.appearance-editor { display:grid; gap:16px; }
+.appearance-editor-head { display:flex; justify-content:space-between; gap:16px; align-items:start; }
+.appearance-editor-head h2 { margin:0; }
+.appearance-tabs { display:flex; gap:6px; overflow:auto; padding-bottom:2px; }
+.appearance-tabs button { flex:0 0 auto; border:1px solid var(--line); border-radius:var(--user-control-radius,0); padding:7px 9px; background:transparent; color:var(--text); font-size:11px; }
+.appearance-tabs button[aria-selected="true"] { background:var(--accent); color:var(--active-text, var(--bg)); }
+.appearance-editor-body { display:grid; gap:12px; }
+.appearance-field { display:grid; grid-template-columns:minmax(145px,1fr) minmax(0,2fr); gap:10px; align-items:center; color:var(--text); font-size:12px; }
+.appearance-field output { justify-self:end; color:var(--muted); font-size:11px; }
+.appearance-field input[type="range"], .appearance-field select, .appearance-field .appearance-colour { grid-column:2; }
+.appearance-colour { display:flex; gap:8px; align-items:center; }.appearance-colour input[type="color"] { width:38px; height:34px; padding:2px; border:1px solid var(--line); background:transparent; }.appearance-colour .input { flex:1; min-width:0; padding:7px 9px; }
+.appearance-check { display:flex; gap:8px; align-items:center; font-size:13px; }.appearance-help,.appearance-warning { margin:0!important; }.appearance-warning { color:#a64b3c!important; }.copy-group { border-top:1px solid var(--line); padding-top:12px; display:grid; gap:8px; }.copy-group>div { display:flex; justify-content:space-between; align-items:center; }.copy-group h3 { margin:0; font-size:13px; }.text-action { color:var(--text); }.appearance-editor-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; border-top:1px solid var(--line); padding-top:14px; }.appearance-dirty { margin-right:auto; color:var(--muted); font-size:11px; }
+@media (max-width:680px) { .appearance-modal { width:100% !important; height:100dvh; max-height:100dvh!important; border-radius:0!important; padding:18px!important; }.appearance-field { grid-template-columns:1fr; }.appearance-field input[type="range"],.appearance-field select,.appearance-field .appearance-colour { grid-column:auto; }.appearance-editor-actions { position:sticky; bottom:0; background:var(--panel); } }
+
 
 
 /* Consolidated from ui-v3.css */
@@ -929,6 +957,13 @@ html[data-theme="terminal"] .profile-upload { border-radius: 0; }
   html[data-theme="reading-room"] .profile-page { padding-top: 220px; }
 }
 
+/* Must remain last: these resolve after the Terminal canonical correction layer. */
+html[data-theme="reading-room"] { --bg:var(--user-bg,#f1eee5)!important; --bg-soft:var(--user-surface,#f7f4ec)!important; --panel:var(--user-surface,#fbf9f3)!important; --panel-2:var(--user-surface-alt,#e9e5da)!important; --text:var(--user-text,#171613)!important; --muted:var(--user-muted,#656158)!important; --line:var(--user-border,rgba(23,22,19,.18))!important; --accent:var(--user-accent,#171613)!important; --radius:var(--user-card-radius,0px)!important; }
+html[data-theme="terminal"] { --terminal-bg:var(--user-bg,#eee5c4); --terminal-surface:var(--user-surface,#eee5c4); --terminal-surface-alt:var(--user-surface-alt,#e6dbb8); --terminal-text:var(--user-text,#1b1914); --terminal-muted:var(--user-muted,#625d4d); --terminal-border:var(--user-border,#625d4d); --terminal-active-bg:var(--user-active-bg,#1b1914); --terminal-active-text:var(--user-active-text,#eee5c4); --terminal-radius:var(--user-card-radius,6px); --terminal-control-radius:var(--user-control-radius,4px); --terminal-base-size:var(--user-base-font-size,15px); --terminal-nav-height:var(--user-nav-height,54px); --terminal-font:var(--user-font,"JetBrains Mono Local",ui-monospace,monospace); }
+html[style*="--user-font"] body,html[style*="--user-font"] button,html[style*="--user-font"] input,html[style*="--user-font"] select,html[style*="--user-font"] textarea { font-family:var(--user-font)!important; }
+html[style*="--user-nav-icon-size"] .nav-icon svg { width:var(--user-nav-icon-size)!important;height:var(--user-nav-icon-size)!important; }
+html[style*="--user-nav-label-size"] .nav-label { font-size:var(--user-nav-label-size)!important; }
+
 /* Terminal navigation deliberately does not inherit Reading Room's floating pill. */
 @media (max-width: 899px) {
   html[data-theme="terminal"] .layout, html[data-theme="terminal"] body.rr-detail-page .layout { padding-bottom: calc(68px + var(--safe-bottom)) !important; }
@@ -1154,3 +1189,10 @@ html[data-theme="terminal"] .profile-history-item { padding-block: 9px; }
   html[data-theme="terminal"] .nav-btn,
   html[data-theme="terminal"] .bottom-nav.compact .nav-btn { min-height: 42px; padding: 7px 8px !important; border-radius: var(--terminal-control-radius) !important; }
 }
+
+/* Final effective token layer: canonical values remain the fallbacks. */
+html[data-theme="reading-room"] { --bg:var(--user-bg,#f1eee5)!important; --bg-soft:var(--user-surface,#f7f4ec)!important; --panel:var(--user-surface,#fbf9f3)!important; --panel-2:var(--user-surface-alt,#e9e5da)!important; --text:var(--user-text,#171613)!important; --muted:var(--user-muted,#656158)!important; --line:var(--user-border,rgba(23,22,19,.18))!important; --accent:var(--user-accent,#171613)!important; --radius:var(--user-card-radius,0px)!important; }
+html[data-theme="terminal"] { --terminal-bg:var(--user-bg,#eee5c4); --terminal-surface:var(--user-surface,#eee5c4); --terminal-surface-alt:var(--user-surface-alt,#e6dbb8); --terminal-text:var(--user-text,#1b1914); --terminal-muted:var(--user-muted,#625d4d); --terminal-border:var(--user-border,#625d4d); --terminal-active-bg:var(--user-active-bg,#1b1914); --terminal-active-text:var(--user-active-text,#eee5c4); --terminal-radius:var(--user-card-radius,6px); --terminal-control-radius:var(--user-control-radius,4px); --terminal-base-size:var(--user-base-font-size,15px); --terminal-nav-height:var(--user-nav-height,54px); --terminal-font:var(--user-font,"JetBrains Mono Local",ui-monospace,monospace); }
+html[style*="--user-font"] body,html[style*="--user-font"] button,html[style*="--user-font"] input,html[style*="--user-font"] select,html[style*="--user-font"] textarea { font-family:var(--user-font)!important; }
+html[style*="--user-nav-icon-size"] .nav-icon svg { width:var(--user-nav-icon-size)!important;height:var(--user-nav-icon-size)!important; }
+html[style*="--user-nav-label-size"] .nav-label { font-size:var(--user-nav-label-size)!important; }

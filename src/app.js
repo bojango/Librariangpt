@@ -28,9 +28,14 @@ import { isGoodreadsRefreshDue } from './utils/metadata.js';
 import { maybeMapCurrentChapters } from './features/chapter-map.js';
 import { activateAwardLogos } from './features/accolades.js';
 import { applyTheme, initialiseTheme, savedTheme, themeSelectorMarkup } from './ui/theme.js';
+import { FONT_OPTIONS, applyPreferences, cachePreferences, copySectionReset, readCachedPreferences, loadRemotePreferences, normalisePreferences, saveRemotePreferences, sectionReset, themeReset } from './ui/preferences.js';
+import { UI_COPY } from './ui/copy.js';
+import { escapeHtml } from './utils/text.js';
 
 const app = document.querySelector('#app');
 initialiseTheme();
+let preferences = readCachedPreferences();
+applyPreferences(preferences, savedTheme());
 const store = createAppState();
 let router;
 let previousRoute = 'home';
@@ -439,11 +444,54 @@ function toggleSynopsis(button) {
   button.dataset.expanded = expanded ? '0' : '1';
 }
 
+function appearanceEditorMarkup(draft, theme, section = 'preset') {
+  const active = theme;
+  const values = draft.appearanceOverrides[active] || {};
+  const sections = [['preset', 'Preset'], ['typography', 'Typography'], ['colours', 'Colours'], ['geometry', 'Geometry & density'], ['navigation', 'Navigation'], ['labels', 'Labels & titles']];
+  const number = (key, label, min, max, step = 1) => `<label class="appearance-field">${label}<output>${values[key] ?? 'Default'}</output><input type="range" data-pref="${key}" min="${min}" max="${max}" step="${step}" value="${values[key] ?? (min + max) / 2}"></label>`;
+  const colour = (key, label) => `<label class="appearance-field">${label}<span class="appearance-colour"><input type="color" data-pref="${key}" value="${values[key] || '#171613'}"><input class="input" data-pref="${key}" value="${values[key] || ''}" placeholder="Default hex" maxlength="7"></span></label>`;
+  const copyGroups = { nav:['nav.home','nav.library','nav.wishlist','nav.profile'], home:['home.currentlyReading','home.upNext','home.recommended','home.manage','home.seeMore','home.updateProgress','home.openBook'], library:['library.title','library.wishlist'], profile:['profile.title','profile.stats','profile.tasteProfile','profile.history','profile.readingRecord','profile.strongSignals','profile.frictionSignals','profile.completedReads'], book:['book.back','book.synopsis','book.librarianNote','book.yourReview','book.whyRecommended','book.progress'] };
+  let body = '';
+  if (section === 'preset') body = `<div class="theme-selector" role="radiogroup" aria-label="Appearance preset">${[['reading-room','Reading Room'],['terminal','Terminal']].map(([id,label]) => `<button class="theme-option ${id === active ? 'active' : ''}" data-editor-theme="${id}" role="radio" aria-checked="${id === active}">${label}${Object.keys(draft.appearanceOverrides[id] || {}).length ? ' · Modified' : ''}</button>`).join('')}</div><p class="appearance-help">Customisations are saved separately for each canonical preset.</p>`;
+  if (section === 'typography') body = `<label class="appearance-field">Font<select class="input" data-pref="font"><option value="">Default</option>${FONT_OPTIONS.map(([id,label]) => `<option value="${id}" ${values.font === id ? 'selected' : ''}>${label}</option>`).join('')}</select></label>${number('baseSize','Base text size',12,20)}${number('headingScale','Heading scale',.75,1.6,.05)}${number('lineHeight','Line height',1.2,1.8,.05)}${number('letterSpacing','Letter spacing',-.04,.12,.01)}<label class="appearance-field">Text weight<select class="input" data-pref="fontWeight"><option value="">Default</option>${['400','500','600','700'].map(weight => `<option value="${weight}" ${values.fontWeight === weight ? 'selected' : ''}>${weight}</option>`).join('')}</select></label>`;
+  if (section === 'colours') body = [['bg','Page background'],['surface','Surface / card'],['surfaceAlt','Secondary surface'],['text','Primary text'],['muted','Muted text'],['border','Border / divider'],['accent','Accent'],['activeBg','Active background'],['activeText','Active text']].map(([key,label]) => colour(key,label)).join('') + `<p class="appearance-warning" data-contrast-warning hidden>Some chosen foreground/background colours may have low contrast.</p>`;
+  if (section === 'geometry') body = `${number('cardRadius','Card / panel radius',0,20)}${number('controlRadius','Control radius',0,16)}${number('borderWidth','Border width',0,3)}${number('density','Density / spacing',.85,1.2,.05)}`;
+  if (section === 'navigation') body = `${number('navHeight','Navigation height',44,76)}${number('navIconSize','Navigation icon size',14,26)}${number('navLabelSize','Navigation label size',8,16)}<label class="appearance-check"><input type="checkbox" data-pref="showNavLabels" ${values.showNavLabels === false ? '' : 'checked'}> Show navigation labels</label>`;
+  if (section === 'labels') body = Object.entries(copyGroups).map(([group, keys]) => `<section class="copy-group"><div><h3>${group === 'nav' ? 'Navigation' : group === 'book' ? 'Book Detail' : group[0].toUpperCase() + group.slice(1)}</h3><button class="text-action" data-copy-reset-section="${group}" type="button">Reset group</button></div>${keys.map(key => `<label class="appearance-field">${UI_COPY[key]}<input class="input" data-copy-key="${key}" value="${escapeHtml(draft.copyOverrides[key] || '')}" placeholder="Default: ${UI_COPY[key]}" maxlength="60"></label>`).join('')}</section>`).join('');
+  return `<div class="appearance-editor" role="dialog" aria-modal="true" aria-labelledby="appearance-editor-title"><header class="appearance-editor-head"><div><p class="eyebrow">Appearance</p><h2 id="appearance-editor-title">Customise interface</h2></div><button class="icon-btn" data-appearance-close aria-label="Close appearance editor">×</button></header><div class="appearance-tabs" role="tablist">${sections.map(([id,label]) => `<button data-appearance-section="${id}" role="tab" aria-selected="${id === section}">${label}</button>`).join('')}</div><div class="appearance-editor-body">${body}</div><footer class="appearance-editor-actions"><button class="btn" data-appearance-reset-section ${section === 'preset' ? 'disabled' : ''}>Reset section</button><button class="btn btn-danger" data-appearance-reset-theme>Reset theme</button><span class="appearance-dirty" data-appearance-dirty></span><button class="btn" data-appearance-revert>Revert</button><button class="btn btn-primary" data-appearance-save>Save</button></footer></div>`;
+}
+
+function openAppearanceEditor() {
+  let saved = normalisePreferences(preferences); let draft = normalisePreferences(preferences); let theme = savedTheme(); let section = 'preset';
+  const root = showModal(appearanceEditorMarkup(draft, theme, section), 'appearance-backdrop');
+  const repaint = () => { root.querySelector('.modal').innerHTML = appearanceEditorMarkup(draft, theme, section); root.querySelector('[data-appearance-dirty]').textContent = JSON.stringify(draft) === JSON.stringify(saved) ? '' : 'Unsaved changes'; };
+  const preview = () => { applyPreferences(draft, theme); renderRoute({ ...store.value.route }, { mode: 'refresh', detail: store.value.detail }); };
+  root.querySelector('.modal').classList.add('appearance-modal');
+  root.addEventListener('click', async event => {
+    const target = event.target.closest('button'); if (!target) return;
+    if (target.matches('[data-appearance-close]')) { if (JSON.stringify(draft) !== JSON.stringify(saved) && !confirm('Discard unsaved appearance changes?')) return; applyPreferences(saved, theme); closeModal(); return; }
+    if (target.dataset.appearanceSection) { section = target.dataset.appearanceSection; repaint(); return; }
+    if (target.dataset.editorTheme) { theme = target.dataset.editorTheme; applyTheme(theme); draft.selectedTheme = theme; preview(); repaint(); return; }
+    if (target.matches('[data-appearance-revert]')) { draft = normalisePreferences(saved); theme = draft.selectedTheme; applyTheme(theme); preview(); repaint(); return; }
+    if (target.matches('[data-appearance-reset-section]')) { if (section === 'labels') draft.copyOverrides = {}; else draft = sectionReset(draft, theme, section); preview(); repaint(); return; }
+    if (target.matches('[data-appearance-reset-theme]')) { if (!confirm('Reset this theme to its canonical appearance?')) return; draft = themeReset(draft, theme); preview(); repaint(); return; }
+    if (target.dataset.copyResetSection) { draft = copySectionReset(draft, target.dataset.copyResetSection); preview(); repaint(); return; }
+    if (target.matches('[data-appearance-save]')) { try { draft.selectedTheme = theme; preferences = await saveRemotePreferences(supabase, store.value.session.user.id, draft); cachePreferences(preferences); saved = normalisePreferences(preferences); toast('Appearance saved.'); repaint(); } catch (error) { toast(error.message || 'Could not save appearance.', true); } }
+  });
+  root.addEventListener('input', event => {
+    const input = event.target; const key = input.dataset.pref; const copyKey = input.dataset.copyKey;
+    if (key) { const value = input.type === 'checkbox' ? input.checked : input.value; if (value === '') delete draft.appearanceOverrides[theme][key]; else draft.appearanceOverrides[theme][key] = value; }
+    if (copyKey) { if (input.value.trim()) draft.copyOverrides[copyKey] = input.value; else delete draft.copyOverrides[copyKey]; }
+    preview(); root.querySelector('[data-appearance-dirty]')?.replaceChildren('Unsaved changes');
+  });
+  root.addEventListener('change', event => { if (event.target.matches('input[type="color"]')) { const pair = event.target.parentElement.querySelector('input.input'); if (pair) pair.value = event.target.value.toUpperCase(); } });
+}
+
 function openMenu() {
   document.querySelector('.sidebar-backdrop')?.remove();
   const wrapper = document.createElement('div'); wrapper.className = 'sidebar-backdrop';
   const closeIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>';
-  wrapper.innerHTML = `<aside class="sidebar-panel" aria-label="Reading Room menu"><div class="sidebar-head"><h2>Reading Room</h2><button class="icon-btn" data-side-close aria-label="Close menu">${closeIcon}</button></div>${themeSelectorMarkup(savedTheme())}<section class="sidebar-section"><h3>Library tools</h3><div class="sidebar-actions"><button class="btn" data-side-add>Add book</button><button class="btn" data-side-refresh>Refresh library data</button></div></section>${diagnosticsMenuMarkup(diagnostics)}<section class="sidebar-section"><div class="sidebar-actions"><button class="btn btn-danger" data-side-logout>Log out</button></div></section></aside>`;
+  wrapper.innerHTML = `<aside class="sidebar-panel" aria-label="Reading Room menu"><div class="sidebar-head"><h2>Reading Room</h2><button class="icon-btn" data-side-close aria-label="Close menu">${closeIcon}</button></div>${themeSelectorMarkup(savedTheme())}<section class="sidebar-section"><button class="btn btn-primary btn-full" data-open-appearance>Customise appearance</button></section><section class="sidebar-section"><h3>Library tools</h3><div class="sidebar-actions"><button class="btn" data-side-add>Add book</button><button class="btn" data-side-refresh>Refresh library data</button></div></section>${diagnosticsMenuMarkup(diagnostics)}<section class="sidebar-section"><div class="sidebar-actions"><button class="btn btn-danger" data-side-logout>Log out</button></div></section></aside>`;
   document.body.append(wrapper);
   if (diagnostics.isEnabled()) diagnostics.listSessions().then(sessions => {
     const slot = wrapper.querySelector('[data-diag-history]');
@@ -452,13 +500,14 @@ function openMenu() {
   wrapper.addEventListener('click', async event => {
     if (event.target === wrapper || event.target.closest('[data-side-close]')) wrapper.remove();
     else if (event.target.closest('[data-theme-choice]')) {
-      applyTheme(event.target.closest('[data-theme-choice]').dataset.themeChoice);
+      const nextTheme = applyTheme(event.target.closest('[data-theme-choice]').dataset.themeChoice); preferences.selectedTheme = nextTheme; cachePreferences(preferences); applyPreferences(preferences, nextTheme);
       wrapper.querySelectorAll('[data-theme-choice]').forEach(option => {
         const selected = option.dataset.themeChoice === savedTheme();
         option.classList.toggle('active', selected);
         option.setAttribute('aria-checked', String(selected));
       });
     }
+    else if (event.target.closest('[data-open-appearance]')) { wrapper.remove(); openAppearanceEditor(); }
     else if (event.target.closest('[data-side-add]')) { wrapper.remove(); openAddBook(); }
     else if (event.target.closest('[data-side-refresh]')) { wrapper.remove(); refresh(); }
     else if (event.target.closest('[data-side-logout]')) supabase.auth.signOut();
@@ -511,6 +560,10 @@ async function init() {
   if (diagnostics.isEnabled()) await diagnostics.setUserId(session?.user?.id);
   if (session) {
     diagnostics.event('auth_bootstrap_started', { same_user: true });
+    try {
+      const remotePreferences = await loadRemotePreferences(supabase, session.user.id);
+      if (remotePreferences) { preferences = remotePreferences; applyTheme(preferences.selectedTheme, { persist: true }); applyPreferences(preferences, preferences.selectedTheme); cachePreferences(preferences); }
+    } catch (error) { console.info('[Reading Room] preference sync deferred:', error?.message || error); }
     try { await loadSnapshot(); }
     catch (error) { paint(errorView(error.message)); }
     diagnostics.event('auth_bootstrap_complete', { has_library: libraryLoaded });
@@ -535,6 +588,10 @@ async function init() {
       sessionBootstrapUser = nextUserId;
       diagnostics.event('auth_bootstrap_started', { entering_session: enteringSession, same_user: previousUserId === nextUserId });
       try {
+        try {
+          const remotePreferences = await loadRemotePreferences(supabase, nextUserId);
+          if (remotePreferences) { preferences = remotePreferences; applyTheme(preferences.selectedTheme, { persist: true }); applyPreferences(preferences, preferences.selectedTheme); cachePreferences(preferences); }
+        } catch (error) { console.info('[Reading Room] preference sync deferred:', error?.message || error); }
         await loadSnapshot();
         if (store.value.session?.user?.id !== nextUserId) return;
         await renderRoute({ ...store.value.route }, { mode: enteringSession ? 'startup' : 'refresh' });

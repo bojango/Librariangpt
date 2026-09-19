@@ -1,0 +1,84 @@
+import { THEMES, normaliseTheme } from './theme.js';
+import { UI_COPY, setCopyOverrides } from './copy.js';
+
+export const PREFERENCES_STORAGE_KEY = 'reading-room-ui-preferences-v1';
+export const FONT_OPTIONS = Object.freeze([
+  ['default', 'Reading Room Default'], ['jetbrains-mono', 'JetBrains Mono'], ['system-mono', 'System Mono']
+]);
+export const APPEARANCE_SECTIONS = Object.freeze({
+  typography: ['font', 'baseSize', 'headingScale', 'lineHeight', 'letterSpacing', 'fontWeight'],
+  colours: ['bg', 'surface', 'surfaceAlt', 'text', 'muted', 'border', 'accent', 'activeBg', 'activeText'],
+  geometry: ['cardRadius', 'controlRadius', 'borderWidth', 'density'],
+  navigation: ['navHeight', 'navIconSize', 'navLabelSize', 'showNavLabels']
+});
+const ranges = { baseSize:[12,20], headingScale:[.75,1.6], lineHeight:[1.2,1.8], letterSpacing:[-.04,.12], cardRadius:[0,20], controlRadius:[0,16], borderWidth:[0,3], density:[.85,1.2], navHeight:[44,76], navIconSize:[14,26], navLabelSize:[8,16] };
+const colorKeys = new Set(APPEARANCE_SECTIONS.colours);
+const numberKeys = new Set(Object.keys(ranges));
+const fontIds = new Set(FONT_OPTIONS.map(([id]) => id));
+const weightIds = new Set(['400', '500', '600', '700']);
+const hex = /^#[0-9a-f]{6}$/i;
+
+export function validHex(value) { return hex.test(String(value || '').trim()); }
+function clamp(value, [min, max]) { return Math.min(max, Math.max(min, Number(value))); }
+export function validateAppearance(input = {}) {
+  const out = {};
+  for (const [key, value] of Object.entries(input || {})) {
+    if (colorKeys.has(key) && validHex(value)) out[key] = String(value).trim().toUpperCase();
+    else if (numberKeys.has(key) && Number.isFinite(Number(value))) out[key] = clamp(value, ranges[key]);
+    else if (key === 'font' && fontIds.has(value)) out[key] = value;
+    else if (key === 'fontWeight' && weightIds.has(String(value))) out[key] = String(value);
+    else if (key === 'showNavLabels' && typeof value === 'boolean') out[key] = value;
+  }
+  return out;
+}
+export function validateCopy(input = {}) {
+  const out = {};
+  for (const key of Object.keys(UI_COPY)) {
+    const value = input?.[key];
+    if (typeof value !== 'string') continue;
+    const clean = value.replace(/[<>]/g, '').replace(/[\u0000-\u001f]/g, '').trim();
+    if (clean && clean.length <= 60) out[key] = clean;
+  }
+  return out;
+}
+export function normalisePreferences(input = {}) {
+  const rawAppearance = input.appearance_overrides || input.appearanceOverrides || {};
+  const rawCopy = input.copy_overrides || input.copyOverrides || {};
+  const appearanceOverrides = {};
+  for (const theme of Object.values(THEMES)) appearanceOverrides[theme] = validateAppearance(rawAppearance?.[theme]);
+  return { version: 1, selectedTheme: normaliseTheme(input.selected_theme || input.selectedTheme), appearanceOverrides, copyOverrides: validateCopy(rawCopy) };
+}
+export function readCachedPreferences(storage = window.localStorage) {
+  try {
+    const parsed = JSON.parse(storage.getItem(PREFERENCES_STORAGE_KEY) || '{}');
+    return normalisePreferences({ ...parsed, selectedTheme: parsed.selectedTheme || storage.getItem('reading-room-theme') });
+  } catch { return normalisePreferences({ selectedTheme: storage.getItem('reading-room-theme') }); }
+}
+export function cachePreferences(prefs, storage = window.localStorage) { try { storage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(normalisePreferences(prefs))); } catch {} }
+function styleSet(doc, key, value) { doc.documentElement.style.setProperty(key, String(value)); }
+export function applyPreferences(preferences, theme = preferences?.selectedTheme, doc = document) {
+  const safe = normalisePreferences(preferences || {}); const active = normaliseTheme(theme); const values = safe.appearanceOverrides[active] || {};
+  const vars = { bg:'--user-bg', surface:'--user-surface', surfaceAlt:'--user-surface-alt', text:'--user-text', muted:'--user-muted', border:'--user-border', accent:'--user-accent', activeBg:'--user-active-bg', activeText:'--user-active-text', cardRadius:'--user-card-radius', controlRadius:'--user-control-radius', borderWidth:'--user-border-width', density:'--user-density-scale', navHeight:'--user-nav-height', navIconSize:'--user-nav-icon-size', navLabelSize:'--user-nav-label-size', showNavLabels:'--user-show-nav-labels', baseSize:'--user-base-font-size', headingScale:'--user-heading-scale', lineHeight:'--user-line-height', letterSpacing:'--user-letter-spacing', fontWeight:'--user-font-weight' };
+  Object.values(vars).forEach(key => doc.documentElement.style.removeProperty(key));
+  Object.entries(values).forEach(([key, value]) => {
+    if (key === 'font') styleSet(doc, '--user-font', value === 'jetbrains-mono' ? '"JetBrains Mono Local", ui-monospace, monospace' : value === 'system-mono' ? 'ui-monospace, "SFMono-Regular", Consolas, monospace' : '');
+    else if (vars[key]) styleSet(doc, vars[key], numberKeys.has(key) ? `${value}${['baseSize','cardRadius','controlRadius','borderWidth','navHeight','navIconSize','navLabelSize'].includes(key) ? 'px' : key === 'letterSpacing' ? 'em' : ''}` : value);
+  });
+  setCopyOverrides(safe.copyOverrides); return safe;
+}
+export function sectionReset(preferences, theme, section) {
+  const next = normalisePreferences(preferences); const target = next.appearanceOverrides[normaliseTheme(theme)];
+  for (const key of APPEARANCE_SECTIONS[section] || []) delete target[key]; return next;
+}
+export function themeReset(preferences, theme) { const next = normalisePreferences(preferences); next.appearanceOverrides[normaliseTheme(theme)] = {}; return next; }
+export function copySectionReset(preferences, section) { const next = normalisePreferences(preferences); const prefix = `${section}.`; Object.keys(next.copyOverrides).filter(key => key.startsWith(prefix)).forEach(key => delete next.copyOverrides[key]); return next; }
+export function changedSections(preferences, theme) { const values = normalisePreferences(preferences).appearanceOverrides[normaliseTheme(theme)]; return Object.fromEntries(Object.entries(APPEARANCE_SECTIONS).map(([name, keys]) => [name, keys.some(key => key in values)])); }
+export async function loadRemotePreferences(client, userId) {
+  const { data, error } = await client.from('reader_ui_preferences').select('selected_theme,appearance_overrides,copy_overrides').eq('user_id', userId).maybeSingle();
+  if (error && error.code !== 'PGRST116') throw error; return data ? normalisePreferences(data) : null;
+}
+export async function saveRemotePreferences(client, userId, preferences) {
+  const safe = normalisePreferences(preferences);
+  const { error } = await client.from('reader_ui_preferences').upsert({ user_id:userId, selected_theme:safe.selectedTheme, appearance_overrides:safe.appearanceOverrides, copy_overrides:safe.copyOverrides }, { onConflict:'user_id' });
+  if (error) throw error; return safe;
+}

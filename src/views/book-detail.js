@@ -4,6 +4,7 @@ import { selectGoodreadsRating } from '../utils/metadata.js';
 import { relatedBooksMarkup } from '../features/related-books.js';
 import { librarianNoteMarkup } from './librarian-note.js';
 import { awardsSection } from '../features/accolades.js';
+import { uiCopyHtml } from '../ui/copy.js';
 
 const cover = book => baseCover(book, '', { eager: true, high: true });
 
@@ -55,7 +56,7 @@ function progress(book, chapter) {
 
 function progressSection(book, chapter) {
   if (book.overall_status !== 'Currently Reading') return '';
-  return `<section class="progress-section"><h2>Progress</h2>${progress(book, chapter)}${actions(book)}</section>`;
+  return `<section class="progress-section"><h2>${uiCopyHtml('book.progress')}</h2>${progress(book, chapter)}${actions(book)}</section>`;
 }
 
 function pageLabel(quote) {
@@ -116,5 +117,11 @@ export function bookDetailView(state) {
   const review = book.review_notes || book.user_review || '';
   const fictionNonfictionLabel = String(book.fiction_nonfiction || '').trim() || 'Book';
   const content = `<button class="back-btn" data-back><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 5-7 7 7 7M8 12h9"/></svg><span>Back</span></button><section class="detail-header" data-book-id="${book.id}" data-library-detail="ready">${cover(book)}<div class="detail-copy detail-copy-v4"><p class="eyebrow">${esc(fictionNonfictionLabel)}</p><h1>${esc(book.title)}</h1><div class="hero-author">${esc(book.authors || 'Unknown author')}</div><div class="meta"><span class="status-group">${statuses.map(statusPill).join('')}</span>${tags.map(tag => `<span class="badge">${esc(tag)}</span>`).join('')}${recommendation?.match_score_10 != null ? `<span class="badge accent">Predicted fit ${Number(recommendation.match_score_10).toFixed(1)}/10</span>` : ''}</div><div class="rating-strip rating-primary-row">${goodreads ? ratingCard(goodreads) : goodreadsUnavailableCard()}${userRatingCard(book)}</div>${librarianNoteMarkup(book, detail.latestReadingNote)}<section class="book-synopsis"><h2>Synopsis</h2><p><span class="synopsis-text">${esc(synopsis.short)}</span>${synopsis.truncated ? ` <button class="read-more" type="button" data-synopsis data-short="${esc(synopsis.short)}" data-full="${esc(synopsis.full)}">Read more</button>` : ''}</p></section>${awardsSection(detail.accolades)}${quotesSection(detail)}${progressSection(book, chapter)}${!['Currently Reading'].includes(book.overall_status) ? actions(book) : ''}${review ? `<section class="review-panel"><p class="eyebrow">Your review</p><p>${esc(review)}</p><button class="text-action" type="button" data-review="${book.id}">Edit rating & review</button></section>` : ''}${readingStats(book)}${visibleMetadata(book)}${recommendation?.why_recommended ? `<section class="recommendation-panel"><p class="eyebrow">Librarian note</p><h2>Why it was recommended</h2><p>${esc(recommendation.why_recommended)}</p>${recommendation.outcome ? `<span class="badge">Prediction: ${esc(recommendation.outcome)}</span>` : ''}</section>` : ''}${metadata(detail)}${relatedBooksMarkup(book)}</div></section>`;
-  return chrome(content, state.route.returnTo || 'library');
+  const labelled = content
+    .replace('>Back<', `>${uiCopyHtml('book.back')}<`)
+    .replace('>Synopsis<', `>${uiCopyHtml('book.synopsis')}<`)
+    .replace('>Your review<', `>${uiCopyHtml('book.yourReview')}<`)
+    .replace('>Librarian note<', `>${uiCopyHtml('book.librarianNote')}<`)
+    .replace('>Why it was recommended<', `>${uiCopyHtml('book.whyRecommended')}<`);
+  return chrome(labelled, state.route.returnTo || 'library');
 }

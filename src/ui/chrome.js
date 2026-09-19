@@ -1,3 +1,5 @@
+import { uiCopyHtml } from './copy.js';
+
 export function navigation(active) {
   const icons = {
     home: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.5 12 3.75l8.5 6.75v9.25h-6v-6h-5v6h-6z"/></svg>',
@@ -5,7 +7,7 @@ export function navigation(active) {
     wishlist: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 9.25c0 5.25-8.5 10-8.5 10s-8.5-4.75-8.5-10a4.75 4.75 0 0 1 8.5-2.9 4.75 4.75 0 0 1 8.5 2.9Z"/></svg>',
     profile: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 20c.8-3.6 3.3-5.5 7.5-5.5s6.7 1.9 7.5 5.5"/></svg>'
   };
-  const items = [['home','Home'],['library','Library'],['wishlist','Wishlist'],['profile','Profile']];
+  const items = [['home',uiCopyHtml('nav.home')],['library',uiCopyHtml('nav.library')],['wishlist',uiCopyHtml('nav.wishlist')],['profile',uiCopyHtml('nav.profile')]];
   return `<nav class="bottom-nav" aria-label="Main navigation">${items.map(([key, label]) => `<button class="nav-btn ${active === key ? 'active' : ''}" data-route="${key}"${active === key ? ' aria-current="page"' : ''}><span class="nav-icon">${icons[key]}</span><span class="nav-label">${label}</span></button>`).join('')}<i class="nav-active-indicator" aria-hidden="true"></i></nav>`;
 }
 

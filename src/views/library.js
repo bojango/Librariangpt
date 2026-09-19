@@ -1,5 +1,6 @@
 import { chrome } from '../ui/chrome.js';
 import { cover, esc } from '../ui/format.js';
+import { uiCopyHtml } from '../ui/copy.js';
 
 export const FILTERS = ['All', 'Owned', 'Unread', 'Read', 'Wishlist', 'Recommended'];
 
@@ -32,5 +33,5 @@ export function libraryView(state, routeName) {
   const books = filteredBooks(state, routeName);
   const filter = routeName === 'wishlist' ? 'Wishlist' : state.filters.library;
   const cards = books.map(card).join('');
-  return chrome(`<div class="page-heading"><p class="eyebrow">Catalogue</p><h1>${routeName === 'wishlist' ? 'Wishlist' : filter === 'All' ? 'Library' : esc(filter)}</h1><p>${books.length} ${books.length === 1 ? 'book' : 'books'} in this view.</p></div><div class="toolbar"><button class="btn btn-primary" data-add-book type="button">Add book</button><input id="library-search" class="input search" data-library-search="${routeName}" type="search" placeholder="Search title, author, genre or series" value="${esc(state.queries[routeName] || '')}">${routeName === 'library' ? `<div class="filters">${FILTERS.map(item => `<button class="filter ${filter === item ? 'active' : ''}" data-filter="${item}">${item}</button>`).join('')}</div>` : ''}</div><div class="library-grid">${cards}</div>`, routeName);
+  return chrome(`<div class="page-heading"><p class="eyebrow">Catalogue</p><h1>${routeName === 'wishlist' ? uiCopyHtml('library.wishlist') : filter === 'All' ? uiCopyHtml('library.title') : esc(filter)}</h1><p>${books.length} ${books.length === 1 ? 'book' : 'books'} in this view.</p></div><div class="toolbar"><button class="btn btn-primary" data-add-book type="button">Add book</button><input id="library-search" class="input search" data-library-search="${routeName}" type="search" placeholder="Search title, author, genre or series" value="${esc(state.queries[routeName] || '')}">${routeName === 'library' ? `<div class="filters">${FILTERS.map(item => `<button class="filter ${filter === item ? 'active' : ''}" data-filter="${item}">${item}</button>`).join('')}</div>` : ''}</div><div class="library-grid">${cards}</div>`, routeName);
 }
