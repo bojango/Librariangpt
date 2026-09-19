@@ -31,10 +31,10 @@ export function currentTitleClass(title = '') {
 export function currentTitlePresentation(title = '') {
   const className = currentTitleClass(title);
   if (className === 'current-title-tight-v37') {
-    return { className, style: 'font-size:clamp(28px,4.7vw,52px)!important;line-height:.95!important' };
+    return { className, style: '--current-title-size:clamp(28px,4.7vw,52px);--current-title-line-height:.95' };
   }
   if (className === 'current-title-compact-v37') {
-    return { className, style: 'font-size:clamp(31px,5.2vw,58px)!important;line-height:.96!important' };
+    return { className, style: '--current-title-size:clamp(31px,5.2vw,58px);--current-title-line-height:.96' };
   }
   return { className: '', style: '' };
 }

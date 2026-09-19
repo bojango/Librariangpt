@@ -2,18 +2,20 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-test('generation 68 document, worker and built app remain coherent with no generation-67 cache reference', async () => {
+test('generation 69 document, worker and built app remain coherent with no generation-68 cache reference', async () => {
   const [html, worker, built] = await Promise.all([
     readFile('index.html', 'utf8'),
     readFile('sw.js', 'utf8'),
     readFile('dist/app.js', 'utf8')
   ]);
-  assert.match(html, /reading-room-generation" content="68"/);
-  assert.match(html, /dist\/app\.js\?v=68/);
-  assert.match(worker, /const GENERATION = '68'/);
+  assert.match(html, /reading-room-generation" content="69"/);
+  assert.match(html, /dist\/app\.js\?v=69/);
+  assert.match(worker, /const GENERATION = '69'/);
   assert.match(worker, /reading-room-shell-v\$\{GENERATION\}/);
+  assert.match(worker, /jetbrains-mono-regular\.ttf/);
+  assert.match(worker, /jetbrains-mono-semibold\.ttf/);
   assert.match(worker, /key\.startsWith\('reading-room-shell-'\) && key !== SHELL/);
-  assert.doesNotMatch(`${html}\n${worker}`, /(?:generation|shell|app\.js\?v=)[^\n]{0,20}67/i);
+  assert.doesNotMatch(`${html}\n${worker}`, /(?:generation|shell|app\.js\?v=)[^\n]{0,20}68/i);
   assert.match(built, /book-librarian-note/);
   assert.doesNotMatch(built, /readingCardNotes/);
 });

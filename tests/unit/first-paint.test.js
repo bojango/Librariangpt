@@ -15,7 +15,7 @@ test('classifies current-reading titles before rendering', () => {
 test('long-title presentation contains its final inline first-paint size', () => {
   assert.deepEqual(currentTitlePresentation('The Unfinished Harauld Hughes'), {
     className: 'current-title-compact-v37',
-    style: 'font-size:clamp(31px,5.2vw,58px)!important;line-height:.96!important'
+    style: '--current-title-size:clamp(31px,5.2vw,58px);--current-title-line-height:.96'
   });
   assert.deepEqual(currentTitlePresentation('Outpost'), { className: '', style: '' });
 });

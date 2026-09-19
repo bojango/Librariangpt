@@ -38,3 +38,10 @@ test('detail source keeps BOOK as fallback and loads fiction_nonfiction through 
   assert.match(metadata, /fictionNonfiction\(body\?\.fiction_nonfiction\)/);
   assert.match(metadata, /update\(\{ fiction_nonfiction: requestedFictionNonfiction \}\)/);
 });
+
+test('Terminal skins Book Detail without restoring a separate detail grid or SVG controls', async () => {
+  const css = await readFile('src/styles/app.css', 'utf8');
+  assert.doesNotMatch(css, /html\[data-theme="terminal"\]\s+\.detail-header\[data-library-detail="ready"\]/);
+  assert.match(css, /\.back-btn \{ display: inline-flex; align-items: center; gap: 5px; \}/);
+  assert.match(css, /\.icon-btn svg,\s*\.back-btn svg/s);
+});

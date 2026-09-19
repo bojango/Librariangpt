@@ -160,7 +160,7 @@ test('long current title has its final class in initial markup and never mutates
   const title = page.locator('[data-current-card="current-1"] h1');
   await expect(title).toHaveClass('current-title-compact-v37');
   await expect(title).toHaveAttribute('data-title-variant', 'compact');
-  await expect(title).toHaveAttribute('style', /font-size:clamp\(31px,5\.2vw,58px\)!important/);
+  await expect(title).toHaveAttribute('style', /--current-title-size:clamp\(31px,5\.2vw,58px\)/);
   const initial = await title.getAttribute('class');
   const mutations = await title.evaluate(element => new Promise(resolve => {
     let count = 0;
@@ -340,11 +340,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('68');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('69');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '68')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v68');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '69')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v69');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -357,8 +357,8 @@ test.describe('service-worker-controlled document', () => {
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
     expect(state).toMatchObject({
-      generation: '68',
-      shell_cache: 'reading-room-shell-v68',
+      generation: '69',
+      shell_cache: 'reading-room-shell-v69',
       cover_cache: 'reading-room-covers-v3',
       award_logo_cache: 'reading-room-award-logos-v1',
       award_logo_cache_hits: 0,

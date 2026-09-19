@@ -452,7 +452,7 @@ body.rr-detail-page .exact-copy-card:last-child,body.rr-detail-page main>:last-c
 
 
 /* Consolidated from current-reading-layout-v37.css */
-.current-reading-track-v36>.hero.current-reading-card-v36{height:auto!important;min-height:330px!important;max-height:none!important;box-sizing:border-box;overflow:visible}.current-reading-card-v36 .hero-copy h1{transition:none!important}.current-reading-card-v36 .hero-copy h1.current-title-compact-v37{font-size:clamp(31px,5.2vw,58px)!important;line-height:.96!important}.current-reading-card-v36 .hero-copy h1.current-title-tight-v37{font-size:clamp(28px,4.7vw,52px)!important;line-height:.95!important}.current-reading-carousel-v36{margin-bottom:26px!important}.current-reading-carousel-v36~.section{margin-top:28px!important;margin-bottom:34px!important}.current-reading-carousel-v36~.section .section-header{margin-bottom:13px!important}@media(max-width:700px){.current-reading-track-v36{align-items:flex-start}.current-reading-track-v36>.hero.current-reading-card-v36{height:auto!important;min-height:292px!important;max-height:none!important;overflow:visible!important;padding:14px!important}.current-reading-card-v36 .hero-copy h1{margin-bottom:6px}.current-reading-card-v36 .progress-block{margin:14px 0 11px!important}.current-reading-card-v36 .hero-copy h1.current-title-compact-v37{font-size:31px!important}.current-reading-card-v36 .hero-copy h1.current-title-tight-v37{font-size:28px!important}.current-reading-carousel-v36{margin-bottom:24px!important}.current-reading-carousel-v36~.section{margin-top:25px!important;margin-bottom:31px!important}}@media(max-width:370px){.current-reading-card-v36 .hero-copy h1.current-title-compact-v37{font-size:29px!important}.current-reading-card-v36 .hero-copy h1.current-title-tight-v37{font-size:26px!important}}
+.current-reading-track-v36>.hero.current-reading-card-v36{height:auto!important;min-height:330px!important;max-height:none!important;box-sizing:border-box;overflow:visible}.current-reading-card-v36 .hero-copy h1{transition:none!important}.current-reading-card-v36 .hero-copy h1.current-title-compact-v37{font-size:var(--current-title-size,clamp(31px,5.2vw,58px))!important;line-height:var(--current-title-line-height,.96)!important}.current-reading-card-v36 .hero-copy h1.current-title-tight-v37{font-size:var(--current-title-size,clamp(28px,4.7vw,52px))!important;line-height:var(--current-title-line-height,.95)!important}.current-reading-carousel-v36{margin-bottom:26px!important}.current-reading-carousel-v36~.section{margin-top:28px!important;margin-bottom:34px!important}.current-reading-carousel-v36~.section .section-header{margin-bottom:13px!important}@media(max-width:700px){.current-reading-track-v36{align-items:flex-start}.current-reading-track-v36>.hero.current-reading-card-v36{height:auto!important;min-height:292px!important;max-height:none!important;overflow:visible!important;padding:14px!important}.current-reading-card-v36 .hero-copy h1{margin-bottom:6px}.current-reading-card-v36 .progress-block{margin:14px 0 11px!important}.current-reading-card-v36 .hero-copy h1.current-title-compact-v37{font-size:var(--current-title-size,31px)!important}.current-reading-card-v36 .hero-copy h1.current-title-tight-v37{font-size:var(--current-title-size,28px)!important}.current-reading-carousel-v36{margin-bottom:24px!important}.current-reading-carousel-v36~.section{margin-top:25px!important;margin-bottom:31px!important}}@media(max-width:370px){.current-reading-card-v36 .hero-copy h1.current-title-compact-v37{font-size:var(--current-title-size,29px)!important}.current-reading-card-v36 .hero-copy h1.current-title-tight-v37{font-size:var(--current-title-size,26px)!important}}
 
 
 /* Consolidated from quotes-v40.css */
@@ -956,9 +956,201 @@ html[data-theme="terminal"] .profile-upload { border-radius: 0; }
 
 @media (max-width: 700px) {
   html[data-theme="terminal"] .hero, html[data-theme="terminal"] .current-reading-track-v36 > .hero.current-reading-card-v36 { grid-template-columns: minmax(104px, 31vw) minmax(0, 1fr) !important; min-height: 0 !important; }
-  html[data-theme="terminal"] .detail-header[data-library-detail="ready"] { grid-template-columns: minmax(104px, 31vw) minmax(0, 1fr) !important; gap: 18px !important; }
-  html[data-theme="terminal"] .detail-header[data-library-detail="ready"] > .cover { width: 100% !important; }
   html[data-theme="terminal"] .hero-copy h1, html[data-theme="terminal"] .detail-copy-v4 h1 { font-size: clamp(25px, 7.6vw, 40px) !important; }
   html[data-theme="terminal"] .hero-actions { display: grid !important; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); width: 100%; }
   html[data-theme="terminal"] .hero-actions .btn { min-width: 0 !important; width: 100%; padding-inline: 4px !important; font-size: 9px !important; letter-spacing: .01em; }
+}
+
+/* Terminal correction v69: compact Cyberspace-inspired skin tokens. */
+@font-face {
+  font-family: "JetBrains Mono Local";
+  src: url("../../assets/fonts/jetbrains-mono-regular.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "JetBrains Mono Local";
+  src: url("../../assets/fonts/jetbrains-mono-semibold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+/* Shared SVG controls must be fully defined outside a theme skin. */
+.icon-btn svg,
+.back-btn svg {
+  display: block;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.icon-btn svg { width: 18px; height: 18px; }
+.back-btn { display: inline-flex; align-items: center; gap: 5px; }
+.back-btn svg { width: 16px; height: 16px; }
+
+html[data-theme="terminal"] {
+  --terminal-bg: #eee5c4;
+  --terminal-surface: #eee5c4;
+  --terminal-surface-alt: #e6dbb8;
+  --terminal-text: #1b1914;
+  --terminal-muted: #625d4d;
+  --terminal-border: #625d4d;
+  --terminal-active-bg: #1b1914;
+  --terminal-active-text: #eee5c4;
+  --terminal-radius: 6px;
+  --terminal-control-radius: 4px;
+  --terminal-font: "JetBrains Mono Local", "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  --terminal-base-size: 15px;
+  --terminal-nav-height: 54px;
+  --bg: var(--terminal-bg) !important;
+  --bg-soft: var(--terminal-surface) !important;
+  --panel: var(--terminal-surface) !important;
+  --panel-2: var(--terminal-surface-alt) !important;
+  --text: var(--terminal-text) !important;
+  --muted: var(--terminal-muted) !important;
+  --faint: #77705e !important;
+  --line: rgba(27, 25, 20, .42) !important;
+  --accent: var(--terminal-text) !important;
+  --accent-dark: var(--terminal-text);
+  --accent-soft: var(--terminal-surface-alt) !important;
+  --radius: var(--terminal-radius) !important;
+  --font-terminal: var(--terminal-font);
+}
+
+html[data-theme="terminal"] body { font-size: var(--terminal-base-size); line-height: 1.48; }
+html[data-theme="terminal"] .topbar {
+  min-height: calc(56px + var(--safe-top)) !important;
+  padding-block: calc(8px + var(--safe-top)) 8px !important;
+  border-bottom-color: var(--terminal-border) !important;
+}
+html[data-theme="terminal"] .topbar .wordmark > span:not(.brand-mark)::after { font-size: clamp(15px, 2.3vw, 19px) !important; letter-spacing: -.04em !important; }
+html[data-theme="terminal"] .topbar .wordmark > .brand-mark { width: 31px !important; height: 31px !important; border-radius: var(--terminal-control-radius) !important; }
+html[data-theme="terminal"] .icon-btn { width: 34px !important; border-color: var(--terminal-border) !important; border-radius: var(--terminal-control-radius) !important; }
+html[data-theme="terminal"] .icon-btn svg,
+html[data-theme="terminal"] .back-btn svg { stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round; }
+html[data-theme="terminal"] .back-btn { font-size: 11px; }
+
+html[data-theme="terminal"] main { padding-top: 14px; }
+html[data-theme="terminal"] .page-heading { margin-bottom: 20px; padding-bottom: 11px; }
+html[data-theme="terminal"] .page-heading h1 { font-size: clamp(22px, 5.8vw, 34px) !important; text-transform: none; }
+html[data-theme="terminal"] .section { margin-block: 24px 28px; }
+html[data-theme="terminal"] .section-header { margin-bottom: 10px; padding-bottom: 8px; }
+html[data-theme="terminal"] .section-header h2 { font-size: clamp(17px, 3.7vw, 22px) !important; text-transform: none; }
+html[data-theme="terminal"] .hero { padding: clamp(14px, 3vw, 24px) !important; border-radius: var(--terminal-radius) !important; }
+html[data-theme="terminal"] .hero-copy h1,
+html[data-theme="terminal"] .detail-copy h1,
+html[data-theme="terminal"] .detail-copy-v4 h1 {
+  font-size: clamp(23px, 6.4vw, 36px) !important;
+  line-height: 1.03 !important;
+  letter-spacing: -.045em !important;
+  text-transform: none;
+}
+html[data-theme="terminal"] .current-reading-track-v36 > .hero.current-reading-card-v36 {
+  min-height: 0 !important;
+}
+html[data-theme="terminal"] .current-reading-card-v36 > .cover {
+  width: 100% !important;
+  max-width: 128px;
+}
+html[data-theme="terminal"] .current-reading-carousel-v36 .current-reading-card-v36 .hero-copy h1.current-title-compact-v37,
+html[data-theme="terminal"] .current-reading-carousel-v36 .current-reading-card-v36 .hero-copy h1.current-title-tight-v37 {
+  --current-title-size: clamp(23px, 3.2vw, 36px) !important;
+  --current-title-line-height: 1.03 !important;
+}
+html[data-theme="terminal"] .hero-author { font-size: 13px; }
+html[data-theme="terminal"] .detail-copy p { font-size: 14px; }
+html[data-theme="terminal"] :is(.hero, .auth-card, .stat, .info, .review-panel, .recommendation-panel, .metadata-accordion, .reading-dates>div, .reading-stats-grid>div, .visible-metadata-list, .rating-card, .award-tile, .upnext-card, .recommended-card, .recommended-list-card, .cover-option, .cover-upload-v25, .admin-section, .book-admin-modal, .edition-browser-modal, .modal) { border-color: var(--line) !important; border-radius: var(--terminal-radius) !important; }
+html[data-theme="terminal"] .cover { border-color: var(--terminal-border); border-radius: var(--terminal-control-radius) !important; }
+html[data-theme="terminal"] .book-title { font-size: 12px; font-weight: 600; }
+html[data-theme="terminal"] .book-author { font-size: 10px; }
+html[data-theme="terminal"] :is(.btn, .filter, .input, .auth-tabs button, .theme-option, .queue-manager-actions button, .add-mode-switch button, .admin-section input, .admin-section select, .admin-section textarea) { border-color: var(--terminal-border) !important; border-radius: var(--terminal-control-radius) !important; }
+html[data-theme="terminal"] .btn { min-height: 34px; padding: 7px 10px !important; font-size: 11px !important; font-weight: 600 !important; letter-spacing: .01em; text-transform: none; }
+html[data-theme="terminal"] .badge,
+html[data-theme="terminal"] .status-pill { border-radius: var(--terminal-control-radius) !important; }
+html[data-theme="terminal"] .progress-track,
+html[data-theme="terminal"] .progress-fill { border-radius: var(--terminal-control-radius) !important; }
+html[data-theme="terminal"] .toast { border-radius: var(--terminal-control-radius) !important; box-shadow: none !important; }
+
+/* The Profile card is the identity object; its tabs and feed remain shared markup. */
+html[data-theme="terminal"] .profile-page { max-width: 760px; }
+html[data-theme="terminal"] .profile-page-title { margin: 4px 0 10px; }
+html[data-theme="terminal"] .profile-page-title .eyebrow { display: none; }
+html[data-theme="terminal"] .profile-page-title h1 { font-size: 14px !important; font-weight: 600; letter-spacing: .055em; text-transform: uppercase; }
+html[data-theme="terminal"] .profile-card {
+  grid-template-columns: 112px minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+  padding: 16px;
+  border-color: var(--terminal-active-bg);
+  border-radius: var(--terminal-radius);
+  background: var(--terminal-active-bg) !important;
+  color: var(--terminal-active-text);
+}
+html[data-theme="terminal"] .profile-avatar { max-width: 112px; border-color: var(--terminal-active-text); border-radius: var(--terminal-control-radius); background: #cbc1a2; }
+html[data-theme="terminal"] .profile-avatar::after { width: 100%; }
+html[data-theme="terminal"] .profile-avatar-placeholder { color: var(--terminal-active-bg); font-family: var(--font-terminal); font-size: 42px; }
+html[data-theme="terminal"] .profile-identity { padding-top: 1px; }
+html[data-theme="terminal"] .profile-private { margin-bottom: 9px; border-color: rgba(238, 229, 196, .72); border-radius: 3px; color: var(--terminal-active-text); font-size: 9px; }
+html[data-theme="terminal"] .profile-identity h2 { margin: 0 0 3px; color: var(--terminal-active-text); font-size: clamp(18px, 4.7vw, 24px); letter-spacing: -.04em; text-transform: none; }
+html[data-theme="terminal"] :is(.profile-handle, .profile-role, .profile-bio, .profile-upload-help) { color: rgba(238, 229, 196, .78); }
+html[data-theme="terminal"] .profile-handle { font-size: 11px; }
+html[data-theme="terminal"] .profile-role { display: none; }
+html[data-theme="terminal"] .profile-bio { margin-top: 8px; font-size: 12px; line-height: 1.55; }
+html[data-theme="terminal"] .profile-card .profile-upload { margin-top: 12px; border-color: var(--terminal-active-text) !important; color: var(--terminal-active-text) !important; }
+html[data-theme="terminal"] .profile-card .profile-upload [data-avatar-label] { color: var(--terminal-active-text) !important; }
+html[data-theme="terminal"] .profile-tabs { gap: 5px; margin-top: 12px; padding: 0; border: 0; background: transparent; }
+html[data-theme="terminal"] .profile-tabs button { min-height: 34px; border: 1px solid var(--terminal-border); border-radius: var(--terminal-control-radius); color: var(--terminal-text); font-size: 10px; font-weight: 600; letter-spacing: .015em; text-transform: none; }
+html[data-theme="terminal"] .profile-tabs button.active { background: var(--terminal-active-bg); border-color: var(--terminal-active-bg); color: var(--terminal-active-text); }
+html[data-theme="terminal"] .profile-tab-content { padding-top: 20px; }
+html[data-theme="terminal"] .profile-section-heading { margin-bottom: 14px; padding-bottom: 9px; }
+html[data-theme="terminal"] .profile-section-heading h2 { font-size: clamp(18px, 4.7vw, 22px); letter-spacing: -.04em; text-transform: none; }
+html[data-theme="terminal"] .profile-section-heading p:not(.eyebrow),
+html[data-theme="terminal"] .taste-prose p { font-size: 13px; line-height: 1.62; }
+html[data-theme="terminal"] .profile-stat-row { min-height: 42px; padding: 9px 0; }
+html[data-theme="terminal"] .profile-stat-row strong { font-size: clamp(18px, 4.5vw, 22px); text-transform: none; }
+html[data-theme="terminal"] .profile-stat-row span { font-size: 10px; }
+html[data-theme="terminal"] .taste-signals { gap: 10px; margin-top: 20px; }
+html[data-theme="terminal"] .taste-signals section { padding: 13px; border-color: var(--terminal-border); border-radius: var(--terminal-radius); }
+html[data-theme="terminal"] .profile-history-cover { border-color: var(--terminal-border); border-radius: var(--terminal-control-radius); }
+html[data-theme="terminal"] .profile-history-item { padding-block: 9px; }
+
+@media (max-width: 600px) {
+  html[data-theme="terminal"] .profile-card { grid-template-columns: 1fr; gap: 13px; padding: 14px; }
+  html[data-theme="terminal"] .profile-avatar { width: 92px; max-width: 92px; }
+  html[data-theme="terminal"] .profile-private { margin-bottom: 7px; }
+}
+
+@media (max-width: 899px) {
+  html[data-theme="terminal"] .layout,
+  html[data-theme="terminal"] body.rr-detail-page .layout { padding-bottom: calc(var(--terminal-nav-height) + var(--safe-bottom)) !important; }
+  html[data-theme="terminal"] .bottom-nav,
+  html[data-theme="terminal"] .bottom-nav.compact {
+    min-height: calc(var(--terminal-nav-height) + var(--safe-bottom)) !important;
+    padding: 3px 4px calc(3px + var(--safe-bottom)) !important;
+    border-top-color: var(--terminal-border) !important;
+    background: var(--terminal-bg) !important;
+  }
+  html[data-theme="terminal"] .nav-btn,
+  html[data-theme="terminal"] .bottom-nav.compact .nav-btn {
+    min-height: 48px;
+    padding: 4px 2px !important;
+    gap: 2px !important;
+    border: 0 !important;
+    border-radius: var(--terminal-control-radius) !important;
+  }
+  html[data-theme="terminal"] .nav-btn.active { background: var(--terminal-active-bg) !important; color: var(--terminal-active-text) !important; }
+  html[data-theme="terminal"] .nav-icon svg { width: 17px; height: 17px; stroke-width: 1.55; }
+  html[data-theme="terminal"] .nav-label { font-size: 8px !important; font-weight: 600 !important; letter-spacing: .01em; }
+}
+
+@media (min-width: 900px) {
+  html[data-theme="terminal"] .layout { padding-left: 178px !important; }
+  html[data-theme="terminal"] .bottom-nav,
+  html[data-theme="terminal"] .bottom-nav.compact { width: 160px !important; max-width: 160px !important; min-width: 160px !important; padding-inline: 10px !important; border-right-color: var(--terminal-border) !important; }
+  html[data-theme="terminal"] .nav-btn,
+  html[data-theme="terminal"] .bottom-nav.compact .nav-btn { min-height: 42px; padding: 7px 8px !important; border-radius: var(--terminal-control-radius) !important; }
 }

@@ -1,4 +1,4 @@
-const GENERATION = '68';
+const GENERATION = '69';
 const SHELL = `reading-room-shell-v${GENERATION}`;
 const COVERS = 'reading-room-covers-v3';
 const AWARD_LOGOS = 'reading-room-award-logos-v1';
@@ -15,6 +15,8 @@ const APP_SHELL = [
   './assets/goodreads.svg',
   './assets/google-books.svg',
   './assets/open-library.svg',
+  './assets/fonts/jetbrains-mono-regular.ttf',
+  './assets/fonts/jetbrains-mono-semibold.ttf',
   './icons/icon-192.png',
   './icons/icon-512.png'
 ];
