@@ -11,8 +11,10 @@ const state = {
     { id: 'book-2', title: 'Current Book', authors: 'Author Two', overall_status: 'Currently Reading' }
   ],
   tasteProfile: [
-    { dimension: 'Setting', preference: 'distinctive settings', direction: 'Positive', strength: 'Strong', confidence: 'High', evidence_count: 5, last_updated: '2026-09-18' },
-    { dimension: 'Tone', preference: 'gore-heavy scenes', direction: 'Negative', strength: 'Strong', confidence: 'Medium', evidence_count: 3, last_updated: '2026-09-17' }
+    { dimension: 'Narrative structure', preference: 'Strongly prefers narratives with a clear through-line, destination, progression or central problem.', direction: 'Positive', strength: 'Strong', confidence: 'High', evidence_count: 7, last_updated: '2026-09-18' },
+    { dimension: 'Discovery', preference: 'Strongly enjoys gradual discovery of unfamiliar places, systems and histories.', direction: 'Positive', strength: 'Strong', confidence: 'High', evidence_count: 5, last_updated: '2026-09-17' },
+    { dimension: 'Horror', preference: 'Strong aversion to graphic gore and body horror.', direction: 'Negative', strength: 'Strong', confidence: 'Medium', evidence_count: 4, last_updated: '2026-09-16' },
+    { dimension: 'Conflict', preference: 'Prefers conflict that grows organically from character choices rather than contrivance.', direction: 'Mixed', strength: 'Moderate', confidence: 'Medium', evidence_count: 3, last_updated: '2026-09-15' }
   ],
   readingHistory: [{ id: 'session-1', book_id: 'book-1', completed_at: '2026-09-18', user_rating_5: 4.5, status: 'Completed' }]
 };
@@ -26,11 +28,20 @@ test('Profile defaults to an accessible Stats reading record', () => {
   assert.match(html, /data-avatar-input/);
 });
 
-test('Taste Profile uses current signals rather than a static summary', () => {
+test('Taste Profile composes real full-sentence preferences into third-person prose', () => {
   const html = profileView({ ...state, profileTab: 'taste' });
-  assert.match(html, /Calum is most consistently drawn to distinctive settings/);
-  assert.match(html, /gore-heavy scenes less rewarding/);
-  assert.match(html, /Strong signals/);
+  assert.match(html, /Calum strongly prefers narratives with a clear through-line, destination, progression or central problem/);
+  assert.match(html, /Calum strongly enjoys gradual discovery of unfamiliar places, systems and histories/);
+  assert.match(html, /Calum has a strong aversion to graphic gore and body horror/);
+  assert.match(html, /Calum prefers conflict that grows organically from character choices rather than contrivance/);
+  assert.match(html, /<li><span>\+<\/span>Narrative structure<\/li>/);
+  assert.match(html, /<li><span>−<\/span>Horror<\/li>/);
+});
+
+test('Taste Profile uses a neutral dimension-led sentence for declarative preferences', () => {
+  const html = profileView({ ...state, profileTab: 'taste', tasteProfile: [{ dimension: 'Setting', preference: 'Stories with distinctive settings are especially memorable when the world can be gradually understood.', direction: 'Positive', strength: 'Strong', confidence: 'High', evidence_count: 4 }] });
+  assert.match(html, /Evidence around Setting is consistent: Stories with distinctive settings are especially memorable/);
+  assert.doesNotMatch(html, /Calum is most consistently drawn to Stories/);
 });
 
 test('Taste Profile prose safely escapes stored preference text', () => {
