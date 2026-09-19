@@ -1,6 +1,7 @@
-const GENERATION = '65';
+const GENERATION = '66';
 const SHELL = `reading-room-shell-v${GENERATION}`;
 const COVERS = 'reading-room-covers-v3';
+const AWARD_LOGOS = 'reading-room-award-logos-v1';
 const APP_SHELL = [
   './',
   './index.html',
@@ -18,7 +19,14 @@ const APP_SHELL = [
   './icons/icon-512.png'
 ];
 let diagnosticsEnabled = false;
-const diagnosticCounters = { cover_cache_hits: 0, cover_cache_misses: 0, cover_network_fetches: 0 };
+const diagnosticCounters = {
+  cover_cache_hits: 0,
+  cover_cache_misses: 0,
+  cover_network_fetches: 0,
+  award_logo_cache_hits: 0,
+  award_logo_cache_misses: 0,
+  award_logo_network_fetches: 0
+};
 
 self.addEventListener('message', event => {
   if (event.data?.type === 'SET_DIAGNOSTICS') {
@@ -28,7 +36,7 @@ self.addEventListener('message', event => {
     return;
   }
   if (event.data?.type === 'GET_DIAGNOSTIC_STATE') {
-    event.ports?.[0]?.postMessage({ generation: GENERATION, shell_cache: SHELL, cover_cache: COVERS, ...diagnosticCounters });
+    event.ports?.[0]?.postMessage({ generation: GENERATION, shell_cache: SHELL, cover_cache: COVERS, award_logo_cache: AWARD_LOGOS, ...diagnosticCounters });
   }
 });
 
@@ -41,6 +49,7 @@ self.addEventListener('activate', event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(keys
     .filter(key => (key.startsWith('reading-room-shell-') && key !== SHELL)
       || (key.startsWith('reading-room-covers-') && key !== COVERS)
+      || (key.startsWith('reading-room-award-logos-') && key !== AWARD_LOGOS)
       || key.startsWith('librariangpt-shell-')
       || key.startsWith('librariangpt-covers-')
       || key.startsWith('librariangpt-data-'))
@@ -53,6 +62,12 @@ function isCover(url, request) {
     || url.hostname.endsWith('googleusercontent.com')
     || url.hostname === 'books.google.com'
     || url.hostname.endsWith('.supabase.co'));
+}
+
+function isAwardLogo(url, request) {
+  return (request.destination === 'image' || request.destination === '')
+    && url.hostname.endsWith('.supabase.co')
+    && url.pathname.startsWith('/storage/v1/object/public/award-logos/');
 }
 
 async function networkFirst(request, fallback = './index.html') {
@@ -87,9 +102,31 @@ async function staleCover(request) {
   return cached || update.catch(() => new Response('', { status: 504 }));
 }
 
+async function staleAwardLogo(request, event) {
+  const cache = await caches.open(AWARD_LOGOS);
+  const cached = await cache.match(request);
+  if (diagnosticsEnabled) diagnosticCounters[cached ? 'award_logo_cache_hits' : 'award_logo_cache_misses'] += 1;
+  const update = (async () => {
+    if (diagnosticsEnabled) diagnosticCounters.award_logo_network_fetches += 1;
+    const response = await fetch(request);
+    if (response.ok || response.type === 'opaque') await cache.put(request, response.clone());
+    return response;
+  })();
+  if (cached) {
+    event?.waitUntil(update.catch(() => undefined));
+    return cached;
+  }
+  return update.catch(() => new Response('', { status: 504 }));
+}
+
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
+
+  if (isAwardLogo(url, event.request)) {
+    event.respondWith(staleAwardLogo(event.request, event));
+    return;
+  }
 
   if (url.hostname.endsWith('.supabase.co') && !isCover(url, event.request)) return;
 

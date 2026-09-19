@@ -26,6 +26,7 @@ import { connectServiceWorkerDiagnostics, diagnosticScrollTo, installDiagnostics
 import { diagnosticHistoryMarkup, diagnosticsMenuMarkup, openIssueMarker, syncTestIndicator } from './diagnostics/ui.js';
 import { isGoodreadsRefreshDue } from './utils/metadata.js';
 import { maybeMapCurrentChapters } from './features/chapter-map.js';
+import { activateAwardLogos } from './features/accolades.js';
 
 const app = document.querySelector('#app');
 const store = createAppState();
@@ -156,8 +157,9 @@ function paint(html, { restore = false, restoreY: requestedRestoreY = null, pres
   }
   app.dataset.routeView = store.value.route.name;
   activateCovers(activationRoot);
+  activateAwardLogos(activationRoot);
   animateProgress(activationRoot, previousProgress);
-  activationRoot.querySelectorAll('img:not(.cover-image)').forEach(image => image.addEventListener('error', () => { image.hidden = true; }, { once: true }));
+  activationRoot.querySelectorAll('img:not(.cover-image):not(.award-logo-image)').forEach(image => image.addEventListener('error', () => { image.hidden = true; }, { once: true }));
   initialiseCarousel(activationRoot);
   syncTestIndicator(diagnostics);
   motionController?.setNavRoute(store.value.route.name, { animate: transition });

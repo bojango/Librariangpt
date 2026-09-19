@@ -9,6 +9,24 @@ function safeExternalUrl(value) {
   } catch { return ''; }
 }
 
+const AWARD_LOGO_HOST = 'fbbpovieqfsjunmqtxvf.supabase.co';
+const AWARD_LOGO_PATH = '/storage/v1/object/public/award-logos/';
+
+export function safeAwardLogoUrl(value) {
+  try {
+    const url = new URL(String(value || ''));
+    return url.protocol === 'https:' && url.hostname === AWARD_LOGO_HOST && url.pathname.startsWith(AWARD_LOGO_PATH) ? url.href : '';
+  } catch { return ''; }
+}
+
+export function activateAwardLogos(root = document) {
+  root.querySelectorAll('.award-logo-image').forEach(image => {
+    if (image.dataset.awardLogoActive === 'true') return;
+    image.dataset.awardLogoActive = 'true';
+    image.addEventListener('error', () => { image.hidden = true; }, { once: true });
+  });
+}
+
 export function displayableAccolades(rows = []) {
   const unique = new Map();
   for (const row of Array.isArray(rows) ? rows : []) {
@@ -29,7 +47,7 @@ function tile(row) {
   const source = safeExternalUrl(row.source_url) || safeExternalUrl(accolade.official_url);
   const status = [row.result && row.result !== 'Recognition' ? row.result : '', row.year].filter(Boolean).join(' · ') || accolade.type;
   const mark = String(accolade.short_name || accolade.name).trim().slice(0, 3).toUpperCase();
-  const logo = safeExternalUrl(accolade.logo_url);
+  const logo = safeAwardLogoUrl(accolade.logo_url);
   const body = `<span class="award-logo">${logo ? `<img class="award-logo-image" src="${esc(logo)}" alt="${esc(accolade.logo_alt || `${accolade.name} mark`)}"><span class="award-logo-fallback" aria-hidden="true">${esc(mark)}</span>` : `<span class="award-logo-fallback">${esc(mark)}</span>`}</span><span class="award-name">${esc(accolade.name)}</span><span class="award-status">${esc(status)}</span>`;
   return source ? `<a class="award-tile" href="${esc(source)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(`${accolade.name}: ${status}. Open source`)}">${body}</a>` : `<article class="award-tile">${body}</article>`;
 }

@@ -664,6 +664,7 @@ main.route-enter{animation:route-enter 160ms ease-out both}
     padding-inline-start:2px!important;
   }
   .current-reading-card-v36 .hero-copy>.progress-block{margin:0!important;}
+  .current-reading-card-v36 .hero-actions{margin-top:12px!important;}
 }
 
 /* PRESS: only controls and cards that already navigate or mutate state. */

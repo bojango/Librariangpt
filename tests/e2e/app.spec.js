@@ -53,12 +53,14 @@ test('mobile current-reading cards stay compact without context and grow without
     const compact = document.querySelector('[data-current-card="current-2"]');
     const contextual = document.querySelector('[data-current-card="current-1"]');
     const compactActions = compact.querySelector('.hero-actions').getBoundingClientRect();
+    const compactProgress = compact.querySelector('.progress-block').getBoundingClientRect();
     const compactBounds = compact.getBoundingClientRect();
     const compactCover = compact.querySelector('.cover').getBoundingClientRect();
     return {
       compact: box('[data-current-card="current-2"]'),
       contextual: box('[data-current-card="current-1"]'),
       compactActionsBottom: compactActions.bottom,
+      compactButtonGap: compactActions.top - compactProgress.bottom,
       compactBottom: compactBounds.bottom,
       compactCoverHeight: compactCover.height,
       progressHeight: compact.querySelector('.progress-track').getBoundingClientRect().height,
@@ -68,6 +70,7 @@ test('mobile current-reading cards stay compact without context and grow without
   expect(layout.compact.height).toBeLessThan(340);
   expect(layout.contextual.height).toBeLessThan(340);
   expect(layout.compactActionsBottom).toBeLessThanOrEqual(layout.compactBottom);
+  expect(layout.compactButtonGap).toBeGreaterThanOrEqual(11);
   expect(layout.compactCoverHeight).toBeGreaterThan(180);
   expect(layout.progressHeight).toBe(10);
   expect(layout.dots.top).toBeGreaterThanOrEqual(Math.max(layout.compact.bottom, layout.contextual.bottom));
@@ -337,11 +340,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('65');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('66');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '65')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v65');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '66')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v66');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -353,7 +356,15 @@ test.describe('service-worker-controlled document', () => {
       channel.port1.onmessage = event => resolve(event.data);
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
-    expect(state).toMatchObject({ generation: '65', shell_cache: 'reading-room-shell-v65', cover_cache: 'reading-room-covers-v3' });
+    expect(state).toMatchObject({
+      generation: '66',
+      shell_cache: 'reading-room-shell-v66',
+      cover_cache: 'reading-room-covers-v3',
+      award_logo_cache: 'reading-room-award-logos-v1',
+      award_logo_cache_hits: 0,
+      award_logo_cache_misses: 0,
+      award_logo_network_fetches: 0
+    });
     expect(state.cover_cache_hits).toBeGreaterThanOrEqual(0);
     expect(state.cover_cache_misses).toBeGreaterThanOrEqual(0);
     expect(state.cover_network_fetches).toBeGreaterThanOrEqual(0);

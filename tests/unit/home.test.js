@@ -114,6 +114,7 @@ test('mobile current-reading cards use compact content-driven height and scoped 
   assert.match(css, /\.current-reading-track-v36\{align-items:flex-start\}/);
   assert.match(css, /@media\(max-width:700px\)\{[\s\S]*?\.current-reading-track-v36>\.hero\.current-reading-card-v36\{height:auto!important;min-height:292px!important;max-height:none!important;overflow:visible!important;padding:14px!important\}/);
   assert.match(css, /\.current-reading-card-v36 \.progress-block\{margin:14px 0 11px!important\}/);
+  assert.match(css, /\.current-reading-card-v36 \.hero-actions\{margin-top:12px!important;\}/);
   assert.doesNotMatch(css, /@media\(max-width:700px\)\{\.current-reading-track-v36>\.hero\.current-reading-card-v36\{height:420px/);
   assert.doesNotMatch(css, /\.current-reading-track-v36>\.hero\.current-reading-card-v36\{height:420px/);
 });

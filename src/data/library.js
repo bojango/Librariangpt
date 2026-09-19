@@ -58,7 +58,7 @@ export function loadBookDetail(bookId) {
       optional(supabase.from('books').select('editions_status,editions_last_refreshed_at,editions_error,metadata_status,metadata_retry_after').eq('id', bookId).single(), {}),
       optional(supabase.from('rating_refresh_state').select('last_attempted_at,last_success_at,next_retry_at,failure_count').eq('book_id', bookId).eq('provider', 'Goodreads').maybeSingle(), null),
       optional(supabase.from('v_latest_reading_card_notes').select('book_id,session_id,note_text,page,progress_percent,chapter_number,chapter_title,source,generated_at').eq('book_id', bookId).maybeSingle(), null)
-      ,optional(supabase.from('book_accolades').select('id,book_id,accolade_id,year,category,result,source_url,source_name,verified,sort_order,accolade:accolades(id,name,short_name,type,logo_url,logo_alt,official_url)').eq('book_id', bookId).eq('verified', true).order('sort_order', { ascending: true, nullsFirst: false }).order('year', { ascending: false, nullsFirst: false }))
+      ,optional(supabase.from('book_accolades').select('id,book_id,accolade_id,year,category,result,source_url,source_name,verified,sort_order,accolade:accolades(id,name,short_name,type,logo_url,logo_alt,official_url,logo_source_url,logo_source_name)').eq('book_id', bookId).eq('verified', true).order('sort_order', { ascending: true, nullsFirst: false }).order('year', { ascending: false, nullsFirst: false }))
     ]);
     return { book: unwrap(book, null), ratings, recommendation, quotes, editions, enrichment, refreshState, latestReadingNote, accolades };
   });
