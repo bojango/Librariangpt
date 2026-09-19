@@ -33,6 +33,12 @@ test('Taste Profile uses current signals rather than a static summary', () => {
   assert.match(html, /Strong signals/);
 });
 
+test('Taste Profile prose safely escapes stored preference text', () => {
+  const html = profileView({ ...state, profileTab: 'taste', tasteProfile: [{ dimension: 'Tone', preference: '<script>alert(1)</script>', direction: 'Positive', strength: 'Strong', confidence: 'High', evidence_count: 2 }] });
+  assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.doesNotMatch(html, /<script>alert/);
+});
+
 test('History preserves completed session events and links to book detail', () => {
   const html = profileView({ ...state, profileTab: 'history' });
   assert.match(html, /2026/);

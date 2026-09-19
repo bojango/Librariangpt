@@ -63,9 +63,9 @@ function tasteSummary(signals, identity) {
   const mixed = ranked.filter(signal => signal.direction === 'Mixed').slice(0, 2);
   const cautious = ranked.filter(signal => signal.confidence === 'Low' || Number(signal.evidence_count) <= 1).slice(0, 2);
   const paragraphs = [];
-  if (positive.length) paragraphs.push(`${identity.name} is most consistently drawn to ${positive.map(signal => preferencePhrase(signal.preference)).join(', ')}. These are the clearest patterns in the current reading record.`);
-  if (negative.length) paragraphs.push(`${identity.name} tends to find ${negative.map(signal => preferencePhrase(signal.preference)).join(', ')} less rewarding. These friction signals are retained alongside positive preferences so recommendations do not overfit to only what works.`);
-  if (mixed.length) paragraphs.push(`Some responses remain conditional: ${mixed.map(signal => preferencePhrase(signal.preference)).join('; ')}. Context matters here, rather than a simple like-or-dislike rule.`);
+  if (positive.length) paragraphs.push(`${identity.name} is most consistently drawn to ${positive.map(signal => escapeHtml(preferencePhrase(signal.preference))).join(', ')}. These are the clearest patterns in the current reading record.`);
+  if (negative.length) paragraphs.push(`${identity.name} tends to find ${negative.map(signal => escapeHtml(preferencePhrase(signal.preference))).join(', ')} less rewarding. These friction signals are retained alongside positive preferences so recommendations do not overfit to only what works.`);
+  if (mixed.length) paragraphs.push(`Some responses remain conditional: ${mixed.map(signal => escapeHtml(preferencePhrase(signal.preference))).join('; ')}. Context matters here, rather than a simple like-or-dislike rule.`);
   if (cautious.length) paragraphs.push(`Evidence is still limited around ${cautious.map(signal => escapeHtml(signal.dimension || signal.preference)).join(' and ')}; those emerging signals should be treated as tentative.`);
   const latest = signals.map(signal => signal.last_updated).filter(Boolean).sort().at(-1) || null;
   return { paragraphs: paragraphs.slice(0, 4), positives: positive, friction: [...negative, ...mixed].slice(0, 5), updated: latest };
