@@ -1269,3 +1269,11 @@ html[data-theme="terminal"] .current-reading-card-v36 .progress-fill {
     transition: none;
   }
 }
+
+/* Reading Room active-card carousel height correction v75. */
+html[data-theme="reading-room"] .current-reading-track-v36 {
+  align-items: flex-start !important;
+}
+html[data-theme="reading-room"] .current-reading-track-v36 > .hero.current-reading-card-v36 {
+  align-self: flex-start !important;
+}
