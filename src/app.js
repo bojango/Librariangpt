@@ -1,18 +1,19 @@
 import { supabase } from './data/supabase.js';
-import { clearRequestDedupe, invoke, loadBookDetail, refreshLibrary, rpc, setDataDiagnosticHook, uploadProfileAvatar } from './data/library.js';
+import { clearRequestDedupe, invoke, loadBookDetail, refreshLibrary, rpc, setDataDiagnosticHook, updateReaderProfile, uploadProfileAvatar } from './data/library.js';
 import { createAppState } from './state.js';
 import { createRouter } from './router.js';
 import { detailFingerprint, sameRoute, snapshotFingerprint } from './lifecycle.js';
 import { authView, claimView, errorView } from './views/auth.js';
 import { homeView } from './views/home.js';
 import { libraryView } from './views/library.js';
-import { profileView } from './views/profile.js';
+import { profileEditMarkup, profilePhotoActionsMarkup, profileView } from './views/profile.js';
+import { recommendationsView } from './views/recommendations.js';
 import { bookDetailView } from './views/book-detail.js';
 import { loadingBookView } from './views/loading.js';
 import { closeModal, showModal, toast } from './ui/feedback.js';
 import { openAddBook } from './features/add-book.js';
 import { addToWishlist, confirmPause, openCoverPicker, openDnf, openFinish, openPageCount, openProgress, openReview, openStart, refreshMetadata } from './features/reading-actions.js';
-import { openRecommendation, openRecommendationsPage, openUpNextDetails, openUpNextManager } from './features/home-actions.js';
+import { openRecommendation, openUpNextDetails, openUpNextManager } from './features/home-actions.js';
 import { initialiseCarousel } from './features/current-reading-carousel.js';
 import { openBookAdmin } from './features/book-admin.js';
 import { openEditionBrowser } from './features/editions.js';
@@ -95,7 +96,7 @@ function currentBook(id = store.value.route.bookId) {
 
 function saveCurrentScroll() {
   const name = store.value.route.name;
-  if (['home', 'library', 'wishlist', 'profile'].includes(name)) store.saveScroll(name, window.scrollY);
+  if (['home', 'library', 'wishlist', 'profile', 'recommendations'].includes(name)) store.saveScroll(name, window.scrollY);
 }
 
 function syncNavigation(current, next) {
@@ -225,6 +226,7 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
       : { preserveScroll: preservedY, reuseCovers: true, renderMode: mode };
   if (route.name === 'home') paint(homeView(store.value), options);
   else if (route.name === 'library' || route.name === 'wishlist') paint(libraryView(store.value, route.name), options);
+  else if (route.name === 'recommendations') paint(recommendationsView(store.value), options);
   else paint(profileView(store.value), options);
   diagnostics.event('route_render_complete', { route: route.name, mode, render_generation: version });
 }
@@ -305,6 +307,44 @@ function navigate(route) {
   router.navigate(route, { restoreY });
 }
 
+function openAvatarMenu() {
+  const root = showModal(profilePhotoActionsMarkup(), 'profile-action-backdrop');
+  const change = root.querySelector('[data-avatar-change]');
+  change?.focus();
+  change?.addEventListener('click', () => {
+    closeModal();
+    app.querySelector('[data-avatar-input]')?.click();
+  });
+}
+
+function openProfileEditor() {
+  const profile = store.value.profile || {};
+  const metadata = store.value.session?.user?.user_metadata || {};
+  const root = showModal(profileEditMarkup(profile, metadata), 'profile-edit-backdrop');
+  const form = root.querySelector('#profile-edit-form');
+  form?.querySelector('[name="display-name"]')?.focus();
+  form?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const button = form.querySelector('[type="submit"]');
+    button.disabled = true;
+    try {
+      const saved = await updateReaderProfile({
+        displayName: form.elements['display-name'].value,
+        handle: form.elements.handle.value,
+        shortBio: form.elements['short-bio'].value
+      });
+      store.value.profile = { ...store.value.profile, ...saved };
+      closeModal();
+      paint(profileView(store.value), { preserveScroll: window.scrollY, reuseCovers: true });
+      await refresh({ quiet: true });
+      toast('Profile updated.');
+    } catch (error) {
+      toast(error.message || 'Could not update profile.', true);
+      button.disabled = false;
+    }
+  });
+}
+
 app.addEventListener('click', async event => {
   const target = event.target instanceof Element ? event.target : null;
   if (!target) return;
@@ -320,6 +360,8 @@ app.addEventListener('click', async event => {
   }
   if (target.closest('[data-refresh]')) { refresh(); return; }
   if (target.closest('[data-menu]')) { openMenu(); return; }
+  if (target.closest('[data-profile-edit]')) { openProfileEditor(); return; }
+  if (target.closest('[data-avatar-menu]')) { openAvatarMenu(); return; }
   const profileTab = target.closest('[data-profile-tab]');
   if (profileTab) {
     store.value.profileTab = profileTab.dataset.profileTab;
@@ -332,7 +374,6 @@ app.addEventListener('click', async event => {
   if (target.closest('[data-upnext-id]')) { openUpNextDetails(store.value.upNext.find(item => String(item.queue_id || item.id) === target.closest('[data-upnext-id]').dataset.upnextId), store.value.books); return; }
   if (target.closest('[data-manage-upnext]')) { openUpNextManager(store.value.upNext, store.value.books); return; }
   if (target.closest('[data-recommendation-id]')) { openRecommendation(store.value.aiRecommendations.find(item => item.recommendation_id === target.closest('[data-recommendation-id]').dataset.recommendationId)); return; }
-  if (target.closest('[data-recommendations-page]')) { openRecommendationsPage(store.value.aiRecommendations); return; }
   const book = currentBook();
   if (target.closest('[data-progress]')) { openProgress(currentBook(target.closest('[data-progress]').dataset.progress)); return; }
   if (!book) return;
@@ -383,7 +424,9 @@ app.addEventListener('change', async event => {
     return;
   }
   const label = app.querySelector('[data-avatar-label]');
+  const avatar = app.querySelector('[data-avatar-menu]');
   input.disabled = true;
+  if (avatar) avatar.disabled = true;
   if (label) label.textContent = 'UPLOADING…';
   try {
     await uploadProfileAvatar(file);
@@ -393,6 +436,7 @@ app.addEventListener('change', async event => {
     toast(error.message || 'Could not upload profile photo.', true);
   } finally {
     input.disabled = false;
+    if (avatar) avatar.disabled = false;
     input.value = '';
     if (label) label.textContent = store.value.profile?.avatar_path ? 'CHANGE PHOTO' : 'UPLOAD PHOTO';
   }
@@ -411,6 +455,7 @@ app.addEventListener('input', event => {
 app.addEventListener('click', event => {
   const filter = event.target.closest('[data-filter]');
   if (!filter) return;
+  if (filter.dataset.filter === 'Recommended') { navigate({ name: 'recommendations', bookId: null }); return; }
   store.value.filters.library = filter.dataset.filter;
   paint(libraryView(store.value, 'library'), { preserveScroll: window.scrollY, reuseCovers: true });
 });

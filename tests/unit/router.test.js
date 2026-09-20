@@ -5,6 +5,7 @@ import { parseRoute, routeHash } from '../../src/router.js';
 test('parses top-level routes and falls back safely', () => {
   assert.deepEqual(parseRoute('#/wishlist'), { name: 'wishlist', bookId: null });
   assert.deepEqual(parseRoute('#/profile'), { name: 'profile', bookId: null });
+  assert.deepEqual(parseRoute('#/recommendations'), { name: 'recommendations', bookId: null });
   assert.deepEqual(parseRoute('#/stats'), { name: 'profile', bookId: null });
   assert.deepEqual(parseRoute('#/unknown'), { name: 'home', bookId: null });
 });

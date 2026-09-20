@@ -82,6 +82,25 @@ export async function uploadProfileAvatar(file) {
   return path;
 }
 
+export async function updateReaderProfile(values, client = supabase) {
+  const user = (await client.auth.getUser()).data.user;
+  if (!user) throw new Error('You need to be signed in to edit your profile.');
+  const payload = {
+    user_id: user.id,
+    display_name: String(values.displayName || '').trim(),
+    handle: String(values.handle || '').trim(),
+    short_bio: String(values.shortBio || '').trim() || null
+  };
+  if (!payload.display_name) throw new Error('Display name is required.');
+  if (!payload.handle) throw new Error('Handle is required.');
+  const { data, error } = await client.from('reader_profiles')
+    .upsert(payload, { onConflict: 'user_id' })
+    .select('display_name,handle,short_bio,avatar_path,updated_at')
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export function loadBookDetail(bookId) {
   return dedupe(`book:${bookId}`, async () => {
     const [book, ratings, recommendation, quotes, editions, enrichment, refreshState, latestReadingNote, accolades] = await Promise.all([

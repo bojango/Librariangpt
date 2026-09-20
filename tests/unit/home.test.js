@@ -89,6 +89,29 @@ test('recommendation selection deduplicates recommendation and book identities',
   assert.equal(new Set(picks.map(item => item.id)).size, 5);
 });
 
+test('Home See more uses the recommendations route', () => {
+  const html = homeView(state({ aiRecommendations: recommendations(1) }));
+  assert.match(html, /data-route="recommendations"/);
+  assert.doesNotMatch(html, /data-recommendations-page/);
+});
+
+test('On order appears only when populated and is excluded from the Home Wishlist shelf', () => {
+  const withoutOrders = homeView(state({ books: [{ id: 'wish', title: 'Wish', overall_status: 'Wishlist', ownership_status: 'Not Owned' }] }));
+  assert.doesNotMatch(withoutOrders, />On order</);
+
+  const withOrders = homeView(state({ books: [
+    { id: 'order', title: 'Incoming', authors: 'Author', overall_status: 'Wishlist', ownership_status: 'On Order' },
+    { id: 'unread', title: 'Unread', authors: 'Author', overall_status: 'Owned - Unread', ownership_status: 'Owned' },
+    { id: 'wish', title: 'Wish', authors: 'Author', overall_status: 'Wishlist', ownership_status: 'Not Owned' }
+  ] }));
+  assert.match(withOrders, />On order</);
+  assert.ok(withOrders.indexOf('>On order<') < withOrders.indexOf('>Owned &amp; unread<'));
+  assert.equal((withOrders.match(/data-open-book="order"/g) || []).length, 1);
+  const wishlistStart = withOrders.indexOf('>Wishlist<');
+  const recentStart = withOrders.indexOf('>Recently finished<');
+  assert.doesNotMatch(withOrders.slice(wishlistStart, recentStart), /data-open-book="order"/);
+});
+
 test('current chapter renders only when supplied and Home never renders Librarian notes', () => {
   const book = { id: 'current', title: 'Current', authors: 'Reader', overall_status: 'Currently Reading', current_page: 50, total_pages: 100 };
   const html = homeView(state({

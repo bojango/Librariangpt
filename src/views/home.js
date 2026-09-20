@@ -60,7 +60,7 @@ function currentCard(book, state) {
   const chapter = chapterFor(state, book.id);
   const title = currentTitlePresentation(book.title);
   const readingAge = readingAgeText(book.started_at);
-  return `<section class="hero current-reading-card-v36" data-current-card="${book.id}" data-open-book="${book.id}">${cover(book, '', { eager: true, high: true })}<div class="hero-copy"><p class="eyebrow current-reading-label"><span aria-hidden="true"></span>${uiCopyHtml('home.currentlyReading')}</p><h1${title.className ? ` class="${title.className}" data-title-variant="${title.className.replace('current-title-', '').replace('-v37', '')}" style="${title.style}"` : ''}>${esc(book.title)}</h1><div class="hero-author">${esc(book.authors || '')}${readingAge ? ` <small>· ${esc(readingAge)}</small>` : ''}</div><div class="progress-block"><div class="progress-meta"><span>${esc(progressText(book))}</span><span>${book.total_pages ? `${Math.round(pct)}%` : ''}</span></div>${chapter ? `<div class="chapter-progress-line">${esc(chapter)}</div>` : ''}<div class="progress-track"><div class="progress-fill" data-progress-book="${book.id}" data-progress-value="${pct}" style="--progress:${pct}%"></div></div></div><div class="hero-actions"><button class="btn btn-primary" data-progress="${book.id}">${uiCopyHtml('home.updateProgress')}</button><button class="btn" data-open-book="${book.id}">${uiCopyHtml('home.openBook')}</button></div></div></section>`;
+  return `<section class="hero current-reading-card-v36" data-current-card="${book.id}" data-open-book="${book.id}">${cover(book, '', { eager: true, high: true })}<div class="hero-copy"><p class="eyebrow current-reading-label">${uiCopyHtml('home.currentlyReading')}</p><h1${title.className ? ` class="${title.className}" data-title-variant="${title.className.replace('current-title-', '').replace('-v37', '')}" style="${title.style}"` : ''}>${esc(book.title)}</h1><div class="hero-author"><span>${esc(book.authors || '')}</span>${readingAge ? `<small>${esc(readingAge)}</small>` : ''}</div><div class="progress-block"><div class="progress-meta"><span>${esc(progressText(book))}</span><span>${book.total_pages ? `${Math.round(pct)}%` : ''}</span></div>${chapter ? `<div class="chapter-progress-line">${esc(chapter)}</div>` : ''}<div class="progress-track"><div class="progress-fill" data-progress-book="${book.id}" data-progress-value="${pct}" style="--progress:${pct}%"></div></div></div><div class="hero-actions"><button class="btn btn-primary" data-progress="${book.id}">${uiCopyHtml('home.updateProgress')}</button><button class="btn" data-open-book="${book.id}">${uiCopyHtml('home.openBook')}</button></div></div></section>`;
 }
 
 function currentReading(state) {
@@ -71,7 +71,7 @@ function currentReading(state) {
 }
 
 function upNextCard(item) {
-  return `<article class="upnext-card" data-upnext-id="${item.queue_id || item.id}" tabindex="0" role="button">${cover(item, 'upnext-cover')}<div class="upnext-copy"><div class="upnext-position">${item.position}</div><div class="upnext-card-main"><p class="upnext-source ${item.source === 'Manual' ? 'manual' : 'ai'}">${item.source === 'Manual' ? 'Your pick' : 'Librarian pick'}${item.locked ? ' · locked' : ''}</p><h3>${esc(item.title)}</h3><p class="upnext-author">${esc(item.authors || 'Unknown author')}</p>${item.ai_score != null ? `<p class="upnext-score">${Number(item.ai_score).toFixed(1)}/10 · ${esc(item.confidence || '')} confidence</p>` : ''}<p class="upnext-reason">${esc(item.reason || item.why_recommended || 'Queued for later.')}</p></div></div></article>`;
+  return `<article class="upnext-card" data-upnext-id="${item.queue_id || item.id}" tabindex="0" role="button">${cover(item, 'upnext-cover')}<div class="upnext-copy"><div class="upnext-card-top"><span class="upnext-position">${item.position}</span><p class="upnext-source ${item.source === 'Manual' ? 'manual' : 'ai'}">${item.source === 'Manual' ? 'Your pick' : 'Librarian pick'}${item.locked ? ' · locked' : ''}</p></div><h3>${esc(item.title)}</h3><p class="upnext-author">${esc(item.authors || 'Unknown author')}</p>${item.ai_score != null ? `<p class="upnext-score">${Number(item.ai_score).toFixed(1)}/10 · ${esc(item.confidence || '')} confidence</p>` : ''}<p class="upnext-reason">${esc(item.reason || item.why_recommended || 'Queued for later.')}</p></div></article>`;
 }
 
 function upNext(state) {
@@ -85,12 +85,13 @@ function recommendationCard(item) {
 
 function recommendations(state) {
   const picks = homeRecommendations(state.aiRecommendations);
-  return `<section class="section ai-recommended-section" id="ai-recommended-section"><div class="section-header"><div><h2>${uiCopyHtml('home.recommended')}</h2><p class="recommended-section-note">AI picks from beyond your library, shaped by what you actually enjoy.</p></div><button class="recommended-more" data-recommendations-page type="button" ${state.aiRecommendations.length ? '' : 'disabled'}>${uiCopyHtml('home.seeMore')}</button></div>${picks.length ? `<div class="recommended-row">${picks.map(recommendationCard).join('')}</div>` : '<div class="empty-shelf">No active recommendations right now.</div>'}</section>`;
+  return `<section class="section ai-recommended-section" id="ai-recommended-section"><div class="section-header"><div><h2>${uiCopyHtml('home.recommended')}</h2><p class="recommended-section-note">AI picks from beyond your library, shaped by what you actually enjoy.</p></div><button class="recommended-more" data-route="recommendations" type="button" ${state.aiRecommendations.length ? '' : 'disabled'}>${uiCopyHtml('home.seeMore')}</button></div>${picks.length ? `<div class="recommended-row">${picks.map(recommendationCard).join('')}</div>` : '<div class="empty-shelf">No active recommendations right now.</div>'}</section>`;
 }
 
 export function homeView(state) {
   const unread = state.books.filter(book => book.overall_status === 'Owned - Unread').slice(0, 12);
-  const wishlist = state.books.filter(book => book.overall_status === 'Wishlist').slice(0, 12);
+  const onOrder = state.books.filter(book => book.ownership_status === 'On Order').slice(0, 12);
+  const wishlist = state.books.filter(book => book.overall_status === 'Wishlist' && book.ownership_status !== 'On Order').slice(0, 12);
   const recent = state.books.filter(book => book.overall_status === 'Read').sort((a, b) => new Date(b.completed_at || 0) - new Date(a.completed_at || 0)).slice(0, 12);
-  return chrome(`${currentReading(state)}${upNext(state)}${recommendations(state)}${shelf('Owned & unread', unread, 'library')}${shelf('Wishlist', wishlist, 'wishlist')}${shelf('Recently finished', recent, 'library')}`, 'home');
+  return chrome(`${currentReading(state)}${upNext(state)}${recommendations(state)}${onOrder.length ? shelf('On order', onOrder) : ''}${shelf('Owned & unread', unread, 'library')}${shelf('Wishlist', wishlist, 'wishlist')}${shelf('Recently finished', recent, 'library')}`, 'home');
 }
