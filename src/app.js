@@ -168,7 +168,14 @@ function paint(html, { restore = false, restoreY: requestedRestoreY = null, pres
   activateAwardLogos(activationRoot);
   animateProgress(activationRoot, previousProgress);
   activationRoot.querySelectorAll('img:not(.cover-image):not(.award-logo-image)').forEach(image => image.addEventListener('error', () => { image.hidden = true; }, { once: true }));
-  initialiseCarousel(activationRoot);
+  initialiseCarousel(activationRoot, {
+    onSettledChange: ({ fromIndex, toIndex, cardCount, source }) => diagnostics.event('current_reading_carousel_settled', {
+      from_index: fromIndex,
+      to_index: toIndex,
+      card_count: cardCount,
+      source
+    })
+  });
   syncTestIndicator(diagnostics);
   motionController?.setNavRoute(store.value.route.name, { animate: transition });
   recordCurrentTitleState(diagnostics, 'home_paint_complete');

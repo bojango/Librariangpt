@@ -45,7 +45,8 @@ function paint(html, { reuseCovers = false, preserveScroll = null } = {}) {
   const pool = reuseCovers ? collectCoverImages(app) : null;
   app.innerHTML = html;
   if (pool) reuseCoverImages(app, pool); else activateCovers(app);
-  initialiseCarousel(app);
+  window.fixtureCarouselEvents ||= [];
+  initialiseCarousel(app, { onSettledChange: event => window.fixtureCarouselEvents.push(event) });
   if (Number.isFinite(preserveScroll)) window.scrollTo(0, preserveScroll);
   window.fixturePaints = (window.fixturePaints || 0) + 1;
 }

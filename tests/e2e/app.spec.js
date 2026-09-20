@@ -42,6 +42,44 @@ test('currently-reading carousel and wishlist render directly', async ({ page })
   await expect(page.locator('.book-card')).toHaveCount(2);
 });
 
+test('current-reading carousel keeps one height and settles each changed index once', async ({ page }) => {
+  await page.setViewportSize({ width: 440, height: 956 });
+  await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-current-card]')].every(card => card.style.height));
+  await page.evaluate(() => { window.fixtureCarouselEvents.length = 0; window.carouselGeometry = []; });
+  const sample = async () => page.evaluate(() => {
+    const track = document.querySelector('.current-reading-track-v36');
+    const rect = track.getBoundingClientRect();
+    window.carouselGeometry.push({ top: rect.top, height: rect.height });
+  });
+  const scrollToCard = async index => {
+    await page.locator('.current-reading-track-v36').evaluate((track, target) => {
+      const card = track.querySelectorAll('[data-current-card]')[target];
+      track.scrollTo({ left: card.offsetLeft, behavior: 'auto' });
+    }, index);
+    await expect(page.locator(`[data-carousel-dot="${index}"]`)).toHaveAttribute('aria-current', 'true');
+    await sample();
+  };
+
+  await sample();
+  await scrollToCard(1);
+  await scrollToCard(0);
+  await page.locator('[data-carousel-dot="1"]').click();
+  await expect(page.locator('[data-carousel-dot="1"]')).toHaveAttribute('aria-current', 'true');
+  await page.waitForFunction(() => window.fixtureCarouselEvents.at(-1)?.toIndex === 1);
+  await sample();
+
+  const result = await page.evaluate(() => ({
+    geometry: window.carouselGeometry,
+    events: window.fixtureCarouselEvents,
+    cardHeights: [...document.querySelectorAll('[data-current-card]')].map(card => card.getBoundingClientRect().height)
+  }));
+  expect(new Set(result.geometry.map(item => item.top)).size).toBe(1);
+  expect(new Set(result.geometry.map(item => item.height)).size).toBe(1);
+  expect(new Set(result.cardHeights).size).toBe(1);
+  expect(result.events.map(event => event.toIndex)).toEqual([1, 0, 1]);
+});
+
 test('Home and Library navigate to the routed recommendations page', async ({ page }) => {
   await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
   await page.locator('#ai-recommended-section [data-route="recommendations"]').click();
@@ -352,11 +390,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('77');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('78');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '77')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v77');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '78')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v78');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -369,8 +407,8 @@ test.describe('service-worker-controlled document', () => {
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
     expect(state).toMatchObject({
-      generation: '77',
-      shell_cache: 'reading-room-shell-v77',
+      generation: '78',
+      shell_cache: 'reading-room-shell-v78',
       cover_cache: 'reading-room-covers-v3',
       award_logo_cache: 'reading-room-award-logos-v1',
       award_logo_cache_hits: 0,
