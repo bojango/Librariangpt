@@ -28,7 +28,7 @@ test('authenticated fixture supports route, filter and detail lifecycles', async
   await expect(page.getByRole('heading', { name: 'Quotes & passages 1' })).toBeVisible();
   await expect(page.locator('.rating-public')).toBeVisible();
   await expect(page.locator('related-books')).toHaveCount(1);
-  await page.locator('[data-back]').click();
+  await page.locator('[data-back]').press('Enter');
   await expect(page.getByRole('heading', { name: 'Read' })).toBeVisible();
 });
 
@@ -80,6 +80,80 @@ test('current-reading carousel keeps one height and settles each changed index o
   expect(result.events.map(event => event.toIndex)).toEqual([1, 0, 1]);
 });
 
+test('Reading Room mobile chrome and homepage refinements use the intended geometry', async ({ page }) => {
+  await page.setViewportSize({ width: 440, height: 956 });
+  await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
+
+  const initial = await page.evaluate(() => {
+    const style = selector => getComputedStyle(document.querySelector(selector));
+    const refresh = document.querySelector('[data-refresh] svg');
+    return {
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      refreshPaths: [...refresh.querySelectorAll('path')].map(path => path.getAttribute('d')),
+      refreshFill: refresh.getAttribute('fill'),
+      refreshStroke: refresh.getAttribute('stroke'),
+      headerButtonBorder: style('.topbar .icon-btn').borderTopColor,
+      headerButtonBackground: style('.topbar .icon-btn').backgroundColor,
+      activeFill: style('.nav-btn.active .nav-icon-solid').fill,
+      activeSolidDisplay: style('.nav-btn.active .nav-icon-solid').display,
+      inactiveSolidDisplay: style('.nav-btn:not(.active) .nav-icon-solid').display,
+      cardBackground: style('.current-reading-card-v36').backgroundColor,
+      cardBorder: style('.current-reading-card-v36').borderTopColor,
+      progressFill: style('.current-reading-card-v36 .progress-fill').backgroundColor,
+      eyebrow: style('.current-reading-label').color
+    };
+  });
+  expect(initial.scrollWidth).toBe(initial.clientWidth);
+  expect(initial.refreshPaths).toEqual(['M20 11a8 8 0 1 0-2.34 5.66', 'M20 4v7h-7']);
+  expect(initial.refreshFill).toBe('none');
+  expect(initial.refreshStroke).toBe('currentColor');
+  expect(initial.headerButtonBorder).toBe('rgba(0, 0, 0, 0)');
+  expect(initial.headerButtonBackground).toBe('rgba(0, 0, 0, 0)');
+  expect(initial.activeFill).toBe('rgb(23, 22, 19)');
+  expect(initial.activeSolidDisplay).not.toBe('none');
+  expect(initial.inactiveSolidDisplay).toBe('none');
+  expect(initial.cardBackground).toBe('rgb(251, 249, 243)');
+  expect(initial.cardBorder).toBe('rgb(23, 22, 19)');
+  expect(initial.progressFill).toBe('rgb(137, 100, 63)');
+  expect(initial.eyebrow).toBe('rgb(96, 92, 83)');
+  await expect(page.locator('.current-reading-age svg').first()).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.locator('.upnext-score')).toHaveText('9.2/10');
+  await expect(page.locator('#ai-recommended-section')).not.toContainText('AI picks from beyond your library');
+  await expect(page.locator('#ai-recommended-section .recommended-badge')).toHaveText('8.8');
+  await expect(page.locator('#ai-recommended-section .recommended-card-score')).toHaveCount(0);
+
+  const scrolled = await page.evaluate(async () => {
+    document.documentElement.style.scrollBehavior = 'auto';
+    window.scrollTo(0, 800);
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const nav = document.querySelector('.bottom-nav');
+    nav.classList.add('compact');
+    const header = document.querySelector('.topbar').getBoundingClientRect();
+    const icon = nav.querySelector('.nav-btn.active .nav-icon').getBoundingClientRect();
+    const indicator = nav.querySelector('.nav-active-indicator').getBoundingClientRect();
+    return { headerTop: header.top, navHeight: nav.getBoundingClientRect().height, indicatorGap: indicator.top - icon.bottom };
+  });
+  expect(scrolled.headerTop).toBe(0);
+  expect(scrolled.navHeight).toBe(48);
+  expect(scrolled.indicatorGap).toBe(3);
+
+  const sidebar = await page.evaluate(() => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'sidebar-backdrop';
+    wrapper.innerHTML = '<aside class="sidebar-panel">Menu</aside>';
+    document.body.append(wrapper);
+    const panel = wrapper.querySelector('.sidebar-panel');
+    const rect = panel.getBoundingClientRect();
+    const style = getComputedStyle(panel);
+    return { left: rect.left, borderLeft: style.borderLeftWidth, borderRight: style.borderRightWidth, shadow: style.boxShadow };
+  });
+  expect(sidebar.left).toBe(0);
+  expect(sidebar.borderLeft).toBe('0px');
+  expect(sidebar.borderRight).toBe('1px');
+  expect(sidebar.shadow).toContain('30px 0px 80px');
+});
+
 test('Home and Library navigate to the routed recommendations page', async ({ page }) => {
   await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
   await page.locator('#ai-recommended-section [data-route="recommendations"]').click();
@@ -117,7 +191,7 @@ test('mobile current-reading cards stay compact without context and grow without
       dots: box('.current-reading-dots-v36')
     };
   });
-  expect(layout.compact.height).toBeLessThan(340);
+  expect(layout.compact.height).toBeLessThan(350);
   expect(layout.contextual.height).toBeLessThan(380);
   expect(layout.compactActionsBottom).toBeLessThanOrEqual(layout.compactBottom);
   expect(layout.compactButtonGap).toBeGreaterThanOrEqual(6);
@@ -390,11 +464,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('78');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('79');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '78')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v78');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '79')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v79');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -407,8 +481,8 @@ test.describe('service-worker-controlled document', () => {
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
     expect(state).toMatchObject({
-      generation: '78',
-      shell_cache: 'reading-room-shell-v78',
+      generation: '79',
+      shell_cache: 'reading-room-shell-v79',
       cover_cache: 'reading-room-covers-v3',
       award_logo_cache: 'reading-room-award-logos-v1',
       award_logo_cache_hits: 0,

@@ -19,7 +19,7 @@ for (let index = 0; index < 20; index += 1) books.push({ id: `extra-${index}`, t
 const state = {
   session: { user: { id: 'fixture' } }, books, recommendations: [],
   aiRecommendations: [{ recommendation_id: 'rec-1', title: 'Outside Pick', authors: 'AI Author', recommendation_strength: 'Strong', match_score_10: 8.8, why_recommended: 'A fixture recommendation.' }],
-  upNext: [{ queue_id: 'queue-1', id: 'wish-1', title: 'Wish Book', authors: 'Future Author', position: 1, source: 'Manual', locked: true }],
+  upNext: [{ queue_id: 'queue-1', id: 'wish-1', title: 'Wish Book', authors: 'Future Author', position: 1, source: 'Manual', locked: true, ai_score: 9.2, confidence: 'High' }],
   chapters: [{ id: 'current-1', current_chapter_number: '3', current_chapter_title: 'The Middle' }],
   filters: { library: 'All', wishlist: 'Wishlist' }, queries: { library: '', wishlist: '' }, route: { name: 'home' },
   profile: { display_name: 'Calum', handle: '@calum', short_bio: 'A private record of reading, preferences and finished books.', avatar_path: null, avatarUrl: null },

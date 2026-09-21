@@ -95,6 +95,33 @@ test('Home See more uses the recommendations route', () => {
   assert.doesNotMatch(html, /data-recommendations-page/);
 });
 
+test('Home recommendation and queue cards use the compact score-only presentation', () => {
+  const html = homeView(state({
+    upNext: [{
+      queue_id: 'queue-score', id: 'queued', title: 'Queued', position: 1,
+      source: 'AI', ai_score: 9.2, confidence: 'High'
+    }],
+    aiRecommendations: [{
+      recommendation_id: 'rec-score', id: 'recommended', title: 'Recommended',
+      match_score_10: 9.4, recommendation_strength: 'Wildcard'
+    }]
+  }));
+  assert.match(html, /class="upnext-score">9\.2\/10</);
+  assert.doesNotMatch(html, /High confidence/);
+  assert.match(html, /class="recommended-badge">9\.4</);
+  assert.doesNotMatch(html, /recommended-card-score/);
+  assert.doesNotMatch(html, />Wildcard<|>Strong</);
+  assert.doesNotMatch(html, /AI picks from beyond your library/);
+});
+
+test('currently reading age includes a decorative open-book icon', () => {
+  const html = homeView(state({ books: [{
+    id: 'current', title: 'Current', authors: 'Reader', overall_status: 'Currently Reading',
+    started_at: '2026-09-01', current_page: 1, total_pages: 100
+  }] }));
+  assert.match(html, /class="current-reading-age"><svg[^>]+aria-hidden="true"/);
+});
+
 test('On order appears only when populated and is excluded from the Home Wishlist shelf', () => {
   const withoutOrders = homeView(state({ books: [{ id: 'wish', title: 'Wish', overall_status: 'Wishlist', ownership_status: 'Not Owned' }] }));
   assert.doesNotMatch(withoutOrders, />On order</);
