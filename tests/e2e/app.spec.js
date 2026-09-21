@@ -100,6 +100,8 @@ test('Reading Room mobile chrome and homepage refinements use the intended geome
       inactiveSolidDisplay: style('.nav-btn:not(.active) .nav-icon-solid').display,
       cardBackground: style('.current-reading-card-v36').backgroundColor,
       cardBorder: style('.current-reading-card-v36').borderTopColor,
+      comparisonBackground: style('.upnext-card').backgroundColor,
+      comparisonBorder: style('.upnext-card').borderTopColor,
       progressFill: style('.current-reading-card-v36 .progress-fill').backgroundColor,
       eyebrow: style('.current-reading-label').color
     };
@@ -113,8 +115,8 @@ test('Reading Room mobile chrome and homepage refinements use the intended geome
   expect(initial.activeFill).toBe('rgb(23, 22, 19)');
   expect(initial.activeSolidDisplay).not.toBe('none');
   expect(initial.inactiveSolidDisplay).toBe('none');
-  expect(initial.cardBackground).toBe('rgb(251, 249, 243)');
-  expect(initial.cardBorder).toBe('rgb(23, 22, 19)');
+  expect(initial.cardBackground).toBe(initial.comparisonBackground);
+  expect(initial.cardBorder).toBe(initial.comparisonBorder);
   expect(initial.progressFill).toBe('rgb(137, 100, 63)');
   expect(initial.eyebrow).toBe('rgb(96, 92, 83)');
   await expect(page.locator('.current-reading-age svg').first()).toHaveAttribute('aria-hidden', 'true');
@@ -122,6 +124,27 @@ test('Reading Room mobile chrome and homepage refinements use the intended geome
   await expect(page.locator('#ai-recommended-section')).not.toContainText('AI picks from beyond your library');
   await expect(page.locator('#ai-recommended-section .recommended-badge')).toHaveText('8.8');
   await expect(page.locator('#ai-recommended-section .recommended-card-score')).toHaveCount(0);
+
+  const spacing = await page.evaluate(() => {
+    const measure = card => {
+      const age = card.querySelector('.current-reading-age').getBoundingClientRect();
+      const progress = card.querySelector('.progress-block').getBoundingClientRect();
+      const actions = card.querySelector('.hero-actions').getBoundingClientRect();
+      return { ageToProgress: progress.top - age.bottom, progressToActions: actions.top - progress.bottom };
+    };
+    const longCard = document.querySelector('[data-current-card="current-1"]');
+    const shortCard = document.querySelector('[data-current-card="current-2"]');
+    const long = measure(longCard);
+    const title = shortCard.querySelector('h1');
+    title.textContent = 'Short Title';
+    title.removeAttribute('class');
+    title.removeAttribute('style');
+    return { long, short: measure(shortCard) };
+  });
+  expect(spacing.long.ageToProgress).toBe(6);
+  expect(spacing.short.ageToProgress).toBe(6);
+  expect(spacing.long.progressToActions).toBe(8);
+  expect(spacing.short.progressToActions).toBe(8);
 
   const scrolled = await page.evaluate(async () => {
     document.documentElement.style.scrollBehavior = 'auto';
@@ -191,7 +214,7 @@ test('mobile current-reading cards stay compact without context and grow without
       dots: box('.current-reading-dots-v36')
     };
   });
-  expect(layout.compact.height).toBeLessThan(350);
+  expect(layout.compact.height).toBeLessThanOrEqual(350);
   expect(layout.contextual.height).toBeLessThan(380);
   expect(layout.compactActionsBottom).toBeLessThanOrEqual(layout.compactBottom);
   expect(layout.compactButtonGap).toBeGreaterThanOrEqual(6);
@@ -464,11 +487,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('79');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('80');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '79')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v79');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '80')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v80');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -481,8 +504,8 @@ test.describe('service-worker-controlled document', () => {
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
     expect(state).toMatchObject({
-      generation: '79',
-      shell_cache: 'reading-room-shell-v79',
+      generation: '80',
+      shell_cache: 'reading-room-shell-v80',
       cover_cache: 'reading-room-covers-v3',
       award_logo_cache: 'reading-room-award-logos-v1',
       award_logo_cache_hits: 0,

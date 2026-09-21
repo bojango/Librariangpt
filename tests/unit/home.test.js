@@ -175,6 +175,8 @@ test('mobile current-reading cards use compact content-driven height and scoped 
   assert.doesNotMatch(carousel, /track\.style\.height/);
   assert.match(carousel, /stabiliseCardHeight/);
   assert.match(carousel, /onSettledChange\?\./);
+  assert.match(css, /html\[data-theme="reading-room"\] \.current-reading-card-v36 \.hero-copy \{[\s\S]*?justify-content: flex-start !important;/);
+  assert.match(css, /html\[data-theme="reading-room"\] \.current-reading-card-v36 \.hero-copy > \.progress-block \{[\s\S]*?margin: 6px 0 0 !important;/);
 });
 
 test('header keeps the existing Reading Room mark as a visible image', async () => {
