@@ -1,4 +1,4 @@
-const GENERATION = '81';
+const GENERATION = '82';
 const SHELL = `reading-room-shell-v${GENERATION}`;
 const COVERS = 'reading-room-covers-v3';
 const AWARD_LOGOS = 'reading-room-award-logos-v1';
@@ -10,8 +10,7 @@ const APP_SHELL = [
   `./dist/app.js?v=${GENERATION}`,
   './dist/app.js.map',
   './supabase-config.js',
-  './assets/reading-room-mark.svg',
-  './assets/reading-room-app-icon.svg',
+  './assets/reading-room-logo.png',
   './assets/goodreads.svg',
   './assets/google-books.svg',
   './assets/open-library.svg',
@@ -24,7 +23,6 @@ const APP_SHELL = [
   './assets/fonts/space-mono-regular.woff2',
   './assets/fonts/space-mono-bold.woff2',
   './icons/icon-192.png',
-  './icons/icon-512.png'
 ];
 let diagnosticsEnabled = false;
 const diagnosticCounters = {
