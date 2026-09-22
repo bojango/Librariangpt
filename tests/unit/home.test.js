@@ -159,8 +159,9 @@ test('current-reading progress styling is scoped and leaves progress maths uncha
   assert.equal((50 / 100) * 100, 50);
 });
 
-test('mobile current-reading cards use compact content-driven height and scoped spacing', async () => {
-  const [css, carousel] = await Promise.all([
+test('mobile current-reading cards use stable grouped alignment without changing carousel height on scroll', async () => {
+  const [markup, css, carousel] = await Promise.all([
+    readFile('src/views/home.js', 'utf8'),
     readFile('src/styles/app.css', 'utf8'),
     readFile('src/features/current-reading-carousel.js', 'utf8')
   ]);
@@ -175,8 +176,13 @@ test('mobile current-reading cards use compact content-driven height and scoped 
   assert.doesNotMatch(carousel, /track\.style\.height/);
   assert.match(carousel, /stabiliseCardHeight/);
   assert.match(carousel, /onSettledChange\?\./);
+  assert.match(markup, /class="current-reading-top"/);
+  assert.match(markup, /class="current-reading-bottom"/);
   assert.match(css, /html\[data-theme="reading-room"\] \.current-reading-card-v36 \.hero-copy \{[\s\S]*?justify-content: flex-start !important;/);
-  assert.match(css, /html\[data-theme="reading-room"\] \.current-reading-card-v36 \.hero-copy > \.progress-block \{[\s\S]*?margin: 6px 0 0 !important;/);
+  assert.match(css, /html\[data-theme="reading-room"\] \.current-reading-card-v36 \.current-reading-bottom \{[\s\S]*?margin-top: auto;/);
+  assert.match(css, /html\[data-theme="reading-room"\] \.current-reading-card-v36 \.current-reading-bottom > \.progress-block \{[\s\S]*?margin: 0 !important;/);
+  assert.match(css, /html\[data-theme="reading-room"\] :is\(\.upnext-row, \.recommended-row\)::-webkit-scrollbar \{[\s\S]*?display: none;/);
+  assert.match(css, /html\[data-theme="terminal"\] \.current-reading-card-v36 :is\(\.current-reading-top, \.current-reading-bottom\) \{[\s\S]*?display: contents;/);
 });
 
 test('header keeps the existing Reading Room mark as a visible image', async () => {

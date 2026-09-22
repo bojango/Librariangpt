@@ -1383,6 +1383,7 @@ html[data-theme="reading-room"] .current-reading-card-v36 > .cover {
   box-shadow: none !important;
 }
 html[data-theme="reading-room"] .current-reading-label {
+  display: flex;
   margin-top: 0;
   margin-bottom: 5px;
   color: #605c53 !important;
@@ -1393,12 +1394,26 @@ html[data-theme="reading-room"] .current-reading-card-v36 .hero-author {
 }
 html[data-theme="reading-room"] .current-reading-card-v36 .hero-copy {
   justify-content: flex-start !important;
+  min-height: 0;
 }
-html[data-theme="reading-room"] .current-reading-card-v36 .hero-copy > .progress-block {
-  margin: 6px 0 0 !important;
+html[data-theme="reading-room"] .current-reading-card-v36 .current-reading-top {
+  min-height: 0;
+}
+html[data-theme="reading-room"] .current-reading-card-v36 .current-reading-bottom {
+  min-width: 0;
+  margin-top: auto;
+}
+html[data-theme="reading-room"] .current-reading-card-v36 .current-reading-bottom > .progress-block {
+  margin: 0 !important;
 }
 html[data-theme="reading-room"] .current-reading-card-v36 .hero-actions {
   margin-top: 8px !important;
+}
+html[data-theme="terminal"] .current-reading-card-v36 :is(.current-reading-top, .current-reading-bottom) {
+  display: contents;
+}
+html[data-theme="terminal"] .current-reading-card-v36 .current-reading-bottom > .progress-block {
+  margin-block: auto !important;
 }
 html[data-theme="reading-room"] .current-reading-card-v36 .hero-author small {
   color: inherit;
@@ -1449,6 +1464,13 @@ html[data-theme="reading-room"] .upnext-position {
 html[data-theme="reading-room"] .upnext-source { margin: 0; }
 html[data-theme="reading-room"] .upnext-reason { -webkit-line-clamp: 3; }
 html[data-theme="reading-room"] .recommended-card-top { justify-content: flex-start; }
+html[data-theme="reading-room"] :is(.upnext-row, .recommended-row) {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+html[data-theme="reading-room"] :is(.upnext-row, .recommended-row)::-webkit-scrollbar {
+  display: none;
+}
 
 html[data-theme="reading-room"] :is(.book-card, .upnext-card, .recommended-card, .recommendation-editorial-card, .recommended-list-card, .cover-option):active,
 html[data-theme="reading-room"] .book-card:hover .cover {
@@ -1555,10 +1577,13 @@ html[data-theme="terminal"] .profile-avatar-action-icon { display: none; }
   html[data-theme="reading-room"] .bottom-nav.compact .nav-active-indicator { bottom: 14px; }
   html[data-theme="reading-room"] .current-reading-label { margin-bottom: 4px; }
   html[data-theme="reading-room"] .current-reading-card-v36 .hero-copy h1 { margin-bottom: 5px; }
+  html[data-theme="reading-room"] .current-reading-card-v36 .hero-copy h1.current-title-compact-v37 { font-size: min(calc(var(--current-title-size) - 2px), 25px) !important; }
+  html[data-theme="reading-room"] .current-reading-card-v36 .hero-copy h1.current-title-tight-v37 { font-size: min(calc(var(--current-title-size) - 2px), 23px) !important; }
   html[data-theme="reading-room"] .current-reading-card-v36 .hero-author { line-height: 1.2; }
   html[data-theme="reading-room"] .current-reading-card-v36 .progress-meta { margin-bottom: 5px; }
   html[data-theme="reading-room"] .current-reading-card-v36 .chapter-progress-line { margin: 2px 0 3px; font-size: 11px; line-height: 1.3; }
   html[data-theme="reading-room"] .current-reading-card-v36 .hero-actions .btn { padding-block: 11px !important; }
+  html[data-theme="terminal"] .current-reading-card-v36 .current-reading-bottom > .progress-block { margin: 0 !important; }
   html[data-theme="reading-room"] .profile-card {
     grid-template-columns: 1fr;
     gap: 13px;

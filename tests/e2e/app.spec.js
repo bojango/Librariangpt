@@ -83,6 +83,21 @@ test('current-reading carousel keeps one height and settles each changed index o
 test('Reading Room mobile chrome and homepage refinements use the intended geometry', async ({ page }) => {
   await page.setViewportSize({ width: 440, height: 956 });
   await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => {
+    const today = new Date();
+    const longStart = new Date(today);
+    longStart.setDate(today.getDate() - 56);
+    window.fixtureRefresh({
+      books: window.fixtureState.books.map(book => book.id === 'current-2'
+        ? { ...book, title: 'Prey', authors: 'Michael Crichton', started_at: today.toISOString().slice(0, 10), current_page: 0, total_pages: 364, progress_percent: 0 }
+        : book.id === 'current-1'
+          ? { ...book, title: 'The Unfinished Harauld Hughes', authors: 'Richard Ayoade', started_at: longStart.toISOString().slice(0, 10), current_page: 82, total_pages: 182, progress_percent: 45 }
+          : book),
+      chapters: []
+    });
+  });
+  await page.evaluate(() => document.fonts?.ready);
+  await page.waitForTimeout(50);
 
   const initial = await page.evaluate(() => {
     const style = selector => getComputedStyle(document.querySelector(selector));
@@ -125,26 +140,69 @@ test('Reading Room mobile chrome and homepage refinements use the intended geome
   await expect(page.locator('#ai-recommended-section .recommended-badge')).toHaveText('8.8');
   await expect(page.locator('#ai-recommended-section .recommended-card-score')).toHaveCount(0);
 
-  const spacing = await page.evaluate(() => {
+  const alignment = await page.evaluate(() => {
     const measure = card => {
-      const age = card.querySelector('.current-reading-age').getBoundingClientRect();
+      const cover = card.querySelector('.cover').getBoundingClientRect();
+      const label = card.querySelector('.current-reading-label').getBoundingClientRect();
+      const top = card.querySelector('.current-reading-top').getBoundingClientRect();
+      const bottom = card.querySelector('.current-reading-bottom').getBoundingClientRect();
       const progress = card.querySelector('.progress-block').getBoundingClientRect();
       const actions = card.querySelector('.hero-actions').getBoundingClientRect();
-      return { ageToProgress: progress.top - age.bottom, progressToActions: actions.top - progress.bottom };
+      return {
+        title: card.querySelector('h1').textContent,
+        topDelta: label.top - cover.top,
+        bottomDelta: actions.bottom - cover.bottom,
+        flexibleGap: bottom.top - top.bottom,
+        progressToActions: actions.top - progress.bottom,
+        overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth
+      };
     };
-    const longCard = document.querySelector('[data-current-card="current-1"]');
-    const shortCard = document.querySelector('[data-current-card="current-2"]');
-    const long = measure(longCard);
-    const title = shortCard.querySelector('h1');
-    title.textContent = 'Short Title';
-    title.removeAttribute('class');
-    title.removeAttribute('style');
-    return { long, short: measure(shortCard) };
+    return {
+      short: measure(document.querySelector('[data-current-card="current-2"]')),
+      long: measure(document.querySelector('[data-current-card="current-1"]'))
+    };
   });
-  expect(spacing.long.ageToProgress).toBe(6);
-  expect(spacing.short.ageToProgress).toBe(6);
-  expect(spacing.long.progressToActions).toBe(8);
-  expect(spacing.short.progressToActions).toBe(8);
+  expect(alignment.short.title).toBe('Prey');
+  expect(alignment.long.title).toBe('The Unfinished Harauld Hughes');
+  expect(alignment.short.topDelta).toBeCloseTo(0, 5);
+  expect(alignment.long.topDelta).toBeCloseTo(0, 5);
+  expect(alignment.short.bottomDelta).toBeCloseTo(0, 5);
+  expect(alignment.long.bottomDelta).toBeCloseTo(0, 5);
+  expect(alignment.short.flexibleGap).toBeGreaterThan(alignment.long.flexibleGap);
+  expect(alignment.long.flexibleGap).toBeGreaterThanOrEqual(0);
+  expect(alignment.short.progressToActions).toBe(8);
+  expect(alignment.long.progressToActions).toBe(8);
+  expect(alignment.short.overflow).toBe(false);
+  expect(alignment.long.overflow).toBe(false);
+
+  const horizontalRows = await page.evaluate(async () => {
+    const rows = [...document.querySelectorAll('.upnext-row, .recommended-row')];
+    rows.forEach(row => {
+      const card = row.firstElementChild;
+      for (let index = 0; index < 3; index += 1) row.append(card.cloneNode(true));
+    });
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    return rows.map(row => {
+      row.scrollLeft = row.scrollWidth;
+      const style = getComputedStyle(row);
+      const scrollbar = getComputedStyle(row, '::-webkit-scrollbar');
+      return {
+        className: row.className,
+        overflowX: style.overflowX,
+        scrollbarWidth: style.scrollbarWidth,
+        webkitScrollbarDisplay: scrollbar.display,
+        scrollLeft: row.scrollLeft,
+        maxScroll: row.scrollWidth - row.clientWidth
+      };
+    });
+  });
+  for (const row of horizontalRows) {
+    expect(row.overflowX).toBe('auto');
+    expect(row.scrollbarWidth).toBe('none');
+    expect(row.webkitScrollbarDisplay).toBe('none');
+    expect(row.maxScroll).toBeGreaterThan(0);
+    expect(row.scrollLeft).toBeGreaterThan(0);
+  }
 
   const scrolled = await page.evaluate(async () => {
     document.documentElement.style.scrollBehavior = 'auto';
@@ -487,11 +545,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('80');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('81');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '80')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v80');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '81')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v81');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -504,8 +562,8 @@ test.describe('service-worker-controlled document', () => {
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
     expect(state).toMatchObject({
-      generation: '80',
-      shell_cache: 'reading-room-shell-v80',
+      generation: '81',
+      shell_cache: 'reading-room-shell-v81',
       cover_cache: 'reading-room-covers-v3',
       award_logo_cache: 'reading-room-award-logos-v1',
       award_logo_cache_hits: 0,
