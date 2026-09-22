@@ -282,6 +282,108 @@ async function refresh({ quiet = false, scope = 'library', bookId = null } = {})
   } catch (error) { diagnostics.event('refresh_failed', { scope, duration_ms: Math.round(performance.now() - started), name: error?.name, message: error?.message }); toast(error.message || 'Could not refresh library', true); }
 }
 
+const PULL_REFRESH_THRESHOLD = 64;
+const PULL_REFRESH_MAX = 96;
+const pullRefreshState = {
+  tracking: false,
+  active: false,
+  refreshing: false,
+  startX: 0,
+  startY: 0,
+  distance: 0
+};
+
+function pullRefreshIndicator() {
+  return app.querySelector('[data-pull-refresh]');
+}
+
+function setPullRefreshVisual(distance = 0) {
+  const indicator = pullRefreshIndicator();
+  if (!indicator) return;
+  const armed = distance >= PULL_REFRESH_THRESHOLD;
+  const offset = Math.min(30, distance * .45);
+  indicator.style.setProperty('--pull-offset', `${offset.toFixed(1)}px`);
+  indicator.classList.toggle('is-visible', distance > 4 || pullRefreshState.refreshing);
+  indicator.classList.toggle('is-armed', armed && !pullRefreshState.refreshing);
+  indicator.classList.toggle('is-refreshing', pullRefreshState.refreshing);
+  const label = indicator.querySelector('.pull-refresh-label');
+  if (label) label.textContent = pullRefreshState.refreshing ? 'Refreshing…' : armed ? 'Release to refresh' : 'Pull to refresh';
+}
+
+function resetPullRefreshGesture() {
+  pullRefreshState.tracking = false;
+  pullRefreshState.active = false;
+  pullRefreshState.distance = 0;
+  setPullRefreshVisual(0);
+}
+
+function canStartPullRefresh(event) {
+  if (pullRefreshState.refreshing || !store.value.session || event.touches.length !== 1 || window.scrollY > 1) return false;
+  if (document.querySelector('#modal-root')?.childElementCount) return false;
+  if (!app.querySelector('.layout')) return false;
+  const target = event.target instanceof Element ? event.target : null;
+  return !target?.closest('input, textarea, select, [contenteditable="true"], .modal-backdrop');
+}
+
+async function triggerPullRefresh() {
+  if (pullRefreshState.refreshing) return;
+  pullRefreshState.refreshing = true;
+  pullRefreshState.distance = PULL_REFRESH_THRESHOLD;
+  setPullRefreshVisual(PULL_REFRESH_THRESHOLD);
+  const route = { ...store.value.route };
+  diagnostics.event('pull_refresh_triggered', { route: route.name, book_id: route.bookId || null });
+  try {
+    if (route.name === 'book' && route.bookId) await refresh({ scope: 'book', bookId: route.bookId });
+    else await refresh();
+  } finally {
+    window.setTimeout(() => {
+      pullRefreshState.refreshing = false;
+      resetPullRefreshGesture();
+    }, 220);
+  }
+}
+
+window.addEventListener('touchstart', event => {
+  if (!canStartPullRefresh(event)) return;
+  const touch = event.touches[0];
+  pullRefreshState.tracking = true;
+  pullRefreshState.active = false;
+  pullRefreshState.startX = touch.clientX;
+  pullRefreshState.startY = touch.clientY;
+  pullRefreshState.distance = 0;
+}, { passive: true });
+
+window.addEventListener('touchmove', event => {
+  if (!pullRefreshState.tracking || event.touches.length !== 1) return;
+  const touch = event.touches[0];
+  const dx = touch.clientX - pullRefreshState.startX;
+  const dy = touch.clientY - pullRefreshState.startY;
+
+  if (window.scrollY > 1 || dy <= 0 || (Math.abs(dx) > Math.abs(dy) * 1.15 && Math.abs(dx) > 8)) {
+    resetPullRefreshGesture();
+    return;
+  }
+  if (!pullRefreshState.active && dy < 7) return;
+
+  pullRefreshState.active = true;
+  if (event.cancelable) event.preventDefault();
+  pullRefreshState.distance = Math.min(PULL_REFRESH_MAX, dy * .56);
+  setPullRefreshVisual(pullRefreshState.distance);
+}, { passive: false });
+
+window.addEventListener('touchend', () => {
+  if (!pullRefreshState.tracking) return;
+  const shouldRefresh = pullRefreshState.active && pullRefreshState.distance >= PULL_REFRESH_THRESHOLD;
+  pullRefreshState.tracking = false;
+  pullRefreshState.active = false;
+  if (shouldRefresh) void triggerPullRefresh();
+  else resetPullRefreshGesture();
+}, { passive: true });
+
+window.addEventListener('touchcancel', () => {
+  if (!pullRefreshState.refreshing) resetPullRefreshGesture();
+}, { passive: true });
+
 function maybeEnrich(detail, renderVersion) {
   const book = detail.book;
   if (!navigator.onLine) return;
@@ -365,7 +467,6 @@ app.addEventListener('click', async event => {
     if (bookHasReturnRoute) { bookHasReturnRoute = false; history.back(); } else navigate({ name: previousRoute });
     return;
   }
-  if (target.closest('[data-refresh]')) { refresh(); return; }
   if (target.closest('[data-menu]')) { openMenu(); return; }
   if (target.closest('[data-profile-edit]')) { openProfileEditor(); return; }
   if (target.closest('[data-avatar-menu]')) { openAvatarMenu(); return; }

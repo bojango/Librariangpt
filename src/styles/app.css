@@ -1604,3 +1604,77 @@ html[data-theme="terminal"] .profile-avatar-action-icon { display: none; }
 .topbar .wordmark > .brand-mark > img {
   border-radius: inherit !important;
 }
+
+/* Pull to refresh */
+.pull-refresh-indicator {
+  --pull-offset: 0px;
+  position: fixed;
+  z-index: 35;
+  top: calc(var(--safe-top) + 59px);
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 11px 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel, var(--bg));
+  color: var(--text);
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  opacity: 0;
+  transform: translate(-50%, calc(-18px + var(--pull-offset)));
+  transition: opacity .12s ease, transform .12s ease;
+  pointer-events: none;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1;
+}
+.pull-refresh-indicator.is-visible { opacity: 1; }
+.pull-refresh-icon {
+  position: relative;
+  display: grid;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  place-items: center;
+}
+.pull-refresh-arrow {
+  display: block;
+  font-size: 15px;
+  line-height: 1;
+  transition: transform .14s ease;
+}
+.pull-refresh-indicator.is-armed .pull-refresh-arrow { transform: rotate(180deg); }
+.pull-refresh-spinner {
+  display: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+}
+.pull-refresh-indicator.is-refreshing .pull-refresh-arrow { display: none; }
+.pull-refresh-indicator.is-refreshing .pull-refresh-spinner {
+  display: block;
+  animation: pull-refresh-spin .7s linear infinite;
+}
+@keyframes pull-refresh-spin { to { transform: rotate(360deg); } }
+
+html[data-theme="reading-room"] .pull-refresh-indicator {
+  border-color: rgba(23,22,19,.14);
+  background: rgba(247,244,236,.97);
+  color: #171613;
+}
+html[data-theme="terminal"] .pull-refresh-indicator {
+  border-color: var(--line);
+  background: #171613;
+  color: #f1eee5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pull-refresh-indicator,
+  .pull-refresh-arrow { transition: none; }
+  .pull-refresh-indicator.is-refreshing .pull-refresh-spinner { animation: none; }
+}
