@@ -1,4 +1,4 @@
-const ROUTES = new Set(['home', 'library', 'wishlist', 'profile']);
+const ROUTES = new Set(['home', 'library', 'wishlist', 'profile', 'recommendations']);
 
 export function parseRoute(hash = location.hash) {
   const path = String(hash || '').replace(/^#\/?/, '');

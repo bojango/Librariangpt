@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { profileView } from '../../src/views/profile.js';
+import { readFile } from 'node:fs/promises';
+import { profileEditMarkup, profileView } from '../../src/views/profile.js';
 
 const state = {
   session: { user: { user_metadata: { full_name: 'Calum Reader' } } },
@@ -26,6 +27,23 @@ test('Profile defaults to an accessible Stats reading record', () => {
   assert.match(html, /Reading Record/);
   assert.match(html, /UPLOAD PHOTO/);
   assert.match(html, /data-avatar-input/);
+  assert.match(html, /data-avatar-menu/);
+  assert.match(html, /data-profile-edit/);
+});
+
+test('Profile edit form uses the existing profile fields and escapes stored values', () => {
+  const html = profileEditMarkup({ display_name: 'Calum & Co', handle: '@calum', short_bio: '<reader>' });
+  assert.match(html, /name="display-name"[^>]*value="Calum &amp; Co"/);
+  assert.match(html, /name="handle"[^>]*value="@calum"/);
+  assert.match(html, /&lt;reader&gt;/);
+  assert.doesNotMatch(html, /<reader>/);
+});
+
+test('Terminal keeps its existing profile photo control while Reading Room uses the avatar action', async () => {
+  const [html, css] = await Promise.all([profileView(state), readFile('src/styles/app.css', 'utf8')]);
+  assert.match(html, /terminal-profile-upload/);
+  assert.match(css, /html\[data-theme="reading-room"\] \.terminal-profile-upload \{ display: none; \}/);
+  assert.match(css, /html\[data-theme="terminal"\] \.profile-edit/);
 });
 
 test('Taste Profile composes real full-sentence preferences into third-person prose', () => {

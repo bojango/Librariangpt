@@ -1,7 +1,8 @@
 import { homeView } from '../../src/views/home.js';
 import { libraryView } from '../../src/views/library.js';
 import { bookDetailView } from '../../src/views/book-detail.js';
-import { profileView } from '../../src/views/profile.js';
+import { profileEditMarkup, profilePhotoActionsMarkup, profileView } from '../../src/views/profile.js';
+import { recommendationsView } from '../../src/views/recommendations.js';
 import { snapshotFingerprint } from '../../src/lifecycle.js';
 import { activateCovers, collectCoverImages, reuseCoverImages } from '../../src/ui/cover.js';
 import { initialiseCarousel } from '../../src/features/current-reading-carousel.js';
@@ -11,15 +12,17 @@ const books = [
   { id: 'current-1', title: 'The Unfinished Harauld Hughes', authors: 'Reader One', overall_status: 'Currently Reading', ownership_status: 'Owned', started_at: '2026-07-28', current_page: 40, total_pages: 200, progress_percent: 20, cover_url: '/delayed-cover.svg', primary_genre: 'Fiction' },
   { id: 'current-2', title: 'There Is No Antimemetics Division', authors: 'Reader Two', overall_status: 'Currently Reading', ownership_status: 'Owned', started_at: '2026-09-12', current_page: 90, total_pages: 300, progress_percent: 30, cover_url: '/missing-cover.jpg', primary_genre: 'History' },
   { id: 'read-1', title: 'Finished Book', authors: 'Done Author', overall_status: 'Read', ownership_status: 'Owned', total_pages: 250, user_rating_5: 4.5, synopsis: 'A complete synopsis for fixture rendering.', primary_genre: 'Science' },
-  { id: 'wish-1', title: 'Wish Book', authors: 'Future Author', overall_status: 'Wishlist', ownership_status: 'Not Owned', cover_url: '/wishlist-cover.jpg', primary_genre: 'Essay' }
+  { id: 'wish-1', title: 'Wish Book', authors: 'Future Author', overall_status: 'Wishlist', ownership_status: 'Not Owned', cover_url: '/wishlist-cover.jpg', primary_genre: 'Essay' },
+  { id: 'order-1', title: 'Ordered Book', authors: 'Incoming Author', overall_status: 'Wishlist', ownership_status: 'On Order', primary_genre: 'Essay' }
 ];
 for (let index = 0; index < 20; index += 1) books.push({ id: `extra-${index}`, title: `Extra Book ${index}`, authors: 'Fixture Author', overall_status: 'Owned - Unread', ownership_status: 'Owned', primary_genre: 'Fiction' });
 const state = {
   session: { user: { id: 'fixture' } }, books, recommendations: [],
   aiRecommendations: [{ recommendation_id: 'rec-1', title: 'Outside Pick', authors: 'AI Author', recommendation_strength: 'Strong', match_score_10: 8.8, why_recommended: 'A fixture recommendation.' }],
-  upNext: [{ queue_id: 'queue-1', id: 'wish-1', title: 'Wish Book', authors: 'Future Author', position: 1, source: 'Manual', locked: true }],
+  upNext: [{ queue_id: 'queue-1', id: 'wish-1', title: 'Wish Book', authors: 'Future Author', position: 1, source: 'Manual', locked: true, ai_score: 9.2, confidence: 'High' }],
   chapters: [{ id: 'current-1', current_chapter_number: '3', current_chapter_title: 'The Middle' }],
-  filters: { library: 'All', wishlist: 'Wishlist' }, queries: { library: '', wishlist: '' }, route: { name: 'home' }, profile: null,
+  filters: { library: 'All', wishlist: 'Wishlist' }, queries: { library: '', wishlist: '' }, route: { name: 'home' },
+  profile: { display_name: 'Calum', handle: '@calum', short_bio: 'A private record of reading, preferences and finished books.', avatar_path: null, avatarUrl: null },
   tasteProfile: [{ dimension: 'Setting', preference: 'distinctive settings', direction: 'Positive', strength: 'Strong', confidence: 'High', evidence_count: 4, last_updated: '2026-09-18' }],
   readingHistory: [], profileTab: 'stats', detail: null
 };
@@ -42,7 +45,8 @@ function paint(html, { reuseCovers = false, preserveScroll = null } = {}) {
   const pool = reuseCovers ? collectCoverImages(app) : null;
   app.innerHTML = html;
   if (pool) reuseCoverImages(app, pool); else activateCovers(app);
-  initialiseCarousel(app);
+  window.fixtureCarouselEvents ||= [];
+  initialiseCarousel(app, { onSettledChange: event => window.fixtureCarouselEvents.push(event) });
   if (Number.isFinite(preserveScroll)) window.scrollTo(0, preserveScroll);
   window.fixturePaints = (window.fixturePaints || 0) + 1;
 }
@@ -50,8 +54,8 @@ function paint(html, { reuseCovers = false, preserveScroll = null } = {}) {
 function render(options = {}) {
   const hash = location.hash.replace(/^#\/?/, '');
   if (hash.startsWith('book/')) { const book = books.find(item => item.id === decodeURIComponent(hash.slice(5))); state.route = { name: 'book', bookId: book.id, returnTo: 'library' }; state.detail = detailFor(book); paint(bookDetailView(state), options); return; }
-  const name = hash === 'stats' ? 'profile' : ['library', 'wishlist', 'profile'].includes(hash) ? hash : 'home'; state.route = { name };
-  paint(name === 'home' ? homeView(state) : name === 'profile' ? profileView(state) : libraryView(state, name), options);
+  const name = hash === 'stats' ? 'profile' : ['library', 'wishlist', 'profile', 'recommendations'].includes(hash) ? hash : 'home'; state.route = { name };
+  paint(name === 'home' ? homeView(state) : name === 'profile' ? profileView(state) : name === 'recommendations' ? recommendationsView(state) : libraryView(state, name), options);
 }
 
 window.fixtureRefresh = patch => {
@@ -69,6 +73,8 @@ app.addEventListener('click', event => {
   if (event.target.closest('[data-manage-upnext]')) { document.querySelector('#modal-root').innerHTML = `<div id="queue-manager-list">${upNextManagerRows(state.upNext)}</div>`; return; }
   const route = event.target.closest('[data-route]'); if (route) { location.hash = `#/${route.dataset.route}`; return; }
   const filter = event.target.closest('[data-filter]'); if (filter) { state.filters.library = filter.dataset.filter; render(); return; }
+  if (event.target.closest('[data-profile-edit]')) { document.querySelector('#modal-root').innerHTML = `<div class="modal-backdrop profile-edit-backdrop"><div class="modal">${profileEditMarkup(state.profile, state.session.user.user_metadata || {})}</div></div>`; return; }
+  if (event.target.closest('[data-avatar-menu]')) { document.querySelector('#modal-root').innerHTML = `<div class="modal-backdrop profile-action-backdrop"><div class="modal">${profilePhotoActionsMarkup()}</div></div>`; return; }
   const book = event.target.closest('[data-open-book]'); if (book) { location.hash = `#/book/${book.dataset.openBook}`; return; }
   if (event.target.closest('[data-back]')) location.hash = '#/library';
 });

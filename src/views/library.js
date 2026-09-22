@@ -6,7 +6,7 @@ export const FILTERS = ['All', 'Owned', 'Unread', 'Read', 'Wishlist', 'Recommend
 
 export function filteredBooks(state, routeName) {
   const query = state.queries[routeName] || '';
-  const filter = routeName === 'wishlist' ? 'Wishlist' : state.filters.library;
+  const filter = routeName === 'wishlist' ? 'Wishlist' : state.filters.library === 'Recommended' ? 'All' : state.filters.library;
   let books = [...state.books];
   if (query.trim()) {
     const term = query.trim().toLowerCase();
@@ -16,10 +16,6 @@ export function filteredBooks(state, routeName) {
   if (filter === 'Unread') books = books.filter(book => book.overall_status === 'Owned - Unread');
   if (filter === 'Read') books = books.filter(book => book.overall_status === 'Read');
   if (filter === 'Wishlist') books = books.filter(book => book.overall_status === 'Wishlist');
-  if (filter === 'Recommended') {
-    const ids = new Set(state.recommendations.filter(item => item.recommendation_status !== 'Dismissed').map(item => item.book_id));
-    books = books.filter(book => ids.has(book.id));
-  }
   return books.sort((a, b) => a.title.localeCompare(b.title));
 }
 
@@ -31,7 +27,7 @@ function card(book, index) {
 
 export function libraryView(state, routeName) {
   const books = filteredBooks(state, routeName);
-  const filter = routeName === 'wishlist' ? 'Wishlist' : state.filters.library;
+  const filter = routeName === 'wishlist' ? 'Wishlist' : state.filters.library === 'Recommended' ? 'All' : state.filters.library;
   const cards = books.map(card).join('');
-  return chrome(`<div class="page-heading"><p class="eyebrow">Catalogue</p><h1>${routeName === 'wishlist' ? uiCopyHtml('library.wishlist') : filter === 'All' ? uiCopyHtml('library.title') : esc(filter)}</h1><p>${books.length} ${books.length === 1 ? 'book' : 'books'} in this view.</p></div><div class="toolbar"><button class="btn btn-primary" data-add-book type="button">Add book</button><input id="library-search" class="input search" data-library-search="${routeName}" type="search" placeholder="Search title, author, genre or series" value="${esc(state.queries[routeName] || '')}">${routeName === 'library' ? `<div class="filters">${FILTERS.map(item => `<button class="filter ${filter === item ? 'active' : ''}" data-filter="${item}">${item}</button>`).join('')}</div>` : ''}</div><div class="library-grid">${cards}</div>`, routeName);
+  return chrome(`<div class="page-heading"><p class="eyebrow">Catalogue</p><h1>${routeName === 'wishlist' ? uiCopyHtml('library.wishlist') : filter === 'All' ? uiCopyHtml('library.title') : esc(filter)}</h1><p>${books.length} ${books.length === 1 ? 'book' : 'books'} in this view.</p></div><div class="toolbar"><button class="btn btn-primary" data-add-book type="button">Add book</button><input id="library-search" class="input search" data-library-search="${routeName}" type="search" placeholder="Search title, author, genre or series" value="${esc(state.queries[routeName] || '')}">${routeName === 'library' ? `<div class="filters">${FILTERS.map(item => item === 'Recommended' ? `<button class="filter" data-route="recommendations" type="button">${item}</button>` : `<button class="filter ${filter === item ? 'active' : ''}" data-filter="${item}" type="button">${item}</button>`).join('')}</div>` : ''}</div><div class="library-grid">${cards}</div>`, routeName);
 }

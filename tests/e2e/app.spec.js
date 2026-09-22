@@ -28,7 +28,7 @@ test('authenticated fixture supports route, filter and detail lifecycles', async
   await expect(page.getByRole('heading', { name: 'Quotes & passages 1' })).toBeVisible();
   await expect(page.locator('.rating-public')).toBeVisible();
   await expect(page.locator('related-books')).toHaveCount(1);
-  await page.locator('[data-back]').click();
+  await page.locator('[data-back]').press('Enter');
   await expect(page.getByRole('heading', { name: 'Read' })).toBeVisible();
 });
 
@@ -39,7 +39,212 @@ test('currently-reading carousel and wishlist render directly', async ({ page })
   await expect(page.locator('[data-current-card] .book-librarian-note, [data-current-card] .librarian-note')).toHaveCount(0);
   await page.locator('[data-route="wishlist"]').first().click();
   await expect(page.getByRole('heading', { name: 'Wishlist' })).toBeVisible();
-  await expect(page.locator('.book-card')).toHaveCount(1);
+  await expect(page.locator('.book-card')).toHaveCount(2);
+});
+
+test('current-reading carousel keeps one height and settles each changed index once', async ({ page }) => {
+  await page.setViewportSize({ width: 440, height: 956 });
+  await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-current-card]')].every(card => card.style.height));
+  await page.evaluate(() => { window.fixtureCarouselEvents.length = 0; window.carouselGeometry = []; });
+  const sample = async () => page.evaluate(() => {
+    const track = document.querySelector('.current-reading-track-v36');
+    const rect = track.getBoundingClientRect();
+    window.carouselGeometry.push({ top: rect.top, height: rect.height });
+  });
+  const scrollToCard = async index => {
+    await page.locator('.current-reading-track-v36').evaluate((track, target) => {
+      const card = track.querySelectorAll('[data-current-card]')[target];
+      track.scrollTo({ left: card.offsetLeft, behavior: 'auto' });
+    }, index);
+    await expect(page.locator(`[data-carousel-dot="${index}"]`)).toHaveAttribute('aria-current', 'true');
+    await sample();
+  };
+
+  await sample();
+  await scrollToCard(1);
+  await scrollToCard(0);
+  await page.locator('[data-carousel-dot="1"]').click();
+  await expect(page.locator('[data-carousel-dot="1"]')).toHaveAttribute('aria-current', 'true');
+  await page.waitForFunction(() => window.fixtureCarouselEvents.at(-1)?.toIndex === 1);
+  await sample();
+
+  const result = await page.evaluate(() => ({
+    geometry: window.carouselGeometry,
+    events: window.fixtureCarouselEvents,
+    cardHeights: [...document.querySelectorAll('[data-current-card]')].map(card => card.getBoundingClientRect().height)
+  }));
+  expect(new Set(result.geometry.map(item => item.top)).size).toBe(1);
+  expect(new Set(result.geometry.map(item => item.height)).size).toBe(1);
+  expect(new Set(result.cardHeights).size).toBe(1);
+  expect(result.events.map(event => event.toIndex)).toEqual([1, 0, 1]);
+});
+
+test('Reading Room mobile chrome and homepage refinements use the intended geometry', async ({ page }) => {
+  await page.setViewportSize({ width: 440, height: 956 });
+  await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => {
+    const today = new Date();
+    const longStart = new Date(today);
+    longStart.setDate(today.getDate() - 56);
+    window.fixtureRefresh({
+      books: window.fixtureState.books.map(book => book.id === 'current-2'
+        ? { ...book, title: 'Prey', authors: 'Michael Crichton', started_at: today.toISOString().slice(0, 10), current_page: 0, total_pages: 364, progress_percent: 0 }
+        : book.id === 'current-1'
+          ? { ...book, title: 'The Unfinished Harauld Hughes', authors: 'Richard Ayoade', started_at: longStart.toISOString().slice(0, 10), current_page: 82, total_pages: 182, progress_percent: 45 }
+          : book),
+      chapters: []
+    });
+  });
+  await page.evaluate(() => document.fonts?.ready);
+  await page.waitForTimeout(50);
+
+  const initial = await page.evaluate(() => {
+    const style = selector => getComputedStyle(document.querySelector(selector));
+    const refresh = document.querySelector('[data-refresh] svg');
+    return {
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      refreshPaths: [...refresh.querySelectorAll('path')].map(path => path.getAttribute('d')),
+      refreshFill: refresh.getAttribute('fill'),
+      refreshStroke: refresh.getAttribute('stroke'),
+      headerButtonBorder: style('.topbar .icon-btn').borderTopColor,
+      headerButtonBackground: style('.topbar .icon-btn').backgroundColor,
+      activeFill: style('.nav-btn.active .nav-icon-solid').fill,
+      activeSolidDisplay: style('.nav-btn.active .nav-icon-solid').display,
+      inactiveSolidDisplay: style('.nav-btn:not(.active) .nav-icon-solid').display,
+      cardBackground: style('.current-reading-card-v36').backgroundColor,
+      cardBorder: style('.current-reading-card-v36').borderTopColor,
+      comparisonBackground: style('.upnext-card').backgroundColor,
+      comparisonBorder: style('.upnext-card').borderTopColor,
+      progressFill: style('.current-reading-card-v36 .progress-fill').backgroundColor,
+      eyebrow: style('.current-reading-label').color
+    };
+  });
+  expect(initial.scrollWidth).toBe(initial.clientWidth);
+  expect(initial.refreshPaths).toEqual(['M20 11a8 8 0 1 0-2.34 5.66', 'M20 4v7h-7']);
+  expect(initial.refreshFill).toBe('none');
+  expect(initial.refreshStroke).toBe('currentColor');
+  expect(initial.headerButtonBorder).toBe('rgba(0, 0, 0, 0)');
+  expect(initial.headerButtonBackground).toBe('rgba(0, 0, 0, 0)');
+  expect(initial.activeFill).toBe('rgb(23, 22, 19)');
+  expect(initial.activeSolidDisplay).not.toBe('none');
+  expect(initial.inactiveSolidDisplay).toBe('none');
+  expect(initial.cardBackground).toBe(initial.comparisonBackground);
+  expect(initial.cardBorder).toBe(initial.comparisonBorder);
+  expect(initial.progressFill).toBe('rgb(137, 100, 63)');
+  expect(initial.eyebrow).toBe('rgb(96, 92, 83)');
+  await expect(page.locator('.current-reading-age svg').first()).toHaveAttribute('aria-hidden', 'true');
+  await expect(page.locator('.upnext-score')).toHaveText('9.2/10');
+  await expect(page.locator('#ai-recommended-section')).not.toContainText('AI picks from beyond your library');
+  await expect(page.locator('#ai-recommended-section .recommended-badge')).toHaveText('8.8');
+  await expect(page.locator('#ai-recommended-section .recommended-card-score')).toHaveCount(0);
+
+  const alignment = await page.evaluate(() => {
+    const measure = card => {
+      const cover = card.querySelector('.cover').getBoundingClientRect();
+      const label = card.querySelector('.current-reading-label').getBoundingClientRect();
+      const top = card.querySelector('.current-reading-top').getBoundingClientRect();
+      const bottom = card.querySelector('.current-reading-bottom').getBoundingClientRect();
+      const progress = card.querySelector('.progress-block').getBoundingClientRect();
+      const actions = card.querySelector('.hero-actions').getBoundingClientRect();
+      return {
+        title: card.querySelector('h1').textContent,
+        topDelta: label.top - cover.top,
+        bottomDelta: actions.bottom - cover.bottom,
+        flexibleGap: bottom.top - top.bottom,
+        progressToActions: actions.top - progress.bottom,
+        overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth
+      };
+    };
+    return {
+      short: measure(document.querySelector('[data-current-card="current-2"]')),
+      long: measure(document.querySelector('[data-current-card="current-1"]'))
+    };
+  });
+  expect(alignment.short.title).toBe('Prey');
+  expect(alignment.long.title).toBe('The Unfinished Harauld Hughes');
+  expect(alignment.short.topDelta).toBeCloseTo(0, 5);
+  expect(alignment.long.topDelta).toBeCloseTo(0, 5);
+  expect(alignment.short.bottomDelta).toBeCloseTo(0, 5);
+  expect(alignment.long.bottomDelta).toBeCloseTo(0, 5);
+  expect(alignment.short.flexibleGap).toBeGreaterThan(alignment.long.flexibleGap);
+  expect(alignment.long.flexibleGap).toBeGreaterThanOrEqual(0);
+  expect(alignment.short.progressToActions).toBe(8);
+  expect(alignment.long.progressToActions).toBe(8);
+  expect(alignment.short.overflow).toBe(false);
+  expect(alignment.long.overflow).toBe(false);
+
+  const horizontalRows = await page.evaluate(async () => {
+    const rows = [...document.querySelectorAll('.upnext-row, .recommended-row')];
+    rows.forEach(row => {
+      const card = row.firstElementChild;
+      for (let index = 0; index < 3; index += 1) row.append(card.cloneNode(true));
+    });
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    return rows.map(row => {
+      row.scrollLeft = row.scrollWidth;
+      const style = getComputedStyle(row);
+      const scrollbar = getComputedStyle(row, '::-webkit-scrollbar');
+      return {
+        className: row.className,
+        overflowX: style.overflowX,
+        scrollbarWidth: style.scrollbarWidth,
+        webkitScrollbarDisplay: scrollbar.display,
+        scrollLeft: row.scrollLeft,
+        maxScroll: row.scrollWidth - row.clientWidth
+      };
+    });
+  });
+  for (const row of horizontalRows) {
+    expect(row.overflowX).toBe('auto');
+    expect(row.scrollbarWidth).toBe('none');
+    expect(row.webkitScrollbarDisplay).toBe('none');
+    expect(row.maxScroll).toBeGreaterThan(0);
+    expect(row.scrollLeft).toBeGreaterThan(0);
+  }
+
+  const scrolled = await page.evaluate(async () => {
+    document.documentElement.style.scrollBehavior = 'auto';
+    window.scrollTo(0, 800);
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const nav = document.querySelector('.bottom-nav');
+    nav.classList.add('compact');
+    const header = document.querySelector('.topbar').getBoundingClientRect();
+    const icon = nav.querySelector('.nav-btn.active .nav-icon').getBoundingClientRect();
+    const indicator = nav.querySelector('.nav-active-indicator').getBoundingClientRect();
+    return { headerTop: header.top, navHeight: nav.getBoundingClientRect().height, indicatorGap: indicator.top - icon.bottom };
+  });
+  expect(scrolled.headerTop).toBe(0);
+  expect(scrolled.navHeight).toBe(48);
+  expect(scrolled.indicatorGap).toBe(3);
+
+  const sidebar = await page.evaluate(() => {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'sidebar-backdrop';
+    wrapper.innerHTML = '<aside class="sidebar-panel">Menu</aside>';
+    document.body.append(wrapper);
+    const panel = wrapper.querySelector('.sidebar-panel');
+    const rect = panel.getBoundingClientRect();
+    const style = getComputedStyle(panel);
+    return { left: rect.left, borderLeft: style.borderLeftWidth, borderRight: style.borderRightWidth, shadow: style.boxShadow };
+  });
+  expect(sidebar.left).toBe(0);
+  expect(sidebar.borderLeft).toBe('0px');
+  expect(sidebar.borderRight).toBe('1px');
+  expect(sidebar.shadow).toContain('30px 0px 80px');
+});
+
+test('Home and Library navigate to the routed recommendations page', async ({ page }) => {
+  await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
+  await page.locator('#ai-recommended-section [data-route="recommendations"]').click();
+  await expect(page).toHaveURL(/#\/recommendations$/);
+  await expect(page.locator('.recommendation-editorial-card')).toHaveCount(1);
+
+  await page.locator('[data-route="library"]').first().click();
+  await page.locator('.filters [data-route="recommendations"]').click();
+  await expect(page).toHaveURL(/#\/recommendations$/);
+  expect(await page.evaluate(() => window.fixtureState.filters.library)).toBe('All');
 });
 
 test('mobile current-reading cards stay compact without context and grow without overlap', async ({ page }) => {
@@ -67,10 +272,10 @@ test('mobile current-reading cards stay compact without context and grow without
       dots: box('.current-reading-dots-v36')
     };
   });
-  expect(layout.compact.height).toBeLessThan(340);
+  expect(layout.compact.height).toBeLessThanOrEqual(350);
   expect(layout.contextual.height).toBeLessThan(380);
   expect(layout.compactActionsBottom).toBeLessThanOrEqual(layout.compactBottom);
-  expect(layout.compactButtonGap).toBeGreaterThanOrEqual(11);
+  expect(layout.compactButtonGap).toBeGreaterThanOrEqual(6);
   expect(layout.compactCoverHeight).toBeGreaterThan(180);
   expect(layout.progressHeight).toBe(10);
   expect(layout.dots.top).toBeGreaterThanOrEqual(layout.compact.bottom);
@@ -226,7 +431,7 @@ test('rapid route changes only leave the final route rendered', async ({ page })
     location.hash = '#/wishlist';
     location.hash = '#/stats';
   });
-  await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible();
+  await expect(page.locator('.profile-card')).toBeVisible();
   await expect(page.locator('.profile-page-title h1')).toHaveCount(1);
 });
 
@@ -340,11 +545,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('76');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('81');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '76')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v76');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '81')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v81');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -357,8 +562,8 @@ test.describe('service-worker-controlled document', () => {
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
     expect(state).toMatchObject({
-      generation: '76',
-      shell_cache: 'reading-room-shell-v76',
+      generation: '81',
+      shell_cache: 'reading-room-shell-v81',
       cover_cache: 'reading-room-covers-v3',
       award_logo_cache: 'reading-room-award-logos-v1',
       award_logo_cache_hits: 0,

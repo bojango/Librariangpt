@@ -89,6 +89,56 @@ test('recommendation selection deduplicates recommendation and book identities',
   assert.equal(new Set(picks.map(item => item.id)).size, 5);
 });
 
+test('Home See more uses the recommendations route', () => {
+  const html = homeView(state({ aiRecommendations: recommendations(1) }));
+  assert.match(html, /data-route="recommendations"/);
+  assert.doesNotMatch(html, /data-recommendations-page/);
+});
+
+test('Home recommendation and queue cards use the compact score-only presentation', () => {
+  const html = homeView(state({
+    upNext: [{
+      queue_id: 'queue-score', id: 'queued', title: 'Queued', position: 1,
+      source: 'AI', ai_score: 9.2, confidence: 'High'
+    }],
+    aiRecommendations: [{
+      recommendation_id: 'rec-score', id: 'recommended', title: 'Recommended',
+      match_score_10: 9.4, recommendation_strength: 'Wildcard'
+    }]
+  }));
+  assert.match(html, /class="upnext-score">9\.2\/10</);
+  assert.doesNotMatch(html, /High confidence/);
+  assert.match(html, /class="recommended-badge">9\.4</);
+  assert.doesNotMatch(html, /recommended-card-score/);
+  assert.doesNotMatch(html, />Wildcard<|>Strong</);
+  assert.doesNotMatch(html, /AI picks from beyond your library/);
+});
+
+test('currently reading age includes a decorative open-book icon', () => {
+  const html = homeView(state({ books: [{
+    id: 'current', title: 'Current', authors: 'Reader', overall_status: 'Currently Reading',
+    started_at: '2026-09-01', current_page: 1, total_pages: 100
+  }] }));
+  assert.match(html, /class="current-reading-age"><svg[^>]+aria-hidden="true"/);
+});
+
+test('On order appears only when populated and is excluded from the Home Wishlist shelf', () => {
+  const withoutOrders = homeView(state({ books: [{ id: 'wish', title: 'Wish', overall_status: 'Wishlist', ownership_status: 'Not Owned' }] }));
+  assert.doesNotMatch(withoutOrders, />On order</);
+
+  const withOrders = homeView(state({ books: [
+    { id: 'order', title: 'Incoming', authors: 'Author', overall_status: 'Wishlist', ownership_status: 'On Order' },
+    { id: 'unread', title: 'Unread', authors: 'Author', overall_status: 'Owned - Unread', ownership_status: 'Owned' },
+    { id: 'wish', title: 'Wish', authors: 'Author', overall_status: 'Wishlist', ownership_status: 'Not Owned' }
+  ] }));
+  assert.match(withOrders, />On order</);
+  assert.ok(withOrders.indexOf('>On order<') < withOrders.indexOf('>Owned &amp; unread<'));
+  assert.equal((withOrders.match(/data-open-book="order"/g) || []).length, 1);
+  const wishlistStart = withOrders.indexOf('>Wishlist<');
+  const recentStart = withOrders.indexOf('>Recently finished<');
+  assert.doesNotMatch(withOrders.slice(wishlistStart, recentStart), /data-open-book="order"/);
+});
+
 test('current chapter renders only when supplied and Home never renders Librarian notes', () => {
   const book = { id: 'current', title: 'Current', authors: 'Reader', overall_status: 'Currently Reading', current_page: 50, total_pages: 100 };
   const html = homeView(state({
@@ -109,14 +159,30 @@ test('current-reading progress styling is scoped and leaves progress maths uncha
   assert.equal((50 / 100) * 100, 50);
 });
 
-test('mobile current-reading cards use compact content-driven height and scoped spacing', async () => {
-  const css = await readFile('src/styles/app.css', 'utf8');
+test('mobile current-reading cards use stable grouped alignment without changing carousel height on scroll', async () => {
+  const [markup, css, carousel] = await Promise.all([
+    readFile('src/views/home.js', 'utf8'),
+    readFile('src/styles/app.css', 'utf8'),
+    readFile('src/features/current-reading-carousel.js', 'utf8')
+  ]);
   assert.match(css, /\.current-reading-track-v36\{align-items:flex-start\}/);
   assert.match(css, /@media\(max-width:700px\)\{[\s\S]*?\.current-reading-track-v36>\.hero\.current-reading-card-v36\{height:auto!important;min-height:292px!important;max-height:none!important;overflow:visible!important;padding:14px!important\}/);
   assert.match(css, /\.current-reading-card-v36 \.progress-block\{margin:14px 0 11px!important\}/);
   assert.match(css, /\.current-reading-card-v36 \.hero-actions\{margin-top:12px!important;\}/);
   assert.doesNotMatch(css, /@media\(max-width:700px\)\{\.current-reading-track-v36>\.hero\.current-reading-card-v36\{height:420px/);
   assert.doesNotMatch(css, /\.current-reading-track-v36>\.hero\.current-reading-card-v36\{height:420px/);
+  assert.match(css, /\.current-reading-track-v36\{[^}]*scroll-behavior:auto/);
+  assert.doesNotMatch(css, /\.current-reading-track-v36\s*\{\s*transition:\s*height/);
+  assert.doesNotMatch(carousel, /track\.style\.height/);
+  assert.match(carousel, /stabiliseCardHeight/);
+  assert.match(carousel, /onSettledChange\?\./);
+  assert.match(markup, /class="current-reading-top"/);
+  assert.match(markup, /class="current-reading-bottom"/);
+  assert.match(css, /html\[data-theme="reading-room"\] \.current-reading-card-v36 \.hero-copy \{[\s\S]*?justify-content: flex-start !important;/);
+  assert.match(css, /html\[data-theme="reading-room"\] \.current-reading-card-v36 \.current-reading-bottom \{[\s\S]*?margin-top: auto;/);
+  assert.match(css, /html\[data-theme="reading-room"\] \.current-reading-card-v36 \.current-reading-bottom > \.progress-block \{[\s\S]*?margin: 0 !important;/);
+  assert.match(css, /html\[data-theme="reading-room"\] :is\(\.upnext-row, \.recommended-row\)::-webkit-scrollbar \{[\s\S]*?display: none;/);
+  assert.match(css, /html\[data-theme="terminal"\] \.current-reading-card-v36 :is\(\.current-reading-top, \.current-reading-bottom\) \{[\s\S]*?display: contents;/);
 });
 
 test('header keeps the existing Reading Room mark as a visible image', async () => {

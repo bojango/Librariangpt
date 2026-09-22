@@ -251,7 +251,7 @@ test('book navigation owns one zero position before restoring Home scroll once',
   expect(await page.evaluate(() => window.__routeScrolls.every(value => value === 0))).toBe(true);
   const callsBeforeBack = await page.evaluate(() => window.__routeScrolls.length);
   const sourcePosition = await page.evaluate(() => JSON.parse(sessionStorage.getItem('reading-room-scroll-v2')).home);
-  await page.locator('[data-back]').click();
+  await page.locator('[data-back]').press('Enter');
   await expect(page.locator('#app')).toHaveAttribute('data-route-view', 'home');
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThanOrEqual(sourcePosition - 2);
   expect(await page.evaluate(from => window.__routeScrolls.slice(from).filter(value => value > 0), callsBeforeBack)).toEqual([sourcePosition]);
