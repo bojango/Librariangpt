@@ -1593,3 +1593,14 @@ html[data-theme="terminal"] .profile-avatar-action-icon { display: none; }
   html[data-theme="reading-room"] .profile-avatar { width: 96px; max-width: 96px; }
   .recommendation-editorial-card { grid-template-columns: 86px minmax(0,1fr); gap: 12px; padding: 12px; }
 }
+
+/* Reading Room logo rounding */
+.boot-screen .brand-mark,
+.topbar .wordmark > .brand-mark {
+  border-radius: 22% !important;
+  overflow: hidden !important;
+}
+.boot-screen .brand-mark > img,
+.topbar .wordmark > .brand-mark > img {
+  border-radius: inherit !important;
+}
