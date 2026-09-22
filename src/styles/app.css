@@ -1678,3 +1678,55 @@ html[data-theme="terminal"] .pull-refresh-indicator {
   .pull-refresh-arrow { transition: none; }
   .pull-refresh-indicator.is-refreshing .pull-refresh-spinner { animation: none; }
 }
+
+/* Reading Room charcoal chrome v86 */
+html[data-theme="reading-room"] .topbar {
+  background: #28292a !important;
+  border-bottom-color: #28292a !important;
+}
+html[data-theme="reading-room"] .topbar .top-actions .icon-btn {
+  color: #f7f4ec !important;
+}
+html[data-theme="reading-room"] .topbar .top-actions .icon-btn:focus-visible {
+  outline-color: #f7f4ec !important;
+}
+html[data-theme="reading-room"] .topbar .wordmark:focus-visible {
+  outline-color: #f7f4ec !important;
+}
+html[data-theme="reading-room"] .bottom-nav,
+html[data-theme="reading-room"] .bottom-nav.compact {
+  background: #28292a !important;
+  border-color: #28292a !important;
+  box-shadow: 0 10px 28px rgba(23,22,19,.18), 0 2px 6px rgba(23,22,19,.10) !important;
+}
+html[data-theme="reading-room"] .bottom-nav .nav-btn,
+html[data-theme="reading-room"] .bottom-nav.compact .nav-btn {
+  color: rgba(247,244,236,.82) !important;
+}
+html[data-theme="reading-room"] .bottom-nav .nav-btn .nav-label,
+html[data-theme="reading-room"] .bottom-nav.compact .nav-btn .nav-label {
+  color: inherit !important;
+}
+html[data-theme="reading-room"] .bottom-nav .nav-btn.active,
+html[data-theme="reading-room"] .bottom-nav.compact .nav-btn.active,
+html[data-theme="reading-room"] .bottom-nav .nav-btn.active .nav-icon,
+html[data-theme="reading-room"] .bottom-nav.compact .nav-btn.active .nav-icon {
+  color: #fff !important;
+}
+html[data-theme="reading-room"] .bottom-nav .nav-btn.active .nav-icon-solid,
+html[data-theme="reading-room"] .bottom-nav.compact .nav-btn.active .nav-icon-solid {
+  fill: currentColor !important;
+  stroke: none !important;
+}
+html[data-theme="reading-room"] .bottom-nav .nav-btn[data-route="wishlist"].active .nav-icon svg,
+html[data-theme="reading-room"] .bottom-nav.compact .nav-btn[data-route="wishlist"].active .nav-icon svg {
+  fill: currentColor !important;
+}
+html[data-theme="reading-room"] .bottom-nav .nav-active-indicator::after,
+html[data-theme="reading-room"] .bottom-nav.compact .nav-active-indicator::after {
+  background: #fff !important;
+}
+html[data-theme="reading-room"] .bottom-nav .nav-btn:focus-visible,
+html[data-theme="reading-room"] .bottom-nav.compact .nav-btn:focus-visible {
+  outline-color: #f7f4ec !important;
+}
