@@ -161,11 +161,10 @@ h1, h2, h3, p { overflow-wrap: anywhere; }
 }
 
 /* User appearance overrides. These only receive values after validation in ui/preferences.js. */
-html { --user-density-scale: 1; --user-heading-scale: 1; --user-line-height: 1.48; }
+html { --user-density-scale: 1; --user-heading-adjust: 0px; --user-line-height: 1.48; }
 html:has(body) body { font-family: var(--user-font, inherit); font-size: var(--user-base-font-size, inherit); line-height: var(--user-line-height, inherit); letter-spacing: var(--user-letter-spacing, normal); font-weight: var(--user-font-weight, inherit); }
 html[data-theme="reading-room"] { --bg:var(--user-bg,#f1eee5)!important; --bg-soft:var(--user-surface,#f7f4ec)!important; --panel:var(--user-surface,#fbf9f3)!important; --panel-2:var(--user-surface-alt,#e9e5da)!important; --text:var(--user-text,#171613)!important; --muted:var(--user-muted,#656158)!important; --line:var(--user-border,rgba(23,22,19,.18))!important; --accent:var(--user-accent,#171613)!important; --radius:var(--user-card-radius,6px)!important; --control-radius:var(--user-control-radius,4px)!important; }
 html[data-theme="terminal"] { --terminal-bg:var(--user-bg,#eee5c4); --terminal-surface:var(--user-surface,#eee5c4); --terminal-surface-alt:var(--user-surface-alt,#e6dbb8); --terminal-text:var(--user-text,#1b1914); --terminal-muted:var(--user-muted,#625d4d); --terminal-border:var(--user-border,#625d4d); --terminal-active-bg:var(--user-active-bg,#1b1914); --terminal-active-text:var(--user-active-text,#eee5c4); --accent:var(--user-accent,var(--terminal-text))!important; --radius:var(--user-card-radius,var(--terminal-radius))!important; }
-html[style*="--user-heading-scale"] :is(.page-heading h1,.hero-copy h1,.detail-copy h1,.detail-copy-v4 h1,.section-header h2,.book-synopsis h2,.recommendation-panel h2,.progress-section>h2,.reading-stats>h2,.visible-metadata>h2,.modal h2,.profile-page-title h1,.profile-section-heading h2) { font-size: calc(1em * var(--user-heading-scale)) !important; }
 html:has(body) :is(.hero,.stat,.info,.review-panel,.recommendation-panel,.metadata-accordion,.reading-dates>div,.reading-stats-grid>div,.visible-metadata-list,.rating-card,.award-tile,.upnext-card,.recommended-card,.recommended-list-card,.modal,.profile-card,.taste-signals section) { border-radius: var(--user-card-radius, var(--terminal-radius, var(--radius))) !important; border-width: var(--user-border-width, 1px) !important; }
 html:has(body) :is(.btn,.filter,.input,.icon-btn,.nav-btn,.theme-option) { border-radius: var(--user-control-radius, var(--terminal-control-radius, var(--control-radius, 0px))) !important; }
 html:has(body) .section { margin-block: calc(30px * var(--user-density-scale, 1)) calc(36px * var(--user-density-scale, 1)); }
@@ -1729,4 +1728,46 @@ html[data-theme="reading-room"] .bottom-nav.compact .nav-active-indicator::after
 html[data-theme="reading-room"] .bottom-nav .nav-btn:focus-visible,
 html[data-theme="reading-room"] .bottom-nav.compact .nav-btn:focus-visible {
   outline-color: #f7f4ec !important;
+}
+
+/* Heading customisation is additive: every component keeps its own responsive
+   canonical size, then receives the user's bounded pixel adjustment. */
+.page-heading h1 { --heading-canonical-size: clamp(32px,7vw,60px); }
+.hero-copy h1 { --heading-canonical-size: clamp(35px,6vw,68px); }
+.detail-copy h1 { --heading-canonical-size: clamp(36px,7vw,66px); }
+.detail-copy-v4 h1 { --heading-canonical-size: clamp(40px,8vw,72px); }
+.section-header h2 { --heading-canonical-size: clamp(22px,4vw,30px); }
+.book-synopsis h2,
+.recommendation-panel h2,
+.progress-section > h2,
+.reading-stats > h2,
+.visible-metadata > h2 { --heading-canonical-size: clamp(27px,5vw,38px); }
+.modal h2 { --heading-canonical-size: 28px; }
+.profile-page-title h1 { --heading-canonical-size: clamp(32px,7vw,60px); }
+.profile-section-heading h2 { --heading-canonical-size: clamp(24px,4vw,34px); }
+.current-reading-card-v36 .hero-copy h1.current-title-compact-v37 { --heading-canonical-size: var(--current-title-size,clamp(31px,5.2vw,58px)); }
+.current-reading-card-v36 .hero-copy h1.current-title-tight-v37 { --heading-canonical-size: var(--current-title-size,clamp(28px,4.7vw,52px)); }
+
+html[data-theme="reading-room"] .current-reading-card-v36 .hero-copy h1 { --heading-canonical-size: calc(clamp(35px,6vw,68px) - 2px); }
+html[data-theme="reading-room"] .current-reading-card-v36 .hero-copy h1.current-title-compact-v37,
+html[data-theme="reading-room"] .current-reading-card-v36 .hero-copy h1.current-title-tight-v37 { --heading-canonical-size: calc(var(--current-title-size) - 2px); }
+html[data-theme="terminal"] .page-heading h1 { --heading-canonical-size: clamp(22px,5.8vw,34px); }
+html[data-theme="terminal"] .section-header h2 { --heading-canonical-size: clamp(17px,3.7vw,22px); }
+html[data-theme="terminal"] :is(.hero-copy h1,.detail-copy h1,.detail-copy-v4 h1) { --heading-canonical-size: clamp(23px,6.4vw,36px); }
+html[data-theme="terminal"] .profile-page-title h1 { --heading-canonical-size: 14px; }
+html[data-theme="terminal"] .profile-section-heading h2 { --heading-canonical-size: clamp(18px,4.7vw,22px); }
+html[data-theme="terminal"] .current-reading-card-v36 .hero-copy h1.current-title-compact-v37,
+html[data-theme="terminal"] .current-reading-card-v36 .hero-copy h1.current-title-tight-v37 { --heading-canonical-size: var(--current-title-size,clamp(23px,3.2vw,36px)); }
+
+@media (max-width: 700px) {
+  .hero-copy h1 { --heading-canonical-size: clamp(27px,8.6vw,44px); }
+  .detail-copy h1 { --heading-canonical-size: clamp(29px,9vw,46px); }
+  html[data-theme="reading-room"] .current-reading-card-v36 .hero-copy h1.current-title-compact-v37 { --heading-canonical-size: min(calc(var(--current-title-size) - 2px),25px); }
+  html[data-theme="reading-room"] .current-reading-card-v36 .hero-copy h1.current-title-tight-v37 { --heading-canonical-size: min(calc(var(--current-title-size) - 2px),23px); }
+  html[data-theme="terminal"] .current-reading-card-v36 .hero-copy h1.current-title-compact-v37,
+  html[data-theme="terminal"] .current-reading-card-v36 .hero-copy h1.current-title-tight-v37 { --heading-canonical-size: var(--current-title-size,clamp(23px,3.2vw,36px)); }
+}
+
+html[data-theme]:root:root:root :is(.page-heading h1,.hero-copy h1,.detail-copy h1,.detail-copy-v4 h1,.section-header h2,.book-synopsis h2,.recommendation-panel h2,.progress-section>h2,.reading-stats>h2,.visible-metadata>h2,.modal h2,.profile-page-title h1,.profile-section-heading h2) {
+  font-size: calc(var(--heading-canonical-size) + var(--user-heading-adjust)) !important;
 }

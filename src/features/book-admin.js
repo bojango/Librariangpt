@@ -1,5 +1,6 @@
 import { supabase } from '../data/supabase.js';
 import { toast } from '../ui/feedback.js';
+import { buildLibraryPayload } from './book-admin-payload.js';
 const modalRoot=document.querySelector('#modal-root');
 
 const esc=(v='')=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
@@ -100,16 +101,15 @@ function renderModal(bundle){
     <label>Book notes<textarea name="book_notes" rows="4">${esc(book.notes||'')}</textarea></label>
    </div></details>
 
-   <details class="admin-section"><summary>Awards & recognition</summary><div class="admin-section-body">${accoladesFields(bundle)}</div></details>
-
    <details class="admin-section"><summary>Edition details</summary><div class="admin-section-body">
     ${editions.length>1?`<label>Edition to edit<select id="admin-edition-select">${editions.map(e=>option(e.id,editionLabel(e),selected?.id)).join('')}</select></label>`:''}
     <div id="admin-edition-fields">${editionFields(selected)}</div>
    </div></details>
-
-   <section class="delete-book-v30"><div><p class="admin-kicker">Danger zone</p><h3>Delete book</h3><p>Permanently remove this book and its editions, progress, feedback, ratings and recommendation history.</p></div><button class="btn btn-danger" type="button" data-delete-book>Delete book</button><div class="delete-confirm-v30" data-delete-confirm hidden><p><strong>Delete “${esc(book.title)}”?</strong> This cannot be undone.</p><div><button class="btn" type="button" data-delete-cancel>Cancel</button><button class="btn btn-danger" type="button" data-delete-permanent>Delete permanently</button></div></div></section>
-   <div class="book-admin-actions"><button type="button" class="btn" data-admin-close>Cancel</button><button type="submit" class="btn btn-primary">Save changes</button></div>
   </form>
+
+   <details class="admin-section"><summary>Awards & recognition</summary><div class="admin-section-body">${accoladesFields(bundle)}</div></details>
+   <section class="delete-book-v30"><div><p class="admin-kicker">Danger zone</p><h3>Delete book</h3><p>Permanently remove this book and its editions, progress, feedback, ratings and recommendation history.</p></div><button class="btn btn-danger" type="button" data-delete-book>Delete book</button><div class="delete-confirm-v30" data-delete-confirm hidden><p><strong>Delete “${esc(book.title)}”?</strong> This cannot be undone.</p><div><button class="btn" type="button" data-delete-cancel>Cancel</button><button class="btn btn-danger" type="button" data-delete-permanent>Delete permanently</button></div></div></section>
+   <div class="book-admin-actions"><button type="button" class="btn" data-admin-close>Cancel</button><button type="submit" class="btn btn-primary" form="book-admin-form">Save changes</button></div>
  </div></div>`;
 
  modalRoot.querySelectorAll('[data-admin-close]').forEach(b=>b.addEventListener('click',closeModal));
@@ -133,12 +133,12 @@ async function deleteAccolade(id,bookId){if(!confirm('Remove this recognition fr
 async function addAccolade(event,bookId){event.preventDefault();const form=event.currentTarget;const fd=new FormData(form);let accoladeId=fd.get('accolade_id');try{if(!accoladeId){const name=String(fd.get('name')||'').trim();if(!name)throw new Error('Choose an existing accolade or enter a catalogue name.');const {data,error}=await supabase.from('accolades').upsert({name,type:fd.get('type'),short_name:fd.get('short_name')||null,official_url:fd.get('official_url')||null,logo_url:fd.get('logo_url')||null,logo_alt:fd.get('logo_alt')||null,logo_source_url:fd.get('logo_source_url')||null,logo_source_name:fd.get('logo_source_name')||null},{onConflict:'name'}).select('id').single();if(error)throw error;accoladeId=data.id;}const {error}=await supabase.from('book_accolades').insert({book_id:bookId,accolade_id:accoladeId,year:nullableNumber(fd.get('year')),result:fd.get('result'),category:fd.get('category')||null,source_url:fd.get('source_url'),source_name:fd.get('source_name')||null,sort_order:nullableNumber(fd.get('sort_order')),verified:fd.get('verified')==='on'});if(error)throw error;toast('Recognition added.');await reloadAccolades(bookId);window.dispatchEvent(new CustomEvent('reading-room:refresh'));}catch(error){toast(error.message||'Could not add recognition',true);}}
 
 async function saveForm(event,bundle){
- event.preventDefault();const form=event.currentTarget;const submit=form.querySelector('button[type="submit"]');submit.disabled=true;submit.textContent='Saving…';
+ event.preventDefault();const form=event.currentTarget;const submit=event.submitter||modalRoot.querySelector('button[form="book-admin-form"][type="submit"]');submit.disabled=true;submit.textContent='Saving…';
  try{
   const fd=new FormData(form);
   const selectedEditionId=modalRoot.querySelector('#admin-edition-select')?.value||fd.get('display_edition_id')||null;
   const signedRaw=fd.get('edition_signed');
-  const library={overall_status:fd.get('overall_status'),ownership_status:fd.get('ownership_status'),reading_priority:fd.get('reading_priority'),started_date:fd.get('started_date'),completed_date:fd.get('completed_date'),current_page:fd.get('current_page'),display_edition_id:fd.get('display_edition_id')};
+  const library=buildLibraryPayload(fd,bundle.book);
   const book={title:fd.get('book_title'),subtitle:fd.get('book_subtitle'),authors:splitList(fd.get('book_authors')),fiction_nonfiction:fd.get('book_fiction_nonfiction'),primary_genre:fd.get('book_primary_genre'),original_publication_year:fd.get('book_original_publication_year'),language:fd.get('book_language'),series_name:fd.get('book_series_name'),series_order:fd.get('book_series_order'),themes_tags:splitList(fd.get('book_themes_tags')),synopsis:fd.get('book_synopsis'),notes:fd.get('book_notes')};
   const edition=selectedEditionId?{isbn13:fd.get('edition_isbn13'),isbn10:fd.get('edition_isbn10'),publisher:fd.get('edition_publisher'),imprint:fd.get('edition_imprint'),publication_year:fd.get('edition_publication_year'),publication_date:fd.get('edition_publication_date'),format:fd.get('edition_format'),binding:fd.get('edition_binding'),page_count:fd.get('edition_page_count'),country:fd.get('edition_country'),language:fd.get('edition_language'),condition:fd.get('edition_condition'),edition_statement:fd.get('edition_statement'),printing_impression:fd.get('edition_printing_impression'),number_line:fd.get('edition_number_line'),signed:signedRaw===''?null:signedRaw==='true',acquisition_date:fd.get('edition_acquisition_date'),acquisition_source:fd.get('edition_acquisition_source'),acquisition_price:fd.get('edition_acquisition_price'),currency:fd.get('edition_currency'),inscription:fd.get('edition_inscription'),notes:fd.get('edition_notes')} : {};
   const {data,error}=await supabase.rpc('admin_edit_book',{p_book_id:bundle.book.id,p_library:library,p_book:book,p_edition_id:selectedEditionId||null,p_edition:edition});

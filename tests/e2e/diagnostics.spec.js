@@ -9,18 +9,21 @@ function jwt(userId) {
   return `${header}.${payload}.fixture-signature`;
 }
 
-async function mockApplication(page) {
+async function mockApplication(page, { bookOverrides = {}, bookAccolades = [] } = {}) {
   const user = { id: '8bfc753c-cb6c-4b75-bd4a-2d5986ed8319', aud: 'authenticated', role: 'authenticated', email: 'fixture@example.test' };
   await page.addInitScript(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), {
     key: `sb-${project}-auth-token`,
     value: { access_token: jwt(user.id), refresh_token: 'fixture-refresh', token_type: 'bearer', expires_in: 3600, expires_at: Math.floor(Date.now() / 1000) + 3600, user }
   });
   let revision = 0;
+  let adminPayload = null;
+  let recognitionPayload = null;
   const book = () => ({
     id: 'a75f5ad6-fac6-4f25-bd28-f4ed926f4327', title: 'The Unfinished Harauld Hughes', authors: 'Fixture Author',
     overall_status: 'Currently Reading', ownership_status: 'Owned', current_page: 40 + revision,
     total_pages: 200, progress_percent: 20, cover_url: '/diagnostic-cover.svg', primary_genre: 'Fiction',
-    synopsis: 'Present', display_edition_id: '8c655279-dab4-41c8-a963-cdb89a9b11e2'
+    synopsis: 'Present', display_edition_id: '8c655279-dab4-41c8-a963-cdb89a9b11e2',
+    ...bookOverrides
   });
   await page.route('**/diagnostic-cover.svg', route => route.fulfill({ status: 200, contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="600"><rect width="400" height="600" fill="#735"/></svg>' }));
   await page.route(`${api}/**`, async route => {
@@ -32,10 +35,20 @@ async function mockApplication(page) {
     if (path.includes('/rest/v1/v_ai_recommendations')) return json([]);
     if (path.includes('/rest/v1/v_up_next')) return json([]);
     if (path.includes('/rest/v1/recommendations')) return json([]);
-    if (path.includes('/rest/v1/v_library')) return json([book()]);
+    if (path.includes('/rest/v1/book_accolades')) {
+      if (route.request().method() === 'PATCH') recognitionPayload = route.request().postDataJSON();
+      return json(bookAccolades);
+    }
+    if (path.includes('/rest/v1/accolades')) return json(bookAccolades.map(row => row.accolade));
+    if (path.includes('/rest/v1/editions')) return json([]);
+    if (path.includes('/rest/v1/rpc/admin_edit_book')) { adminPayload = route.request().postDataJSON(); return json({ saved: true }); }
+    if (path.includes('/rest/v1/v_library')) {
+      const singular = /vnd\.pgrst\.object/i.test(route.request().headers().accept || '');
+      return json(singular ? book() : [book()]);
+    }
     return json([]);
   });
-  return { bump: () => { revision += 1; } };
+  return { bump: () => { revision += 1; }, adminPayload: () => adminPayload, recognitionPayload: () => recognitionPayload };
 }
 
 test('Test Mode off creates no API, database, event stream or indicator', async ({ page }) => {
@@ -60,15 +73,18 @@ test('Appearance editor saves typed slider values cleanly without rerendering th
     await expect(editor.getByRole('tab', { name })).toBeVisible();
   }
   await editor.getByRole('tab', { name: 'Typography' }).click();
-  const headingScale = editor.locator('input[data-pref="headingScale"]');
-  const headingOutput = editor.locator('output[data-pref-output="headingScale"]');
-  await expect(headingOutput).toHaveText('1.00 · Default');
+  const headingAdjust = editor.locator('input[data-pref="headingAdjust"]');
+  const headingOutput = editor.locator('output[data-pref-output="headingAdjust"]');
+  await expect(headingOutput).toHaveText('0px · Default');
+  const canonicalHeadingSize = await page.locator('[data-current-card] .hero-copy h1').evaluate(node => parseFloat(getComputedStyle(node).fontSize));
   await page.evaluate(() => {
     window.__appearanceRouteMutations = 0;
     new MutationObserver(records => { window.__appearanceRouteMutations += records.length; }).observe(document.querySelector('#app'), { childList: true, subtree: true });
   });
-  await headingScale.evaluate(input => { input.value = '1.15'; input.dispatchEvent(new Event('input', { bubbles: true })); });
-  await expect(headingOutput).toHaveText('1.15');
+  await headingAdjust.evaluate(input => { input.value = '3'; input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await expect(headingOutput).toHaveText('3px');
+  const adjustedHeadingSize = await page.locator('[data-current-card] .hero-copy h1').evaluate(node => parseFloat(getComputedStyle(node).fontSize));
+  expect(adjustedHeadingSize).toBeCloseTo(canonicalHeadingSize + 3, 1);
   await expect(editor.locator('[data-appearance-dirty]')).toHaveText('Unsaved changes');
   expect(await page.evaluate(() => window.__appearanceRouteMutations)).toBe(0);
   await editor.getByRole('button', { name: 'Save' }).click();
@@ -82,11 +98,44 @@ test('Appearance editor saves typed slider values cleanly without rerendering th
   await page.locator('[data-menu]').click();
   await page.getByRole('button', { name: 'Customise appearance' }).click();
   await editor.getByRole('tab', { name: 'Typography' }).click();
-  await expect(editor.locator('input[data-pref="headingScale"]')).toHaveValue('1.15');
-  await headingScale.evaluate(input => { input.value = '1.2'; input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await expect(editor.locator('input[data-pref="headingAdjust"]')).toHaveValue('3');
+  await headingAdjust.evaluate(input => { input.value = '4'; input.dispatchEvent(new Event('input', { bubbles: true })); });
   await editor.getByRole('button', { name: 'Close appearance editor' }).click();
   await expect.poll(() => closeDialogCount).toBe(1);
   await expect(editor).toBeVisible();
+});
+
+test('Book Settings saves ownership, keeps recognition forms independent, and lets the RPC infer Owned - Unread', async ({ page }) => {
+  const fixture = await mockApplication(page, {
+    bookOverrides: { overall_status: 'Wishlist', ownership_status: 'On Order' },
+    bookAccolades: [{
+      id: 'claim-1', accolade_id: 'award-1', year: 2025, result: 'Winner', category: null,
+      source_url: 'https://example.test/award', source_name: 'Fixture source', verified: true, sort_order: 1,
+      accolade: { id: 'award-1', name: 'Fixture Award', short_name: 'FA', type: 'Award' }
+    }]
+  });
+  await page.goto('/#/library');
+  await page.locator('[data-open-book]').first().click();
+  await page.getByText('Book & edition details', { exact: true }).click();
+  await expect(page.locator('[data-book-admin]')).toBeVisible();
+  await page.locator('[data-book-admin]').click();
+  await expect(page.locator('#book-admin-form')).toBeVisible();
+  await expect(page.locator('#book-admin-form form')).toHaveCount(0);
+  await expect(page.locator('[data-accolade-row]')).toHaveCount(1);
+  await expect(page.locator('[data-accolade-add]')).toHaveCount(1);
+
+  await page.getByText('Awards & recognition', { exact: true }).click();
+  await page.locator('[data-accolade-row] input[name="year"]').fill('2026');
+  await page.locator('[data-accolade-row]').getByRole('button', { name: 'Save recognition' }).click();
+  await expect.poll(() => fixture.recognitionPayload()?.year).toBe(2026);
+  await expect(page.locator('#book-admin-form')).toBeVisible();
+
+  await page.locator('#book-admin-form select[name="ownership_status"]').selectOption('Owned');
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect.poll(() => fixture.adminPayload()?.p_library?.ownership_status).toBe('Owned');
+  expect(fixture.adminPayload().p_library).not.toHaveProperty('overall_status');
+  await expect(page.locator('#book-admin-form')).toHaveCount(0);
+  await expect(page.locator('#toast')).toHaveText('Book details saved.');
 });
 
 test('Test Mode records ordered route, paint, title, cover, scroll and lifecycle evidence', async ({ page }) => {

@@ -4,8 +4,8 @@ import { CANONICAL_APPEARANCE, FONT_OPTIONS, applyPreferences, effectiveAppearan
 import { UI_COPY, setCopyOverrides, uiCopy, uiCopyHtml } from '../../src/ui/copy.js';
 
 test('appearance validation clamps ranges, allows all curated font IDs, and ignores unknown values', () => {
-  const values = validateAppearance({ baseSize: 99, headingScale: .1, font: 'jetbrains-mono', bg: '#aBc123', unknown: 'nope', lineHeight: '1.5' });
-  assert.deepEqual(values, { baseSize: 20, headingScale: .75, font: 'jetbrains-mono', bg: '#ABC123', lineHeight: 1.5 });
+  const values = validateAppearance({ baseSize: 99, headingAdjust: -99, font: 'jetbrains-mono', bg: '#aBc123', unknown: 'nope', lineHeight: '1.5' });
+  assert.deepEqual(values, { baseSize: 20, headingAdjust: -8, font: 'jetbrains-mono', bg: '#ABC123', lineHeight: 1.5 });
   assert.deepEqual(validateAppearance({ font: 'Comic Sans', bg: 'rgb(0,0,0)', navHeight: 'no' }), {});
   assert.equal(validHex('#12abEF'), true);
   assert.equal(validHex('#fff'), false);
@@ -66,13 +66,21 @@ test('legacy reading-room-theme selection remains compatible', () => {
 
 test('appearance drafts are typed, normalised, and compare cleanly after save or canonical reset', () => {
   const saved = normalisePreferences({ selectedTheme: 'terminal' });
-  const changed = updateAppearanceDraft(saved, 'terminal', 'headingScale', '1.15');
-  assert.equal(changed.appearanceOverrides.terminal.headingScale, 1.15);
-  assert.equal(typeof changed.appearanceOverrides.terminal.headingScale, 'number');
+  const changed = updateAppearanceDraft(saved, 'terminal', 'headingAdjust', '-1');
+  assert.equal(changed.appearanceOverrides.terminal.headingAdjust, -1);
+  assert.equal(typeof changed.appearanceOverrides.terminal.headingAdjust, 'number');
   assert.equal(preferenceStatesEqual(changed, saved), false);
-  assert.equal(preferenceStatesEqual(changed, { ...changed, appearanceOverrides: { ...changed.appearanceOverrides, terminal: { headingScale: '1.15' } } }), true);
+  assert.equal(preferenceStatesEqual(changed, { ...changed, appearanceOverrides: { ...changed.appearanceOverrides, terminal: { headingAdjust: '-1' } } }), true);
   const committed = normalisePreferences(changed);
   assert.equal(preferenceStatesEqual(changed, committed), true);
   const reset = themeReset(changed, 'terminal');
   assert.equal(preferenceStatesEqual(reset, saved), true);
+});
+
+test('legacy heading scale migrates conservatively to an additive pixel adjustment', () => {
+  const migrated = normalisePreferences({ appearanceOverrides: { 'reading-room': { headingScale: 1 }, terminal: { headingScale: .9 } } });
+  assert.equal(migrated.appearanceOverrides['reading-room'].headingAdjust, 0);
+  assert.equal(migrated.appearanceOverrides.terminal.headingAdjust, -2);
+  assert.equal('headingScale' in migrated.appearanceOverrides.terminal, false);
+  assert.equal(normalisePreferences({ appearanceOverrides: { terminal: { headingScale: 9 } } }).appearanceOverrides.terminal.headingAdjust, 8);
 });

@@ -101,13 +101,12 @@ test('Reading Room mobile chrome and homepage refinements use the intended geome
 
   const initial = await page.evaluate(() => {
     const style = selector => getComputedStyle(document.querySelector(selector));
-    const refresh = document.querySelector('[data-refresh] svg');
+    const menu = document.querySelector('[data-menu]');
     return {
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
-      refreshPaths: [...refresh.querySelectorAll('path')].map(path => path.getAttribute('d')),
-      refreshFill: refresh.getAttribute('fill'),
-      refreshStroke: refresh.getAttribute('stroke'),
+      menuBars: menu?.querySelectorAll('.menu-bars i').length || 0,
+      hasPullRefresh: Boolean(document.querySelector('[data-pull-refresh]')),
       headerButtonBorder: style('.topbar .icon-btn').borderTopColor,
       headerButtonBackground: style('.topbar .icon-btn').backgroundColor,
       activeFill: style('.nav-btn.active .nav-icon-solid').fill,
@@ -122,12 +121,11 @@ test('Reading Room mobile chrome and homepage refinements use the intended geome
     };
   });
   expect(initial.scrollWidth).toBe(initial.clientWidth);
-  expect(initial.refreshPaths).toEqual(['M20 11a8 8 0 1 0-2.34 5.66', 'M20 4v7h-7']);
-  expect(initial.refreshFill).toBe('none');
-  expect(initial.refreshStroke).toBe('currentColor');
+  expect(initial.menuBars).toBe(3);
+  expect(initial.hasPullRefresh).toBe(true);
   expect(initial.headerButtonBorder).toBe('rgba(0, 0, 0, 0)');
   expect(initial.headerButtonBackground).toBe('rgba(0, 0, 0, 0)');
-  expect(initial.activeFill).toBe('rgb(23, 22, 19)');
+  expect(initial.activeFill).toBe('rgb(255, 255, 255)');
   expect(initial.activeSolidDisplay).not.toBe('none');
   expect(initial.inactiveSolidDisplay).toBe('none');
   expect(initial.cardBackground).toBe(initial.comparisonBackground);
@@ -545,11 +543,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('81');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('86');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '81')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v81');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '86')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v86');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -562,8 +560,8 @@ test.describe('service-worker-controlled document', () => {
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
     expect(state).toMatchObject({
-      generation: '81',
-      shell_cache: 'reading-room-shell-v81',
+      generation: '86',
+      shell_cache: 'reading-room-shell-v86',
       cover_cache: 'reading-room-covers-v3',
       award_logo_cache: 'reading-room-award-logos-v1',
       award_logo_cache_hits: 0,
