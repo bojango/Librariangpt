@@ -8,6 +8,7 @@ import {
   sameEdition,
   shouldAutoSelectReference
 } from '../_shared/edition-ranking.js';
+import { fetchProviderJson, googleRetryAfter, openLibraryPageCount, providerDiagnostics, recordZeroResult } from '../_shared/provider-fetch.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -49,24 +50,6 @@ function authorSimilarity(target: any, candidates: any[] = []) {
   return best;
 }
 
-async function fetchJson(url: string, timeoutMs = 8500) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, {
-      signal: controller.signal,
-      redirect: 'follow',
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ReadingRoom/8.0; +personal-library)', Accept: 'application/json,*/*;q=0.8' }
-    });
-    if (!response.ok) return null;
-    return await response.json();
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
 const googleIsbn = (volume: any, type: string) => volume?.industryIdentifiers?.find((entry: any) => entry?.type === type)?.identifier ?? null;
 const googleCover = (volume: any) => {
   const links = volume?.imageLinks || {};
@@ -75,26 +58,29 @@ const googleCover = (volume: any) => {
 const openLibraryWorkId = (value: any) => String(value ?? '').match(/(?:\/works\/)?(OL\d+W)/i)?.[1]?.toUpperCase() || null;
 const openLibraryEditionId = (value: any) => String(value ?? '').match(/(?:\/books\/)?(OL\d+M)/i)?.[1]?.toUpperCase() || null;
 
-async function googleSearch(query: string) {
+async function googleSearch(query: string, diagnostics: any, googleApiKey: string) {
   const url = new URL('https://www.googleapis.com/books/v1/volumes');
   url.searchParams.set('q', query);
   url.searchParams.set('maxResults', '40');
   url.searchParams.set('projection', 'full');
-  return fetchJson(url.toString(), 9000);
+  const result = await fetchProviderJson(url.toString(), 9000, diagnostics, { googleApiKey });
+  if (result && !Array.isArray(result.items)) recordZeroResult(diagnostics, 'google_books');
+  return result;
 }
 
-async function googleVolume(id: string) {
-  return id ? fetchJson(`https://www.googleapis.com/books/v1/volumes/${encodeURIComponent(id)}`, 7500) : null;
+async function googleVolume(id: string, diagnostics: any, googleApiKey: string) {
+  return id ? fetchProviderJson(`https://www.googleapis.com/books/v1/volumes/${encodeURIComponent(id)}`, 7500, diagnostics, { googleApiKey }) : null;
 }
 
-function googleCandidate(item: any, title: string, author: string, requestedIsbn = '') {
+function googleCandidate(item: any, title: string, author: string, requestedIsbns: string[] = [], discoveryTitle = title) {
   const volume = item?.volumeInfo || {};
   const authors = Array.isArray(volume.authors) ? volume.authors : [];
   const isbn13 = cleanIsbn(googleIsbn(volume, 'ISBN_13'));
   const isbn10 = cleanIsbn(googleIsbn(volume, 'ISBN_10'));
   const identifiers = [isbn13, isbn10].filter(isValidIsbn);
-  const exact = Boolean(requestedIsbn && identifiers.includes(requestedIsbn));
-  const score = exact ? 1 : similarity(title, volume.title) * .76 + authorSimilarity(author, authors) * .24;
+  const exact = identifiers.some(identifier => requestedIsbns.includes(identifier));
+  const titleScore = Math.max(similarity(title, volume.title), similarity(discoveryTitle, volume.title), similarity(discoveryTitle, `${volume.title || ''}: ${volume.subtitle || ''}`));
+  const score = exact ? 1 : titleScore * .76 + authorSimilarity(author, authors) * .24;
   return {
     item, volume, title: volume.title || '', authors,
     isbn13: isValidIsbn(isbn13) ? isbn13 : null,
@@ -116,9 +102,9 @@ async function upsertRating(admin: any, bookId: string, row: any) {
   return !error;
 }
 
-async function openLibraryRating(admin: any, bookId: string, workId: string | null) {
+async function openLibraryRating(admin: any, bookId: string, workId: string | null, diagnostics: any) {
   if (!workId) return null;
-  const result = await fetchJson(`https://openlibrary.org/works/${encodeURIComponent(workId)}/ratings.json`, 6500);
+  const result = await fetchProviderJson(`https://openlibrary.org/works/${encodeURIComponent(workId)}/ratings.json`, 6500, diagnostics);
   const average = Number(result?.summary?.average);
   const count = Number(result?.summary?.count);
   if (!Number.isFinite(average) || !count) return null;
@@ -150,26 +136,31 @@ Deno.serve(async (request: Request) => {
   let loadedEditions: any[] = [];
   let originalMetadataStatus: string | null = null;
   try {
-    const authorization = request.headers.get('Authorization');
-    if (!authorization) return json({ error: 'Authentication required' }, 401);
+    const authorization = request.headers.get('Authorization') || '';
+    const apiKey = request.headers.get('apikey') || '';
+    if (!authorization && !apiKey) return json({ error: 'Authentication required' }, 401);
     const url = Deno.env.get('SUPABASE_URL')!;
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const user = createClient(url, anonKey, { global: { headers: { Authorization: authorization } } });
-    const userResult = await user.auth.getUser();
-    if (userResult.error || !userResult.data.user) return json({ error: 'Invalid session' }, 401);
-    const owner = await user.rpc('is_library_owner');
-    if (owner.error || owner.data !== true) return json({ error: 'Not authorized' }, 403);
+    const serviceCaller = authorization === `Bearer ${serviceKey}` || apiKey === serviceKey;
+    if (!serviceCaller) {
+      const user = createClient(url, anonKey, { global: { headers: { Authorization: authorization } } });
+      const userResult = await user.auth.getUser();
+      if (userResult.error || !userResult.data.user) return json({ error: 'Invalid session' }, 401);
+      const owner = await user.rpc('is_library_owner');
+      if (owner.error || owner.data !== true) return json({ error: 'Not authorized' }, 403);
+    }
     admin = createClient(url, serviceKey);
 
     const body = await request.json();
     bookId = String(body?.book_id || '');
     if (!bookId) return json({ error: 'book_id required' }, 400);
 
-    const [bookResult, coreResult, editionsResult] = await Promise.all([
+    const [bookResult, coreResult, editionsResult, candidatesResult] = await Promise.all([
       admin.from('v_library').select('*').eq('id', bookId).single(),
-      admin.from('books').select('cover_locked,cover_url_preferred,synopsis,metadata_status,reference_edition_id,original_publication_year,primary_genre,language').eq('id', bookId).single(),
-      admin.from('editions').select('*').eq('book_id', bookId)
+      admin.from('books').select('cover_locked,cover_url_preferred,synopsis,metadata_status,metadata_retry_after,reference_edition_id,original_publication_year,primary_genre,language').eq('id', bookId).single(),
+      admin.from('editions').select('*').eq('book_id', bookId),
+      admin.from('book_metadata_candidates').select('provider,provider_item_id,cover_url,payload,score,selected').eq('book_id', bookId).eq('provider', 'Goodreads').order('score', { ascending: false }).limit(1).maybeSingle()
     ]);
     if (bookResult.error || !bookResult.data) return json({ error: 'Book not found' }, 404);
     if (coreResult.error) throw coreResult.error;
@@ -177,30 +168,45 @@ Deno.serve(async (request: Request) => {
     loadedBook = { ...bookResult.data, reference_edition_id: coreResult.data.reference_edition_id };
     loadedEditions = editionsResult.data || [];
     originalMetadataStatus = coreResult.data.metadata_status || null;
+    const diagnostics = providerDiagnostics();
+    const googleApiKey = Deno.env.get('GOOGLE_BOOKS_API_KEY') || '';
 
     const resolving = await admin.from('books').update({ metadata_status: 'resolving', metadata_last_attempted_at: new Date().toISOString(), metadata_error: null }).eq('id', bookId);
     if (resolving.error) throw resolving.error;
 
     const title = loadedBook.title;
+    const discoveryTitle = [loadedBook.title, loadedBook.subtitle].map(clean).filter(Boolean).join(': ');
     const author = String(loadedBook.authors || '').split(',')[0].trim();
     const selectedEdition = activeEdition(loadedBook, loadedEditions);
     const existingIsbn = cleanIsbn(selectedEdition?.isbn13 || selectedEdition?.isbn10 || loadedBook.isbn13 || loadedBook.isbn10);
-    const queries: string[] = [];
-    if (existingIsbn && isValidIsbn(existingIsbn)) queries.push(`isbn:${existingIsbn}`);
-    queries.push(`intitle:"${title}"${author ? ` inauthor:"${author}"` : ''}`, `"${title}"${author ? ` "${author}"` : ''}`);
-
-    const [storedVolume, ...googleResults] = await Promise.all([
-      googleVolume(String(selectedEdition?.google_books_volume_id || loadedBook.google_books_volume_id || '')),
-      ...queries.map(googleSearch)
-    ]);
+    const credibleIsbns = [...new Set([existingIsbn, ...loadedEditions.filter(edition => isCredibleEdition(edition)).map(edition => cleanIsbn(edition.isbn13 || edition.isbn10))].filter(isValidIsbn))].slice(0, 3);
+    const queries: string[] = [...credibleIsbns.map(isbn => `isbn:${isbn}`), `intitle:"${discoveryTitle || title}"${author ? ` inauthor:"${author}"` : ''}`];
+    const retryAt = Date.parse(coreResult.data.metadata_retry_after || '');
+    const googleBackedOff = Number.isFinite(retryAt) && retryAt > Date.now();
+    let storedVolume: any = null;
+    const googleResults: any[] = [];
+    if (googleBackedOff) {
+      diagnostics.google_books.rate_limited = true;
+      diagnostics.google_books.retry_after_at = coreResult.data.metadata_retry_after;
+      diagnostics.google_books.skipped_due_to_rate_limit = queries.length + 1;
+    } else {
+      storedVolume = await googleVolume(String(selectedEdition?.google_books_volume_id || loadedBook.google_books_volume_id || ''), diagnostics, googleApiKey);
+      for (const query of queries) {
+        if (diagnostics.google_books.rate_limited) break;
+        const result = await googleSearch(query, diagnostics, googleApiKey);
+        googleResults.push(result);
+        // An exact ISBN result is enough; do not fan out into title searches.
+        if (Array.isArray(result?.items) && result.items.some((item: any) => googleCandidate(item, title, author, credibleIsbns, discoveryTitle).exact)) break;
+      }
+    }
     let candidates: any[] = [];
     if (storedVolume?.volumeInfo) {
-      const candidate = googleCandidate(storedVolume, title, author, existingIsbn);
+      const candidate = googleCandidate(storedVolume, title, author, credibleIsbns, discoveryTitle);
       if (candidate.score >= .58) candidates.push({ ...candidate, score: Math.max(candidate.score, .92) });
     }
     for (const result of googleResults) {
       for (const item of Array.isArray(result?.items) ? result.items : []) {
-        const candidate = googleCandidate(item, title, author, existingIsbn);
+        const candidate = googleCandidate(item, title, author, credibleIsbns, discoveryTitle);
         if (candidate.title && candidate.score >= .45 && (candidate.isbn13 || candidate.isbn10)) candidates.push(candidate);
       }
     }
@@ -217,7 +223,7 @@ Deno.serve(async (request: Request) => {
       || loadedEditions.find(edition => edition.open_library_work_id)?.open_library_work_id
       || null;
     if (existingIsbn && isValidIsbn(existingIsbn)) {
-      openLibraryEdition = await fetchJson(`https://openlibrary.org/isbn/${encodeURIComponent(existingIsbn)}.json`, 7000);
+      openLibraryEdition = await fetchProviderJson(`https://openlibrary.org/isbn/${encodeURIComponent(existingIsbn)}.json`, 7000, diagnostics);
       workId = workId || openLibraryWorkId(openLibraryEdition?.works?.[0]?.key);
     }
 
@@ -231,7 +237,7 @@ Deno.serve(async (request: Request) => {
         fallbackUsed = true;
         const fallbackIsbn = cleanIsbn(fallbackEdition.isbn13 || fallbackEdition.isbn10);
         if (fallbackIsbn && isValidIsbn(fallbackIsbn) && fallbackIsbn !== existingIsbn) {
-          openLibraryEdition = await fetchJson(`https://openlibrary.org/isbn/${encodeURIComponent(fallbackIsbn)}.json`, 7000);
+          openLibraryEdition = await fetchProviderJson(`https://openlibrary.org/isbn/${encodeURIComponent(fallbackIsbn)}.json`, 7000, diagnostics);
         }
         workId = fallbackEdition.open_library_work_id || workId || openLibraryWorkId(openLibraryEdition?.works?.[0]?.key);
         top = {
@@ -242,8 +248,8 @@ Deno.serve(async (request: Request) => {
     }
 
     let work: any = null;
-    if (workId) work = await fetchJson(`https://openlibrary.org/works/${encodeURIComponent(workId)}.json`, 6500);
-    const ratingJobs = [openLibraryRating(admin, bookId, workId).catch(() => null)];
+    if (workId) work = await fetchProviderJson(`https://openlibrary.org/works/${encodeURIComponent(workId)}.json`, 6500, diagnostics);
+    const ratingJobs = [openLibraryRating(admin, bookId, workId, diagnostics).catch(() => null)];
 
     if (!top || top.score < .64) {
       await Promise.allSettled(ratingJobs);
@@ -254,23 +260,26 @@ Deno.serve(async (request: Request) => {
         : 'No reliable Google Books/Open Library or discovered-edition match';
       const update = await admin.from('books').update({
         metadata_status: status,
-        metadata_retry_after: status === 'resolved' ? null : new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
-        metadata_error: status === 'resolved' ? null : metadataError
+        metadata_retry_after: status === 'resolved' ? null : diagnostics.google_books.rate_limited ? (googleBackedOff ? coreResult.data.metadata_retry_after : googleRetryAfter(diagnostics)) : new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+        metadata_error: status === 'resolved' ? null : diagnostics.google_books.rate_limited ? 'Google Books is rate limited; credible edition identity was preserved.' : metadataError
       }).eq('id', bookId);
       if (update.error) throw update.error;
-      return json({ ok: hasUsable, status, message: metadataError });
+      return json({ ok: hasUsable, status, message: metadataError, provider_diagnostics: diagnostics });
     }
 
     const volume = top.volume || {};
     const fallback = top.fallbackEdition || fallbackEdition || {};
-    const synopsis = loadedBook.synopsis || description(volume.description) || description(work?.description) || null;
+    const goodreadsFallback = candidatesResult.data && Number(candidatesResult.data.score) >= .99 && candidatesResult.data.selected === true ? candidatesResult.data : null;
+    const goodreadsSynopsis = description(goodreadsFallback?.payload?.description);
+    const synopsis = loadedBook.synopsis || description(volume.description) || description(work?.description) || goodreadsSynopsis || null;
     const openLibraryCoverUrl = Array.isArray(openLibraryEdition?.covers) && openLibraryEdition.covers[0]
       ? `https://covers.openlibrary.org/b/id/${openLibraryEdition.covers[0]}-L.jpg?default=false`
       : Array.isArray(work?.covers) && work.covers[0] > 0
         ? `https://covers.openlibrary.org/b/id/${work.covers[0]}-L.jpg?default=false`
         : null;
-    const coverUrl = fallback.cover_url || googleCover(volume) || openLibraryCoverUrl || null;
-    const pageCount = Number(fallback.page_count || volume.pageCount || openLibraryEdition?.number_of_pages || 0) || null;
+    const goodreadsCoverUrl = /^https:\/\//i.test(String(goodreadsFallback?.cover_url || '')) ? goodreadsFallback.cover_url : null;
+    const coverUrl = fallback.cover_url || googleCover(volume) || openLibraryCoverUrl || goodreadsCoverUrl || null;
+    const pageCount = Number(fallback.page_count || volume.pageCount || openLibraryPageCount(openLibraryEdition?.number_of_pages, openLibraryEdition?.pagination) || 0) || null;
     const isbn13 = top.isbn13 || fallback.isbn13 || null;
     const isbn10 = top.isbn10 || fallback.isbn10 || null;
     const candidateEdition = {
@@ -284,7 +293,7 @@ Deno.serve(async (request: Request) => {
       edition_statement: fallback.edition_statement || null,
       page_count: pageCount,
       cover_url: coverUrl,
-      cover_source: fallback.cover_source || (googleCover(volume) ? 'Google Books' : openLibraryCoverUrl ? 'Open Library' : null),
+      cover_source: fallback.cover_source || (googleCover(volume) ? 'Google Books' : openLibraryCoverUrl ? 'Open Library' : goodreadsCoverUrl ? 'Goodreads' : null),
       google_books_volume_id: top.item?.id || fallback.google_books_volume_id || null,
       open_library_edition_id: fallback.open_library_edition_id || openLibraryEditionId(openLibraryEdition?.key),
       open_library_work_id: workId,
@@ -335,8 +344,8 @@ Deno.serve(async (request: Request) => {
     const bookPatch: any = {
       metadata_status: status,
       metadata_confidence: top.score,
-      metadata_retry_after: resolved ? null : new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
-      metadata_error: partialMessage,
+      metadata_retry_after: resolved ? null : diagnostics.google_books.rate_limited ? (googleBackedOff ? coreResult.data.metadata_retry_after : googleRetryAfter(diagnostics)) : new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+      metadata_error: resolved ? null : diagnostics.google_books.rate_limited ? 'Google Books is rate limited; retry scheduled without changing edition identity.' : partialMessage,
       metadata_source: fallbackUsed ? 'resolver_v8_edition_fallback' : 'resolver_v8',
       metadata_last_updated: new Date().toISOString().slice(0, 10)
     };
@@ -369,7 +378,7 @@ Deno.serve(async (request: Request) => {
       ok: true, status, book_id: bookId, edition_id: editionId, reference_edition_id: autoReference?.id || coreResult.data.reference_edition_id || null,
       confidence: top.score, fallback_used: fallbackUsed, isbn13, isbn10, page_count: pageCount,
       cover_url: coverUrl, synopsis: Boolean(synopsis), google_books_volume_id: top.item?.id || null,
-      open_library_work_id: workId, ratings_refreshed: ratingResults.map(result => result.status)
+      open_library_work_id: workId, ratings_refreshed: ratingResults.map(result => result.status), provider_diagnostics: diagnostics,
     });
   } catch (error) {
     console.error(error);
