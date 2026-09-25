@@ -9,7 +9,7 @@ function jwt(userId) {
   return `${header}.${payload}.fixture-signature`;
 }
 
-async function mockApplication(page, { bookOverrides = {}, bookAccolades = [] } = {}) {
+async function mockApplication(page, { bookOverrides = {}, bookAccolades = [], editions = [], adminRpcError = null, adminRpcDelayMs = 0 } = {}) {
   const user = { id: '8bfc753c-cb6c-4b75-bd4a-2d5986ed8319', aud: 'authenticated', role: 'authenticated', email: 'fixture@example.test' };
   await page.addInitScript(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), {
     key: `sb-${project}-auth-token`,
@@ -17,6 +17,7 @@ async function mockApplication(page, { bookOverrides = {}, bookAccolades = [] } 
   });
   let revision = 0;
   let adminPayload = null;
+  let adminCalls = 0;
   let recognitionPayload = null;
   const book = () => ({
     id: 'a75f5ad6-fac6-4f25-bd28-f4ed926f4327', title: 'The Unfinished Harauld Hughes', authors: 'Fixture Author',
@@ -40,16 +41,39 @@ async function mockApplication(page, { bookOverrides = {}, bookAccolades = [] } 
       return json(bookAccolades);
     }
     if (path.includes('/rest/v1/accolades')) return json(bookAccolades.map(row => row.accolade));
-    if (path.includes('/rest/v1/editions')) return json([]);
-    if (path.includes('/rest/v1/rpc/admin_edit_book')) { adminPayload = route.request().postDataJSON(); return json({ saved: true }); }
+    if (path.includes('/rest/v1/editions')) return json(editions);
+    if (path.includes('/rest/v1/rpc/admin_edit_book')) {
+      adminCalls += 1;
+      adminPayload = route.request().postDataJSON();
+      if (adminRpcDelayMs) await new Promise(resolve => setTimeout(resolve, adminRpcDelayMs));
+      if (adminRpcError) return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ message: adminRpcError, code: 'P0001' }), headers: { 'access-control-allow-origin': '*' } });
+      return json({ book: { overall_status: adminPayload.p_library.overall_status || 'Owned - Unread', ownership_status: adminPayload.p_library.ownership_status } });
+    }
     if (path.includes('/rest/v1/v_library')) {
       const singular = /vnd\.pgrst\.object/i.test(route.request().headers().accept || '');
       return json(singular ? book() : [book()]);
     }
     return json([]);
   });
-  return { bump: () => { revision += 1; }, adminPayload: () => adminPayload, recognitionPayload: () => recognitionPayload };
+  return { bump: () => { revision += 1; }, adminPayload: () => adminPayload, adminCalls: () => adminCalls, recognitionPayload: () => recognitionPayload };
 }
+
+async function openBookSettings(page, url = '/#/library') {
+  await page.goto(url);
+  await page.locator('[data-open-book]').first().click();
+  await page.getByText('Book & edition details', { exact: true }).click();
+  await page.locator('[data-book-admin]').click();
+  await expect(page.locator('#book-admin-form')).toBeVisible();
+}
+
+const blackHolesEditions = [
+  { id: 'bd72ab83-5825-423e-94d8-4c83dbe6bbcc', book_id: 'a75f5ad6-fac6-4f25-bd28-f4ed926f4327', isbn13: '9780008390648', publication_year: 2023, page_count: 288, owned: false, is_reference: false },
+  { id: 'bdd178d6-6d05-4c35-a23a-fef7b8caa40d', book_id: 'a75f5ad6-fac6-4f25-bd28-f4ed926f4327', isbn13: '9780008390655', publication_year: 2022, owned: false, is_reference: false },
+  { id: 'a850780c-9e80-4f34-8a1b-0a0b416936ee', book_id: 'a75f5ad6-fac6-4f25-bd28-f4ed926f4327', isbn13: '9780008597061', publication_year: 2022, owned: false, is_reference: false },
+  { id: '8fb79858-e4ce-4ef2-9ccd-2574be30bd83', book_id: 'a75f5ad6-fac6-4f25-bd28-f4ed926f4327', isbn13: '9780008390624', publication_year: 2022, owned: false, is_reference: false },
+  { id: '900dff66-8b23-4e6d-abcc-4e27ce8dd688', book_id: 'a75f5ad6-fac6-4f25-bd28-f4ed926f4327', isbn13: '9780733340444', publication_year: 2022, page_count: 288, owned: false, is_reference: false },
+  { id: '97709152-09b6-4c70-9977-683d063eb6d4', book_id: 'a75f5ad6-fac6-4f25-bd28-f4ed926f4327', isbn13: '9780008350758', publication_year: 2022, page_count: 320, owned: false, is_reference: true }
+];
 
 test('Test Mode off creates no API, database, event stream or indicator', async ({ page }) => {
   await mockApplication(page);
@@ -136,6 +160,72 @@ test('Book Settings saves ownership, keeps recognition forms independent, and le
   expect(fixture.adminPayload().p_library).not.toHaveProperty('overall_status');
   await expect(page.locator('#book-admin-form')).toHaveCount(0);
   await expect(page.locator('#toast')).toHaveText('Book details saved.');
+});
+
+test('multi-edition Book Settings directly saves Wishlist / On Order and records the save path', async ({ page }) => {
+  const fixture = await mockApplication(page, {
+    bookOverrides: { title: 'Black Holes', overall_status: 'Wishlist', ownership_status: 'Not Owned',
+      display_edition_id: '97709152-09b6-4c70-9977-683d063eb6d4', original_publication_year: 2022 },
+    editions: blackHolesEditions
+  });
+  await openBookSettings(page, '/?test=1#/library');
+  const form = page.locator('#book-admin-form');
+  const button = page.locator('[data-book-admin-save]');
+  await expect(page.locator('#admin-edition-select option')).toHaveCount(6);
+  expect(await button.evaluate(node => node.form)).toBeNull();
+  expect(await form.evaluate(node => node.checkValidity())).toBe(true);
+  await form.locator('select[name="ownership_status"]').selectOption('On Order');
+  await button.click();
+  await expect.poll(() => fixture.adminCalls()).toBe(1);
+  expect(fixture.adminPayload().p_library).toMatchObject({ overall_status: 'Wishlist', ownership_status: 'On Order' });
+  await expect(form).toHaveCount(0);
+  await expect(page.locator('#toast')).toHaveText('Book details saved.');
+  const events = await page.evaluate(async () => (await window.__RR_TEST__.events()).filter(event => event.type.startsWith('book_admin_')));
+  expect(events.map(event => event.type)).toEqual(['book_admin_opened', 'book_admin_save_tapped', 'book_admin_save_started', 'book_admin_rpc_started', 'book_admin_rpc_succeeded']);
+  expect(events.at(-1).payload).toMatchObject({ overall_status_after: 'Wishlist', ownership_status_after: 'On Order' });
+});
+
+test('form submission uses the same save path without a second RPC', async ({ page }) => {
+  const fixture = await mockApplication(page, { bookOverrides: { overall_status: 'Wishlist', ownership_status: 'Not Owned' } });
+  await openBookSettings(page);
+  await page.locator('#book-admin-form select[name="ownership_status"]').selectOption('On Order');
+  await page.locator('#book-admin-form').evaluate(form => form.requestSubmit());
+  await expect.poll(() => fixture.adminCalls()).toBe(1);
+  await expect(page.locator('#book-admin-form')).toHaveCount(0);
+  expect(fixture.adminPayload().p_library).toMatchObject({ overall_status: 'Wishlist', ownership_status: 'On Order' });
+});
+
+test('invalid field in a closed section opens it, explains the error, and prevents RPC', async ({ page }) => {
+  const fixture = await mockApplication(page);
+  await openBookSettings(page, '/?test=1#/library');
+  const section = page.locator('#book-admin-form details').filter({ has: page.locator('[name="book_original_publication_year"]') });
+  await expect(section).not.toHaveAttribute('open');
+  await page.locator('[name="book_original_publication_year"]').evaluate(input => { input.value = '3001'; });
+  await page.locator('[data-book-admin-save]').click();
+  await expect(section).toHaveAttribute('open', '');
+  await expect(page.locator('[data-book-admin-feedback]')).toBeVisible();
+  await expect(page.locator('[data-book-admin-feedback]')).toContainText('Original publication year');
+  await expect(page.locator('#book-admin-form')).toBeVisible();
+  expect(fixture.adminCalls()).toBe(0);
+  const events = await page.evaluate(async () => (await window.__RR_TEST__.events()).filter(event => event.type.startsWith('book_admin_')));
+  expect(events.map(event => event.type)).toEqual(['book_admin_opened', 'book_admin_save_tapped', 'book_admin_validation_failed']);
+  expect(events.at(-1).payload.invalid_control_name).toBe('book_original_publication_year');
+});
+
+test('failed save restores the button and displays the RPC error', async ({ page }) => {
+  const fixture = await mockApplication(page, { adminRpcError: 'Fixture RPC failure', adminRpcDelayMs: 250 });
+  await openBookSettings(page);
+  const button = page.locator('[data-book-admin-save]');
+  await button.click();
+  await expect(button).toBeDisabled();
+  await expect(button).toHaveText('Saving…');
+  await page.locator('#book-admin-form').evaluate(form => form.requestSubmit());
+  await expect(button).toBeEnabled();
+  await expect(button).toHaveText('Save changes');
+  await expect(page.locator('[data-book-admin-feedback]')).toContainText('Fixture RPC failure');
+  await expect(page.locator('#toast')).toHaveText('Fixture RPC failure');
+  await expect(page.locator('#book-admin-form')).toBeVisible();
+  expect(fixture.adminCalls()).toBe(1);
 });
 
 test('Test Mode records ordered route, paint, title, cover, scroll and lifecycle evidence', async ({ page }) => {

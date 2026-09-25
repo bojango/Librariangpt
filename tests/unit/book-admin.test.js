@@ -16,8 +16,16 @@ test('unchanged Wishlist status is omitted when ownership becomes Owned', () => 
   assert.equal(Object.hasOwn(payload, 'overall_status'), false);
 });
 
+test('Wishlist remains explicit when ownership changes from Not Owned to On Order', () => {
+  const payload = buildLibraryPayload(formData({ overall_status: 'Wishlist', ownership_status: 'On Order' }), {
+    overall_status: 'Wishlist', ownership_status: 'Not Owned'
+  });
+  assert.equal(payload.overall_status, 'Wishlist');
+  assert.equal(payload.ownership_status, 'On Order');
+});
+
 test('an intentional reading status remains explicit during an ownership change', () => {
-  for (const status of ['Owned - Unread', 'Currently Reading', 'Read', 'Paused', 'DNF']) {
+  for (const status of ['Owned - Unread', 'Currently Reading', 'Read', 'Paused', 'DNF', 'Not Interested']) {
     const payload = buildLibraryPayload(formData({ overall_status: status, ownership_status: 'Owned' }), {
       overall_status: 'Wishlist', ownership_status: 'On Order'
     });
@@ -32,7 +40,8 @@ test('Book Settings keeps recognition forms outside the main settings form', asy
   const recognitionSection = source.indexOf('${accoladesFields(bundle)}');
   assert.ok(mainStart >= 0 && mainEnd > mainStart);
   assert.ok(recognitionSection > mainEnd, 'recognition forms must be siblings, not descendants, of the main form');
-  assert.match(source, /type="submit" class="btn btn-primary" form="book-admin-form">Save changes/);
+  assert.match(source, /type="button" class="btn btn-primary" data-book-admin-save>Save changes/);
+  assert.doesNotMatch(source, /form="book-admin-form"/);
   assert.match(source, /\[data-accolade-row\][\s\S]*saveAccoladeRow/);
   assert.match(source, /\[data-accolade-add\][\s\S]*addAccolade/);
 });
