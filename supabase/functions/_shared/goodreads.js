@@ -126,13 +126,17 @@ export function parseGoodreadsJsonLd(html) {
         const authors = (Array.isArray(node.author) ? node.author : [node.author])
           .map(author => cleanText(typeof author === 'string' ? author : author?.name)).filter(Boolean);
         const rawIsbns = [node.isbn, node.isbn10, node.isbn13].flat().map(cleanIsbn).filter(Boolean);
+        const image = typeof node.image === 'string' ? node.image : node.image?.url || node.thumbnailUrl || null;
+        const description = cleanText(typeof node.description === 'string' ? node.description : node.description?.value);
         return {
           title: cleanText(node.name || node.headline),
           authors,
           isbns: [...new Set(rawIsbns)],
           rating_5: rating,
           rating_count: ratingCount,
-          review_count: reviewCount
+          review_count: reviewCount,
+          image: /^https:\/\//i.test(String(image || '')) ? String(image) : null,
+          description: description || null
         };
       }
     } catch {

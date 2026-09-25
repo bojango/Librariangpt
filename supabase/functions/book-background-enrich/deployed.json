@@ -1,7 +1,7 @@
 {
   "slug": "book-background-enrich",
-  "deployedVersion": 4,
+  "deployedVersion": 7,
   "verifyJwt": true,
-  "sha256": "e6ec82aea43f06d823e545b63005cdafee14a0655b3b8de445998acfde955cbf",
-  "exportedAt": "2026-09-18"
+  "sha256": "6614ef074f6161dc3a99067618909db023eaefd92f328422298d852486b6e771",
+  "exportedAt": "2026-09-23"
 }

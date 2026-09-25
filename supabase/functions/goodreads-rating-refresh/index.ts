@@ -112,11 +112,54 @@ async function saveRating(admin: any, bookId: string, existing: any, identity: a
   return payload;
 }
 
+// A confirmed Goodreads work is bootstrap evidence, not a canonical metadata edit.
+// Seed only an identity-less book and leave authors, manual locks and existing editions alone.
+async function seedGoodreadsEdition(admin: any, book: any, editions: any[], parsed: any, tier: string) {
+  if (!['ISBN_CONFIRMED', 'WORK_CONFIRMED'].includes(tier) || editions.some(row => cleanIsbn(row.isbn13 || row.isbn10))) return false;
+  const isbn13 = firstValidIsbn(parsed.isbns || [], 13);
+  const isbn10 = isbn13 ? null : firstValidIsbn(parsed.isbns || [], 10);
+  if (!isbn13 && !isbn10) return false;
+  const identifier = isbn13 || isbn10;
+  const existing = await admin.from('editions').select('id,book_id').or(`isbn13.eq.${identifier},isbn10.eq.${identifier}`).maybeSingle();
+  if (existing.error || existing.data) return false;
+  const inserted = await admin.from('editions').insert({
+    book_id: book.id, isbn13, isbn10, owned: false, preferred_copy: false, is_reference: false,
+    metadata_source: 'goodreads_identity_bootstrap', metadata_match_confidence: tier,
+    metadata_payload: { goodreads: { title: parsed.title, authors: parsed.authors, isbns: parsed.isbns } },
+    metadata_last_fetched_at: new Date().toISOString()
+  });
+  return !inserted.error;
+}
+
+async function cacheGoodreadsFallbackEvidence(admin: any, book: any, identity: any, parsed: any, tier: string) {
+  if (!['ISBN_CONFIRMED', 'WORK_CONFIRMED'].includes(tier) || (!parsed.image && !parsed.description)) return false;
+  const payload = {
+    book_id: book.id, provider: PROVIDER, provider_item_id: identity.providerBookId,
+    candidate_title: parsed.title || book.title, candidate_authors: parsed.authors || [],
+    isbn13: firstValidIsbn(parsed.isbns || [], 13), isbn10: firstValidIsbn(parsed.isbns || [], 10),
+    cover_url: parsed.image || null, score: 1, selected: true,
+    payload: { description: parsed.description || null, source_url: identity.sourceUrl, match_tier: tier }
+  };
+  const result = await admin.from('book_metadata_candidates').upsert(payload, { onConflict: 'book_id,provider,provider_item_id' });
+  return !result.error;
+}
+
 async function directRefresh(admin: any, book: any, existing: any, identity: any) {
   const page = await goodreadsFetch(identity.sourceUrl);
   const parsed = parseGoodreadsJsonLd(page.html);
   if (!parsed) throw new RefreshError('Goodreads structured rating metadata was unavailable', 200, true);
-  return saveRating(admin, book.id, existing, identity, parsed, 'WORK_CONFIRMED');
+  const identity_seeded = await seedGoodreadsEdition(admin, book, [], parsed, 'WORK_CONFIRMED');
+  const fallback_cached = await cacheGoodreadsFallbackEvidence(admin, book, identity, parsed, 'WORK_CONFIRMED');
+  return { ...(await saveRating(admin, book.id, existing, identity, parsed, 'WORK_CONFIRMED')), identity_seeded, fallback_cached };
+}
+
+async function bootstrapKnownGoodreadsIdentity(admin: any, book: any, editions: any[], identity: any) {
+  const page = await goodreadsFetch(identity.sourceUrl);
+  const parsed = parseGoodreadsJsonLd(page.html);
+  if (!parsed) throw new RefreshError('Goodreads structured identity metadata was unavailable', 200, true);
+  const identity_seeded = await seedGoodreadsEdition(admin, book, editions, parsed, 'WORK_CONFIRMED');
+  const fallback_cached = await cacheGoodreadsFallbackEvidence(admin, book, identity, parsed, 'WORK_CONFIRMED');
+  return { identity_seeded, fallback_cached };
 }
 
 async function fetchJson(url: string) {
@@ -269,7 +312,9 @@ async function discover(admin: any, book: any, existing: any, editions: any[], m
         rejection_reason: match.matched ? null : match.reason
       });
       if (!match.matched) continue;
-      return saveRating(admin, book.id, existing, identity, parsed, match.tier);
+      const identity_seeded = await seedGoodreadsEdition(admin, book, editions, parsed, match.tier);
+      const fallback_cached = await cacheGoodreadsFallbackEvidence(admin, book, identity, parsed, match.tier);
+      return { ...(await saveRating(admin, book.id, existing, identity, parsed, match.tier)), identity_seeded, fallback_cached };
     }
   }
   throw new RefreshError('No confident Goodreads match found', null, false, diagnostic);
@@ -277,7 +322,7 @@ async function discover(admin: any, book: any, existing: any, editions: any[], m
 
 async function refreshBook(admin: any, bookId: string, force: boolean) {
   const [bookResult, authorResult, libraryResult, editionsResult, ratingResult, stateResult, metadataCandidatesResult] = await Promise.all([
-    admin.from('books').select('id,title,subtitle,reference_edition_id,metadata_source,metadata_status').eq('id', bookId).maybeSingle(),
+    admin.from('books').select('id,title,subtitle,reference_edition_id,metadata_source,metadata_status,cover_url_preferred,synopsis').eq('id', bookId).maybeSingle(),
     admin.from('book_authors').select('author_order,authors(name)').eq('book_id', bookId).order('author_order').limit(1).maybeSingle(),
     admin.from('library_entries').select('current_edition_id').eq('book_id', bookId).maybeSingle(),
     admin.from('editions').select('id,isbn10,isbn13,preferred_copy,created_at').eq('book_id', bookId).order('preferred_copy', { ascending: false }).order('created_at'),
@@ -292,12 +337,6 @@ async function refreshBook(admin: any, bookId: string, force: boolean) {
   }
   if (!bookResult.data) return { book_id: bookId, ok: false, status: 'not_found' };
   const existing = ratingResult.data || null;
-  if (!shouldRefreshGoodreads({ rating: existing, refreshState: stateResult.data, force })) {
-    return { book_id: bookId, ok: true, status: 'fresh', cached: true };
-  }
-  const claim = await admin.rpc('claim_goodreads_rating_refresh', { p_book_id: bookId, p_force: force });
-  if (claim.error) throw new Error(`Could not claim Goodreads refresh: ${claim.error.message}`);
-  if (claim.data !== true) return { book_id: bookId, ok: true, status: 'not_due', cached: true };
   const editions = editionsResult.data || [];
   const preferredEditionId = libraryResult.data?.current_edition_id || bookResult.data.reference_edition_id;
   const edition = editions.find((row: any) => row.id === preferredEditionId)
@@ -310,6 +349,21 @@ async function refreshBook(admin: any, bookId: string, force: boolean) {
     author: String(authorResult.data?.authors?.name || authorResult.data?.authors?.[0]?.name || bookResult.data.authors || '').split(',')[0].trim()
   };
   const identity = goodreadsBookIdentity(existing?.provider_book_id) || goodreadsBookIdentity(existing?.source_url);
+  const identityBootstrapNeeded = Boolean(identity && !editions.some(row => cleanIsbn(row.isbn13 || row.isbn10)));
+  const hasGoodreadsFallback = (metadataCandidatesResult.data || []).some((candidate: any) => candidate.provider === PROVIDER && Number(candidate.score) >= .99);
+  const fallbackEvidenceNeeded = Boolean(identity && !hasGoodreadsFallback && (!bookResult.data.cover_url_preferred || !bookResult.data.synopsis));
+  if (!shouldRefreshGoodreads({ rating: existing, refreshState: stateResult.data, force })) {
+    if (!identityBootstrapNeeded && !fallbackEvidenceNeeded) return { book_id: bookId, ok: true, status: 'fresh', cached: true, identity_seeded: false };
+    try {
+      const bootstrap = await bootstrapKnownGoodreadsIdentity(admin, book, editions, identity);
+      return { book_id: bookId, ok: true, status: identityBootstrapNeeded ? 'fresh_identity_bootstrap' : 'fresh_fallback_evidence', cached: true, ...bootstrap };
+    } catch (error) {
+      return { book_id: bookId, ok: false, status: 'identity_bootstrap_deferred', cached: true, identity_seeded: false, error: (error as Error)?.message || 'Goodreads identity bootstrap failed' };
+    }
+  }
+  const claim = await admin.rpc('claim_goodreads_rating_refresh', { p_book_id: bookId, p_force: force });
+  if (claim.error) throw new Error(`Could not claim Goodreads refresh: ${claim.error.message}`);
+  if (claim.data !== true) return { book_id: bookId, ok: true, status: 'not_due', cached: true };
   let metadataRepair = null as any;
   try {
     if (!identity && !book.author) {

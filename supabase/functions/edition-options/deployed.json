@@ -1,7 +1,7 @@
 {
   "slug": "edition-options",
-  "deployedVersion": 8,
+  "deployedVersion": 11,
   "verifyJwt": true,
-  "sha256": "a8439e174e27de0026abb65ab3b54bfd42ad64fb00f694fa680f0f95bc1052a0",
-  "exportedAt": "2026-09-18"
+  "sha256": "1afd845b14c654442461263fad9ef6db0d18f799f19a78ac5776a781cebcb7a5",
+  "exportedAt": "2026-09-23"
 }

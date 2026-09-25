@@ -20,12 +20,12 @@ export const FONT_STACKS = Object.freeze({
 });
 export const CANONICAL_APPEARANCE = Object.freeze({
   'reading-room': Object.freeze({
-    baseSize: 16, headingScale: 1, lineHeight: 1.48, letterSpacing: 0, fontWeight: '400',
+    baseSize: 16, headingAdjust: 0, lineHeight: 1.48, letterSpacing: 0, fontWeight: '400',
     bg: '#F1EEE5', surface: '#F7F4EC', surfaceAlt: '#E9E5DA', text: '#171613', muted: '#656158', border: '#D0CDC4', accent: '#171613', activeBg: '#171613', activeText: '#F1EEE5',
     cardRadius: 0, controlRadius: 0, borderWidth: 1, density: 1, navHeight: 56, navIconSize: 19, navLabelSize: 10, showNavLabels: true
   }),
   terminal: Object.freeze({
-    baseSize: 15, headingScale: 1, lineHeight: 1.48, letterSpacing: 0, fontWeight: '400',
+    baseSize: 15, headingAdjust: 0, lineHeight: 1.48, letterSpacing: 0, fontWeight: '400',
     bg: '#EEE5C4', surface: '#EEE5C4', surfaceAlt: '#E6DBB8', text: '#1B1914', muted: '#625D4D', border: '#625D4D', accent: '#1B1914', activeBg: '#1B1914', activeText: '#EEE5C4',
     cardRadius: 6, controlRadius: 4, borderWidth: 1, density: 1, navHeight: 54, navIconSize: 17, navLabelSize: 8, showNavLabels: true
   })
@@ -37,12 +37,12 @@ export function effectiveAppearance(preferences, theme) {
   return { ...canonicalAppearance(active), ...safe.appearanceOverrides[active] };
 }
 export const APPEARANCE_SECTIONS = Object.freeze({
-  typography: ['font', 'baseSize', 'headingScale', 'lineHeight', 'letterSpacing', 'fontWeight'],
+  typography: ['font', 'baseSize', 'headingAdjust', 'lineHeight', 'letterSpacing', 'fontWeight'],
   colours: ['bg', 'surface', 'surfaceAlt', 'text', 'muted', 'border', 'accent', 'activeBg', 'activeText'],
   geometry: ['cardRadius', 'controlRadius', 'borderWidth', 'density'],
   navigation: ['navHeight', 'navIconSize', 'navLabelSize', 'showNavLabels']
 });
-const ranges = { baseSize:[12,20], headingScale:[.75,1.6], lineHeight:[1.2,1.8], letterSpacing:[-.04,.12], cardRadius:[0,20], controlRadius:[0,16], borderWidth:[0,3], density:[.85,1.2], navHeight:[44,76], navIconSize:[14,26], navLabelSize:[8,16] };
+const ranges = { baseSize:[12,20], headingAdjust:[-8,8], lineHeight:[1.2,1.8], letterSpacing:[-.04,.12], cardRadius:[0,20], controlRadius:[0,16], borderWidth:[0,3], density:[.85,1.2], navHeight:[44,76], navIconSize:[14,26], navLabelSize:[8,16] };
 const colorKeys = new Set(APPEARANCE_SECTIONS.colours);
 const numberKeys = new Set(Object.keys(ranges));
 const fontIds = new Set(FONT_OPTIONS.map(([id]) => id));
@@ -76,7 +76,16 @@ export function normalisePreferences(input = {}) {
   const rawAppearance = input.appearance_overrides || input.appearanceOverrides || {};
   const rawCopy = input.copy_overrides || input.copyOverrides || {};
   const appearanceOverrides = {};
-  for (const theme of Object.values(THEMES)) appearanceOverrides[theme] = validateAppearance(rawAppearance?.[theme]);
+  for (const theme of Object.values(THEMES)) {
+    const raw = { ...(rawAppearance?.[theme] || {}) };
+    // The legacy scale replaced responsive sizes with a scaled 1em. Retain the
+    // user's intent conservatively by mapping each 0.05 step to one pixel.
+    if (!Object.hasOwn(raw, 'headingAdjust') && Number.isFinite(Number(raw.headingScale))) {
+      raw.headingAdjust = Math.round((Number(raw.headingScale) - 1) * 20);
+    }
+    delete raw.headingScale;
+    appearanceOverrides[theme] = validateAppearance(raw);
+  }
   return { version: 1, selectedTheme: normaliseTheme(input.selected_theme || input.selectedTheme), appearanceOverrides, copyOverrides: validateCopy(rawCopy) };
 }
 export function preferenceStatesEqual(left, right) {
@@ -111,12 +120,12 @@ export function cachePreferences(prefs, storage = window.localStorage) { try { s
 function styleSet(doc, key, value) { doc.documentElement.style.setProperty(key, String(value)); }
 export function applyPreferences(preferences, theme = preferences?.selectedTheme, doc = document) {
   const safe = normalisePreferences(preferences || {}); const active = normaliseTheme(theme); const values = safe.appearanceOverrides[active] || {};
-  const vars = { bg:'--user-bg', surface:'--user-surface', surfaceAlt:'--user-surface-alt', text:'--user-text', muted:'--user-muted', border:'--user-border', accent:'--user-accent', activeBg:'--user-active-bg', activeText:'--user-active-text', cardRadius:'--user-card-radius', controlRadius:'--user-control-radius', borderWidth:'--user-border-width', density:'--user-density-scale', navHeight:'--user-nav-height', navIconSize:'--user-nav-icon-size', navLabelSize:'--user-nav-label-size', showNavLabels:'--user-show-nav-labels', baseSize:'--user-base-font-size', headingScale:'--user-heading-scale', lineHeight:'--user-line-height', letterSpacing:'--user-letter-spacing', fontWeight:'--user-font-weight' };
+  const vars = { bg:'--user-bg', surface:'--user-surface', surfaceAlt:'--user-surface-alt', text:'--user-text', muted:'--user-muted', border:'--user-border', accent:'--user-accent', activeBg:'--user-active-bg', activeText:'--user-active-text', cardRadius:'--user-card-radius', controlRadius:'--user-control-radius', borderWidth:'--user-border-width', density:'--user-density-scale', navHeight:'--user-nav-height', navIconSize:'--user-nav-icon-size', navLabelSize:'--user-nav-label-size', showNavLabels:'--user-show-nav-labels', baseSize:'--user-base-font-size', headingAdjust:'--user-heading-adjust', lineHeight:'--user-line-height', letterSpacing:'--user-letter-spacing', fontWeight:'--user-font-weight' };
   Object.values(vars).forEach(key => doc.documentElement.style.removeProperty(key));
   doc.documentElement.style.removeProperty('--user-font');
   Object.entries(values).forEach(([key, value]) => {
     if (key === 'font' && FONT_STACKS[value]) styleSet(doc, '--user-font', FONT_STACKS[value]);
-    else if (vars[key]) styleSet(doc, vars[key], numberKeys.has(key) ? `${value}${['baseSize','cardRadius','controlRadius','borderWidth','navHeight','navIconSize','navLabelSize'].includes(key) ? 'px' : key === 'letterSpacing' ? 'em' : ''}` : value);
+    else if (vars[key]) styleSet(doc, vars[key], numberKeys.has(key) ? `${value}${['baseSize','headingAdjust','cardRadius','controlRadius','borderWidth','navHeight','navIconSize','navLabelSize'].includes(key) ? 'px' : key === 'letterSpacing' ? 'em' : ''}` : value);
   });
   setCopyOverrides(safe.copyOverrides); return safe;
 }

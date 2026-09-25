@@ -1,7 +1,7 @@
 {
   "slug": "content-enrichment",
-  "deployedVersion": 10,
+  "deployedVersion": 13,
   "verifyJwt": true,
-  "sha256": "18de08b9f0807e6ffc5453c2bb274e5b4bf5ca665fba30d6330b7f2513c286fd",
-  "exportedAt": "2026-09-18"
+  "sha256": "25cf527de8d100d2f400fd370ec253c7ee51041f86c1cb51eca4fbc5c1c890d2",
+  "exportedAt": "2026-09-23"
 }
