@@ -6,7 +6,7 @@ create table if not exists public.book_enrichment_jobs (
   id uuid primary key default gen_random_uuid(),
   book_id uuid not null references public.books(id) on delete cascade,
   status text not null default 'queued'
-    check (status in ('queued','processing','retry','completed')),
+    check (status in ('queued','processing','retry','completed','failed')),
   available_at timestamptz not null default now(),
   locked_at timestamptz,
   last_attempted_at timestamptz,
@@ -42,6 +42,12 @@ as $$
 declare
   v_due timestamptz := greatest(coalesce(new.metadata_retry_after, now()), now());
 begin
+  -- A book can exist as a recommendation/candidate without belonging to the
+  -- Library. Library membership is the authoritative automatic-work boundary.
+  if not exists (select 1 from public.library_entries where book_id = new.id) then
+    return new;
+  end if;
+
   if new.metadata_status in ('resolved','manual') then
     update public.book_enrichment_jobs
        set status = 'completed', completed_at = coalesce(completed_at, now()),
@@ -65,12 +71,16 @@ begin
       when public.book_enrichment_jobs.status = 'processing'
         and public.book_enrichment_jobs.locked_at > now() - interval '15 minutes'
         then public.book_enrichment_jobs.status
+      when public.book_enrichment_jobs.status = 'failed'
+        then 'failed'
       when excluded.available_at > now() then 'retry'
       else 'queued'
     end,
     available_at = case
       when public.book_enrichment_jobs.status = 'processing'
         and public.book_enrichment_jobs.locked_at > now() - interval '15 minutes'
+        then public.book_enrichment_jobs.available_at
+      when public.book_enrichment_jobs.status = 'failed'
         then public.book_enrichment_jobs.available_at
       else excluded.available_at
     end,
@@ -83,11 +93,6 @@ $$;
 
 revoke all on function private.sync_book_enrichment_queue() from public, anon, authenticated;
 
-drop trigger if exists books_enqueue_metadata_after_insert on public.books;
-create trigger books_enqueue_metadata_after_insert
-after insert on public.books
-for each row execute function private.sync_book_enrichment_queue();
-
 drop trigger if exists books_sync_metadata_retry_queue on public.books;
 create trigger books_sync_metadata_retry_queue
 after update of metadata_status, metadata_retry_after, metadata_error on public.books
@@ -99,28 +104,58 @@ when (
 )
 execute function private.sync_book_enrichment_queue();
 
--- Database clients may create the canonical book before its library entry.
--- If a first worker attempt found no owner context, adding that entry should
--- make the existing retry immediately eligible instead of waiting out a
--- provider-independent backoff.
+-- A canonical book may be created before it is added to the Library. Creating
+-- the library entry is the only insert event that starts automatic enrichment.
 create or replace function private.wake_book_enrichment_queue_for_library_entry()
 returns trigger
 language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  v_due timestamptz;
 begin
-  update public.book_enrichment_jobs job
-     set status = 'queued', available_at = now(), locked_at = null,
-         completed_at = null, last_error = null, updated_at = now()
+  select greatest(coalesce(metadata_retry_after, now()), now())
+    into v_due
+    from public.books
+   where id = new.book_id
+     and metadata_status not in ('resolved','manual');
+
+  if v_due is null then return new; end if;
+
+  insert into public.book_enrichment_jobs (book_id, status, available_at, last_error)
+  select new.book_id,
+         case when v_due > now() then 'retry' else 'queued' end,
+         v_due,
+         book.metadata_error
     from public.books book
-   where job.book_id = new.book_id
-     and book.id = new.book_id
-     and book.metadata_status not in ('resolved','manual')
-     and (
-       job.status in ('queued','retry')
-       or (job.status = 'processing' and job.locked_at < now() - interval '15 minutes')
-     );
+   where book.id = new.book_id
+  on conflict (book_id) do update set
+    status = case
+      when public.book_enrichment_jobs.status = 'processing'
+        and public.book_enrichment_jobs.locked_at > now() - interval '15 minutes'
+        then 'processing'
+      when public.book_enrichment_jobs.status = 'failed' then 'failed'
+      when excluded.available_at > now() then 'retry'
+      else 'queued'
+    end,
+    available_at = case
+      when public.book_enrichment_jobs.status = 'processing'
+        and public.book_enrichment_jobs.locked_at > now() - interval '15 minutes'
+        then public.book_enrichment_jobs.available_at
+      when public.book_enrichment_jobs.status = 'failed'
+        then public.book_enrichment_jobs.available_at
+      else excluded.available_at
+    end,
+    locked_at = case
+      when public.book_enrichment_jobs.status = 'processing'
+        and public.book_enrichment_jobs.locked_at > now() - interval '15 minutes'
+        then public.book_enrichment_jobs.locked_at
+      else null
+    end,
+    completed_at = case when public.book_enrichment_jobs.status = 'failed' then public.book_enrichment_jobs.completed_at else null end,
+    last_error = case when public.book_enrichment_jobs.status = 'failed' then public.book_enrichment_jobs.last_error else excluded.last_error end,
+    updated_at = now();
   return new;
 end;
 $$;
@@ -131,6 +166,27 @@ drop trigger if exists library_entries_wake_metadata_queue on public.library_ent
 create trigger library_entries_wake_metadata_queue
 after insert on public.library_entries
 for each row execute function private.wake_book_enrichment_queue_for_library_entry();
+
+create or replace function private.remove_book_enrichment_queue_for_library_entry()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  -- A book may remain as a recommendation/candidate after it leaves Library,
+  -- but it must no longer consume automatic enrichment retries.
+  delete from public.book_enrichment_jobs where book_id = old.book_id;
+  return old;
+end;
+$$;
+
+revoke all on function private.remove_book_enrichment_queue_for_library_entry() from public, anon, authenticated;
+
+drop trigger if exists library_entries_remove_metadata_queue on public.library_entries;
+create trigger library_entries_remove_metadata_queue
+after delete on public.library_entries
+for each row execute function private.remove_book_enrichment_queue_for_library_entry();
 
 create or replace function public.claim_book_enrichment_jobs(
   p_limit integer default 2,
@@ -146,6 +202,10 @@ as $$
     select job.id
       from public.book_enrichment_jobs job
      where (p_book_id is null or job.book_id = p_book_id)
+       and exists (
+         select 1 from public.library_entries entry
+          where entry.book_id = job.book_id
+       )
        and (
          (p_force and job.status <> 'processing')
          or (job.status in ('queued','retry') and job.available_at <= now())
@@ -178,6 +238,7 @@ select
   greatest(coalesce(book.metadata_retry_after, now()), now()),
   book.metadata_error
 from public.books book
+join public.library_entries entry on entry.book_id = book.id
 where book.metadata_status not in ('resolved','manual')
    or nullif(trim(book.synopsis), '') is null
    or (

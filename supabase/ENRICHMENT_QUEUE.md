@@ -2,9 +2,9 @@
 
 `20260923145729_add_metadata_enrichment_queue.sql` makes metadata enrichment independent of the Reading Room browser:
 
-- an `AFTER INSERT` trigger creates one `book_enrichment_jobs` row per book;
-- a later `library_entries` insert wakes a retry when a database client created the book first;
-- metadata failures and partial results are rescheduled from `metadata_retry_after`;
+- a `library_entries` insert creates or wakes one job for that Library book; books that are only recommendation/candidate records are never automatically queued;
+- removing a `library_entries` row removes its queue job, and claims also verify current Library membership;
+- metadata failures and partial results use a capped exponential retry schedule (6h, 12h, 24h, 48h; at most five attempts), while a later `metadata_retry_after` remains authoritative;
 - `pg_cron` calls `book-background-enrich` every five minutes;
 - the Edge Function claims jobs with `FOR UPDATE SKIP LOCKED` and reuses the existing edition → Goodreads → content orchestration;
 - service-only RLS/grants keep queue state out of the public client API.
@@ -27,7 +27,7 @@ edition-options
 goodreads-rating-refresh
 ```
 
-Then apply the migration. Its backfill queues unresolved, partial, failed, synopsis-less, and cover-less historical records without duplicating jobs.
+Then apply the migration. Its backfill queues unresolved, partial, failed, synopsis-less, and cover-less historical Library records without duplicating jobs. Repeated failures become a terminal `failed` queue state; a forced per-book enrichment request can claim that job again.
 
 ## Diagnostics
 

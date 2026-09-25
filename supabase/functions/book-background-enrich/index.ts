@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { enrichmentRetryPlan, hasValidSchedulerCredentials } from '../_shared/enrichment-queue.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -6,17 +7,15 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
-const RETRY_MS = 6 * 60 * 60 * 1000;
-
 type Caller = { service: boolean; userId?: string; authorization: string };
 
-async function authorise(request: Request, url: string, anonKey: string, serviceKey: string): Promise<Caller | null> {
+async function authorise(request: Request, url: string, anonKey: string, serviceKey: string, requiresSchedulerToken: boolean): Promise<Caller | null> {
   const authorization = request.headers.get('Authorization') || '';
   const apiKey = request.headers.get('apikey') || '';
   const schedulerToken = Deno.env.get('ENRICHMENT_SCHEDULER_TOKEN') || '';
   const suppliedSchedulerToken = request.headers.get('x-enrichment-scheduler-token') || '';
   const serviceCredential = authorization === `Bearer ${serviceKey}` || apiKey === serviceKey;
-  if (serviceCredential && (!suppliedSchedulerToken || suppliedSchedulerToken === schedulerToken)) {
+  if (hasValidSchedulerCredentials({ serviceCredential, schedulerToken, suppliedSchedulerToken, requiresSchedulerToken })) {
     return { service: true, authorization: `Bearer ${serviceKey}` };
   }
   if (!authorization) return null;
@@ -40,34 +39,38 @@ async function recordEvent(admin: any, userId: string | null, bookId: string, ev
   if (result.error) console.error(`Could not record ${eventType}`, result.error);
 }
 
-function retryAt(value: unknown) {
-  const timestamp = Date.parse(String(value || ''));
-  return Number.isFinite(timestamp) && timestamp > Date.now()
-    ? new Date(timestamp).toISOString()
-    : new Date(Date.now() + RETRY_MS).toISOString();
-}
-
-async function finishJob(admin: any, jobId: string, state: any, results: any[]) {
+async function finishJob(admin: any, job: any, state: any, results: any[]) {
   const complete = ['resolved', 'manual'].includes(state?.metadata_status);
+  const retry = enrichmentRetryPlan(job.attempt_count, state?.metadata_retry_after);
+  const terminal = !complete && retry.terminal;
+  const error = state?.metadata_error || 'Metadata enrichment remains partial.';
   const patch: any = {
-    status: complete ? 'completed' : 'retry',
+    status: complete ? 'completed' : terminal ? 'failed' : 'retry',
     locked_at: null,
     completed_at: complete ? new Date().toISOString() : null,
-    available_at: complete ? new Date().toISOString() : retryAt(state?.metadata_retry_after),
-    last_error: complete ? null : state?.metadata_error || 'Metadata enrichment remains partial.',
-    last_result: { metadata_status: state?.metadata_status || null, editions_status: state?.editions_status || null, results }
+    available_at: complete ? new Date().toISOString() : retry.availableAt,
+    last_error: complete ? null : error,
+    last_result: {
+      metadata_status: state?.metadata_status || null,
+      editions_status: state?.editions_status || null,
+      attempt_count: job.attempt_count,
+      terminal,
+      results
+    }
   };
-  const update = await admin.from('book_enrichment_jobs').update(patch).eq('id', jobId);
+  const update = await admin.from('book_enrichment_jobs').update(patch).eq('id', job.job_id);
   if (update.error) console.error('Could not finalise enrichment queue job', update.error);
 }
 
 async function failJob(admin: any, job: any, error: unknown) {
   const state = await admin.from('books').select('metadata_retry_after').eq('id', job.book_id).maybeSingle();
+  const retry = enrichmentRetryPlan(job.attempt_count, state.data?.metadata_retry_after);
+  const message = (error as any)?.message || String(error);
   const update = await admin.from('book_enrichment_jobs').update({
-    status: 'retry', locked_at: null, completed_at: null,
-    available_at: retryAt(state.data?.metadata_retry_after),
-    last_error: (error as any)?.message || String(error),
-    last_result: { failed_at: new Date().toISOString() }
+    status: retry.terminal ? 'failed' : 'retry', locked_at: null, completed_at: null,
+    available_at: retry.availableAt,
+    last_error: message,
+    last_result: { failed_at: new Date().toISOString(), attempt_count: job.attempt_count, terminal: retry.terminal, error: message }
   }).eq('id', job.job_id);
   if (update.error) console.error('Could not persist enrichment queue failure', update.error);
 }
@@ -78,6 +81,14 @@ async function enrichBook(admin: any, url: string, anonKey: string, serviceKey: 
   const exists = await admin.from('books').select('id,editions_status').eq('id', bookId).maybeSingle();
   if (exists.error) throw exists.error;
   if (!exists.data) throw new Error('Book not found');
+
+  const library = await admin.from('library_entries').select('user_id').eq('book_id', bookId).maybeSingle();
+  if (library.error) throw library.error;
+  if (!library.data) {
+    const removed = await admin.from('book_enrichment_jobs').delete().eq('id', job.job_id);
+    if (removed.error) throw removed.error;
+    return;
+  }
 
   const initialPatch: any = { metadata_status: 'resolving', metadata_error: null };
   if (exists.data.editions_status !== 'ready') {
@@ -142,7 +153,7 @@ async function enrichBook(admin: any, url: string, anonKey: string, serviceKey: 
     Object.assign(state, finalState.data);
   }
 
-  await finishJob(admin, job.job_id, state, results);
+  await finishJob(admin, job, state, results);
   await recordEvent(admin, userId, bookId, 'background_enrichment_finished', source, {
     finished_at: new Date().toISOString(), queue_job_id: job.job_id, results
   });
@@ -155,15 +166,18 @@ Deno.serve(async (request: Request) => {
     const url = Deno.env.get('SUPABASE_URL')!;
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const caller = await authorise(request, url, anonKey, serviceKey);
-    if (!caller) return json({ error: 'Not authorized' }, 401);
     const body = await request.json().catch(() => ({}));
     const bookId = body?.book_id ? String(body.book_id) : null;
     const force = body?.force === true;
+    const caller = await authorise(request, url, anonKey, serviceKey, !bookId);
+    if (!caller) return json({ error: 'Not authorized' }, 401);
     if (!bookId && !caller.service) return json({ error: 'book_id required' }, 400);
 
     const admin = createClient(url, serviceKey);
     if (bookId) {
+      const library = await admin.from('library_entries').select('book_id').eq('book_id', bookId).maybeSingle();
+      if (library.error) throw library.error;
+      if (!library.data) return json({ ok: true, accepted: false, status: 'not_in_library', book_id: bookId }, 202);
       const queued = await admin.from('book_enrichment_jobs').upsert({ book_id: bookId }, { onConflict: 'book_id', ignoreDuplicates: true });
       if (queued.error) throw queued.error;
     }
