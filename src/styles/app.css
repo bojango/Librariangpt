@@ -447,6 +447,8 @@ main{color:#171613!important}
 .book-admin-modal form,.book-admin-head,.admin-section,.admin-section-body,.book-admin-actions,.delete-book-v30{width:100%!important}
 .book-admin-modal input,.book-admin-modal select,.book-admin-modal textarea{max-width:100%!important;min-width:0!important}
 .book-admin-modal select{white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.book-admin-feedback{margin:12px 22px 0;color:#862f29;font-size:.88rem;line-height:1.4}
+.book-admin-feedback[hidden]{display:none}
 .admin-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))!important}
 
 /* Generic modal guardrail. A modal should not be wider than the screen. This apparently needed stating explicitly. */

@@ -1,6 +1,7 @@
 import { supabase } from '../data/supabase.js';
 import { toast } from '../ui/feedback.js';
 import { buildLibraryPayload } from './book-admin-payload.js';
+import { diagnostics } from '../diagnostics/diagnostics.js';
 const modalRoot=document.querySelector('#modal-root');
 
 const esc=(v='')=>String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
@@ -109,14 +110,23 @@ function renderModal(bundle){
 
    <details class="admin-section"><summary>Awards & recognition</summary><div class="admin-section-body">${accoladesFields(bundle)}</div></details>
    <section class="delete-book-v30"><div><p class="admin-kicker">Danger zone</p><h3>Delete book</h3><p>Permanently remove this book and its editions, progress, feedback, ratings and recommendation history.</p></div><button class="btn btn-danger" type="button" data-delete-book>Delete book</button><div class="delete-confirm-v30" data-delete-confirm hidden><p><strong>Delete “${esc(book.title)}”?</strong> This cannot be undone.</p><div><button class="btn" type="button" data-delete-cancel>Cancel</button><button class="btn btn-danger" type="button" data-delete-permanent>Delete permanently</button></div></div></section>
-   <div class="book-admin-actions"><button type="button" class="btn" data-admin-close>Cancel</button><button type="submit" class="btn btn-primary" form="book-admin-form">Save changes</button></div>
+   <p class="book-admin-feedback" data-book-admin-feedback role="alert" hidden></p>
+   <div class="book-admin-actions"><button type="button" class="btn" data-admin-close>Cancel</button><button type="button" class="btn btn-primary" data-book-admin-save>Save changes</button></div>
  </div></div>`;
 
  modalRoot.querySelectorAll('[data-admin-close]').forEach(b=>b.addEventListener('click',closeModal));
  modalRoot.querySelector('.book-admin-backdrop')?.addEventListener('click',e=>{if(e.target.classList.contains('book-admin-backdrop'))closeModal();});
  const edSelect=modalRoot.querySelector('#admin-edition-select');
  if(edSelect)edSelect.addEventListener('change',()=>{const e=editions.find(x=>x.id===edSelect.value)||null;modalRoot.querySelector('#admin-edition-fields').innerHTML=editionFields(e);});
- modalRoot.querySelector('#book-admin-form')?.addEventListener('submit',e=>saveForm(e,bundle));
+ const form=modalRoot.querySelector('#book-admin-form');
+ const saveButton=modalRoot.querySelector('[data-book-admin-save]');
+ let invalidShown=false;
+ const onInvalid=e=>{if(invalidShown)return;invalidShown=true;showInvalidField(form,bundle,e.target);};
+ form.addEventListener('invalid',onInvalid,true);
+ form.addEventListener('input',()=>{invalidShown=false;});
+ saveButton.addEventListener('click',()=>{invalidShown=false;attemptSave(form,bundle,saveButton,'button');});
+ form.addEventListener('submit',e=>{e.preventDefault();invalidShown=false;attemptSave(form,bundle,saveButton,'form');});
+ diagnostics.event('book_admin_opened',{book_id:book.id,overall_status_before:book.overall_status,ownership_status_before:book.ownership_status,edition_count:editions.length});
  modalRoot.querySelectorAll('[data-accolade-row]').forEach(form=>form.addEventListener('submit',event=>saveAccoladeRow(event,bundle.book.id)));
  modalRoot.querySelector('[data-accolade-add]')?.addEventListener('submit',event=>addAccolade(event,bundle.book.id));
  modalRoot.querySelectorAll('[data-delete-accolade]').forEach(button=>button.addEventListener('click',()=>deleteAccolade(button.dataset.deleteAccolade,bundle.book.id)));
@@ -132,8 +142,44 @@ async function saveAccoladeRow(event,bookId){event.preventDefault();const form=e
 async function deleteAccolade(id,bookId){if(!confirm('Remove this recognition from the book?'))return;const {error}=await supabase.from('book_accolades').delete().eq('id',id);if(error){toast(error.message||'Could not remove recognition',true);return;}toast('Recognition removed.');await reloadAccolades(bookId);window.dispatchEvent(new CustomEvent('reading-room:refresh'));}
 async function addAccolade(event,bookId){event.preventDefault();const form=event.currentTarget;const fd=new FormData(form);let accoladeId=fd.get('accolade_id');try{if(!accoladeId){const name=String(fd.get('name')||'').trim();if(!name)throw new Error('Choose an existing accolade or enter a catalogue name.');const {data,error}=await supabase.from('accolades').upsert({name,type:fd.get('type'),short_name:fd.get('short_name')||null,official_url:fd.get('official_url')||null,logo_url:fd.get('logo_url')||null,logo_alt:fd.get('logo_alt')||null,logo_source_url:fd.get('logo_source_url')||null,logo_source_name:fd.get('logo_source_name')||null},{onConflict:'name'}).select('id').single();if(error)throw error;accoladeId=data.id;}const {error}=await supabase.from('book_accolades').insert({book_id:bookId,accolade_id:accoladeId,year:nullableNumber(fd.get('year')),result:fd.get('result'),category:fd.get('category')||null,source_url:fd.get('source_url'),source_name:fd.get('source_name')||null,sort_order:nullableNumber(fd.get('sort_order')),verified:fd.get('verified')==='on'});if(error)throw error;toast('Recognition added.');await reloadAccolades(bookId);window.dispatchEvent(new CustomEvent('reading-room:refresh'));}catch(error){toast(error.message||'Could not add recognition',true);}}
 
-async function saveForm(event,bundle){
- event.preventDefault();const form=event.currentTarget;const submit=event.submitter||modalRoot.querySelector('button[form="book-admin-form"][type="submit"]');submit.disabled=true;submit.textContent='Saving…';
+function statusContext(form,bundle){
+ return {book_id:bundle.book.id,overall_status_before:bundle.book.overall_status,overall_status_after:form.elements.namedItem('overall_status')?.value||null,ownership_status_before:bundle.book.ownership_status,ownership_status_after:form.elements.namedItem('ownership_status')?.value||null};
+}
+
+function feedback(message){
+ const node=modalRoot.querySelector('[data-book-admin-feedback]');
+ if(node){node.textContent=message;node.hidden=!message;}
+}
+
+function showInvalidField(form,bundle,field){
+ const section=field.closest('.admin-section');
+ if(section) section.open=true;
+ const name=field.name||field.id||'unknown';
+ const label=field.closest('label')?.firstChild?.textContent?.trim()||'This field';
+ feedback(`${label}: ${field.validationMessage||'Please check this value.'}`);
+ diagnostics.event('book_admin_validation_failed',{...statusContext(form,bundle),form_valid:false,invalid_control_name:name});
+ field.scrollIntoView?.({block:'center',behavior:'smooth'});
+ field.focus?.({preventScroll:true});
+}
+
+function attemptSave(form,bundle,button,source){
+ if(button.disabled)return;
+ if(!form){feedback('Book settings could not be found. Please reopen and try again.');toast('Book settings could not be found. Please reopen and try again.',true);return;}
+ const context=statusContext(form,bundle);
+ const controlsValid=[...form.elements].every(field=>!field.willValidate||field.validity.valid);
+ diagnostics.event('book_admin_save_tapped',{...context,source,form_valid:controlsValid});
+ if(!form.checkValidity()){
+  form.reportValidity();
+  return;
+ }
+ feedback('');
+ void saveForm(form,bundle,button,context);
+}
+
+async function saveForm(form,bundle,button,context){
+ button.disabled=true;button.textContent='Saving…';
+ const started=performance.now();
+ diagnostics.event('book_admin_save_started',{...context,form_valid:true});
  try{
   const fd=new FormData(form);
   const selectedEditionId=modalRoot.querySelector('#admin-edition-select')?.value||fd.get('display_edition_id')||null;
@@ -141,10 +187,12 @@ async function saveForm(event,bundle){
   const library=buildLibraryPayload(fd,bundle.book);
   const book={title:fd.get('book_title'),subtitle:fd.get('book_subtitle'),authors:splitList(fd.get('book_authors')),fiction_nonfiction:fd.get('book_fiction_nonfiction'),primary_genre:fd.get('book_primary_genre'),original_publication_year:fd.get('book_original_publication_year'),language:fd.get('book_language'),series_name:fd.get('book_series_name'),series_order:fd.get('book_series_order'),themes_tags:splitList(fd.get('book_themes_tags')),synopsis:fd.get('book_synopsis'),notes:fd.get('book_notes')};
   const edition=selectedEditionId?{isbn13:fd.get('edition_isbn13'),isbn10:fd.get('edition_isbn10'),publisher:fd.get('edition_publisher'),imprint:fd.get('edition_imprint'),publication_year:fd.get('edition_publication_year'),publication_date:fd.get('edition_publication_date'),format:fd.get('edition_format'),binding:fd.get('edition_binding'),page_count:fd.get('edition_page_count'),country:fd.get('edition_country'),language:fd.get('edition_language'),condition:fd.get('edition_condition'),edition_statement:fd.get('edition_statement'),printing_impression:fd.get('edition_printing_impression'),number_line:fd.get('edition_number_line'),signed:signedRaw===''?null:signedRaw==='true',acquisition_date:fd.get('edition_acquisition_date'),acquisition_source:fd.get('edition_acquisition_source'),acquisition_price:fd.get('edition_acquisition_price'),currency:fd.get('edition_currency'),inscription:fd.get('edition_inscription'),notes:fd.get('edition_notes')} : {};
+  diagnostics.event('book_admin_rpc_started',{...context});
   const {data,error}=await supabase.rpc('admin_edit_book',{p_book_id:bundle.book.id,p_library:library,p_book:book,p_edition_id:selectedEditionId||null,p_edition:edition});
   if(error)throw error;
+  diagnostics.event('book_admin_rpc_succeeded',{...context,overall_status_after:data?.book?.overall_status||context.overall_status_after,ownership_status_after:data?.book?.ownership_status||context.ownership_status_after,duration_ms:Math.round(performance.now()-started)});
   closeModal();toast('Book details saved.');window.dispatchEvent(new CustomEvent('reading-room:refresh'));
- }catch(err){toast(err.message||'Could not save book details',true);submit.disabled=false;submit.textContent='Save changes';}
+ }catch(err){diagnostics.event('book_admin_rpc_failed',{...context,duration_ms:Math.round(performance.now()-started),error_name:err?.name||'Error'});const message=err.message||'Could not save book details';feedback(message);toast(message,true);button.disabled=false;button.textContent='Save changes';}
 }
 
 export async function openBookAdmin(id){try{const bundle=await fetchBundle(id);renderModal(bundle);}catch(err){toast(err.message||'Could not load book settings',true);}}
