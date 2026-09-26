@@ -14,14 +14,12 @@ export function installMotionController({ getRoute, goBack, win = window, doc = 
   let gesture = null;
 
   const nav = () => doc.querySelector('.bottom-nav');
-  const topbar = () => doc.querySelector('.topbar');
+  const layout = () => doc.querySelector('.layout');
   const maxScrollY = () => Math.max(0, (doc.documentElement?.['scroll' + 'Height'] || 0) - win.innerHeight);
   const legalY = value => Math.min(maxScrollY(), Math.max(0, value));
-  const resetBaseline = () => { lastY = legalY(win.scrollY); direction = 0; distance = 0; };
-  const setCompact = compact => {
-    nav()?.classList.toggle('compact', compact);
-    topbar()?.classList.toggle('compact', compact);
-  };
+  const setScrolled = y => layout()?.classList.toggle('is-scrolled', y > 8);
+  const resetBaseline = () => { lastY = legalY(win.scrollY); direction = 0; distance = 0; setScrolled(lastY); };
+  const setCompact = compact => { nav()?.classList.toggle('compact', compact); };
   const expand = () => setCompact(false);
   const setNavRoute = (route = getRoute()?.name, { animate = true } = {}) => {
     const element = nav();
@@ -51,6 +49,7 @@ export function installMotionController({ getRoute, goBack, win = window, doc = 
       return;
     }
     const y = rawY;
+    setScrolled(y);
     const delta = y - lastY;
     lastY = y;
     if (Math.abs(delta) < 2) return;
