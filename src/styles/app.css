@@ -1773,3 +1773,20 @@ html[data-theme="terminal"] .current-reading-card-v36 .hero-copy h1.current-titl
 html[data-theme]:root:root:root :is(.page-heading h1,.hero-copy h1,.detail-copy h1,.detail-copy-v4 h1,.section-header h2,.book-synopsis h2,.recommendation-panel h2,.progress-section>h2,.reading-stats>h2,.visible-metadata>h2,.modal h2,.profile-page-title h1,.profile-section-heading h2) {
   font-size: calc(var(--heading-canonical-size) + var(--user-heading-adjust)) !important;
 }
+
+/* Reading Room home refinements v88 */
+html[data-theme="reading-room"] .current-reading-carousel-v36 {
+  margin-top: 5px !important;
+}
+html[data-theme="reading-room"] .current-reading-card-v36 .current-reading-bottom {
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+}
+html[data-theme="reading-room"] .current-reading-card-v36 .current-reading-bottom > .progress-block {
+  width: 100% !important;
+  max-width: none !important;
+}
+html[data-theme="reading-room"] .current-reading-card-v36 .progress-fill {
+  background: #28292a !important;
+}
