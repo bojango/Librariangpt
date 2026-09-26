@@ -2130,3 +2130,117 @@ html[data-theme="reading-room"] .topbar.compact::after {
     background: rgba(125,125,125,.72) !important;
   }
 }
+
+
+/* Liquid Glass optical corrections v92 */
+
+/* Give buttons the same soft material falloff as the cards. The highlight
+   spreads into the surface instead of tracing a sharp plastic-looking rim. */
+html[data-theme="reading-room"] body :is(
+  .btn:not(.btn-primary),
+  .filter,
+  .theme-option,
+  .auth-tabs button,
+  .queue-manager-actions button,
+  .add-mode-switch button,
+  .profile-tabs button,
+  .profile-edit
+) {
+  border-color: rgba(23,22,19,.085) !important;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.30) 0%,
+      rgba(255,255,255,.13) 26%,
+      rgba(255,255,255,.04) 58%,
+      rgba(23,22,19,.018) 100%
+    ),
+    rgba(247,244,236,.58) !important;
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,.30),
+    inset 0 -2px 5px rgba(23,22,19,.025),
+    0 2px 8px rgba(23,22,19,.03) !important;
+}
+
+html[data-theme="reading-room"] body :is(
+  .layout .btn.btn-primary,
+  .modal .btn.btn-primary,
+  .book-admin-modal .btn.btn-primary
+) {
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.07) 0%,
+      rgba(255,255,255,.025) 34%,
+      rgba(0,0,0,.025) 100%
+    ),
+    #28292a !important;
+  border-color: rgba(255,255,255,.055) !important;
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,.12),
+    inset 0 -2px 5px rgba(0,0,0,.08),
+    0 2px 8px rgba(23,22,19,.055) !important;
+}
+
+/* Match the dock's depth to the softer card/button treatment. Keep the glass
+   transparent; only the edge lighting is reduced. */
+@media (max-width:899px) {
+  html[data-theme="reading-room"] .bottom-nav,
+  html[data-theme="reading-room"] .bottom-nav.compact {
+    border-color: rgba(255,255,255,.085) !important;
+    background:
+      linear-gradient(
+        145deg,
+        rgba(255,255,255,.075) 0%,
+        rgba(255,255,255,.025) 30%,
+        transparent 58%,
+        rgba(0,0,0,.035) 100%
+      ),
+      rgba(18,19,20,.64) !important;
+    box-shadow:
+      inset 0 1px 2px rgba(255,255,255,.11),
+      inset 0 -3px 8px rgba(0,0,0,.10),
+      0 4px 14px rgba(0,0,0,.10) !important;
+  }
+  html[data-theme="reading-room"] .bottom-nav.compact {
+    background:
+      linear-gradient(
+        145deg,
+        rgba(255,255,255,.065) 0%,
+        rgba(255,255,255,.02) 34%,
+        transparent 62%,
+        rgba(0,0,0,.03) 100%
+      ),
+      rgba(18,19,20,.60) !important;
+    box-shadow:
+      inset 0 1px 2px rgba(255,255,255,.10),
+      inset 0 -2px 6px rgba(0,0,0,.09),
+      0 3px 12px rgba(0,0,0,.09) !important;
+  }
+  html[data-theme="reading-room"] .bottom-nav::before {
+    background: linear-gradient(
+      112deg,
+      rgba(255,255,255,.07),
+      transparent 30%,
+      rgba(255,255,255,.018) 58%,
+      transparent 78%
+    ) !important;
+  }
+}
+
+/* iOS standalone/Safari safe area. Paint the status-bar area explicitly with
+   the same charcoal material as the header so no cream layer can bleed above
+   the topbar. */
+html[data-theme="reading-room"] body::before {
+  content: "";
+  position: fixed;
+  z-index: 90;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: max(env(safe-area-inset-top), 1px);
+  pointer-events: none;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.055), transparent 38%),
+    #28292a;
+}
