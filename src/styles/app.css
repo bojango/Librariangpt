@@ -1873,3 +1873,101 @@ html[data-theme="reading-room"] .topbar::after{content:"";position:absolute;z-in
  html[data-theme="reading-room"] .topbar{background:rgba(30,31,32,.95)!important}
  @media(max-width:899px){html[data-theme="reading-room"] .bottom-nav,html[data-theme="reading-room"] .bottom-nav.compact{background:rgba(30,31,32,.94)!important}}
 }
+
+
+/* Liquid Glass optical corrections v90 */
+html[data-theme="reading-room"] .btn-primary,
+html[data-theme="reading-room"] .btn-primary:disabled {
+  background: #28292a !important;
+  border-color: #28292a !important;
+  color: #fff !important;
+}
+html[data-theme="reading-room"] .btn-primary:disabled {
+  opacity: 1 !important;
+  cursor: default;
+}
+
+/* Up Next and recommendation cards need a little more breathing room without
+   changing their information hierarchy. */
+html[data-theme="reading-room"] .upnext-card,
+html[data-theme="reading-room"] .recommended-card {
+  flex-basis: min(86vw,326px) !important;
+  min-height: 150px !important;
+  padding: 14px !important;
+}
+@media (min-width:700px) {
+  html[data-theme="reading-room"] .upnext-card,
+  html[data-theme="reading-room"] .recommended-card {
+    flex-basis: 338px !important;
+  }
+}
+
+/* Header now belongs to the document flow. After it scrolls away, only a
+   colourless gradient blur remains at the top edge of the viewport. */
+html[data-theme="reading-room"] .topbar,
+html[data-theme="reading-room"] .topbar.compact {
+  position: relative !important;
+  top: auto !important;
+  min-height: calc(70px + var(--safe-top)) !important;
+  padding: calc(14px + var(--safe-top)) clamp(18px,4vw,52px) 14px !important;
+}
+html[data-theme="reading-room"] .topbar.compact::after {
+  bottom: -1px !important;
+  height: 1px !important;
+  background: rgba(255,255,255,.05) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+}
+html[data-theme="reading-room"] .layout::before {
+  content: "";
+  position: fixed;
+  z-index: 39;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(38px + var(--safe-top));
+  pointer-events: none;
+  opacity: 0;
+  background: rgba(255,255,255,.001);
+  -webkit-backdrop-filter: blur(14px) saturate(145%);
+  backdrop-filter: blur(14px) saturate(145%);
+  -webkit-mask-image: linear-gradient(to bottom,#000 0%,rgba(0,0,0,.82) 42%,transparent 100%);
+  mask-image: linear-gradient(to bottom,#000 0%,rgba(0,0,0,.82) 42%,transparent 100%);
+  transition: opacity 180ms ease;
+}
+html[data-theme="reading-room"] .layout.is-scrolled::before {
+  opacity: 1;
+}
+
+/* Centre every nav glyph geometrically. The selected-page lens is deliberately
+   flat, matching the Instagram reference instead of the embossed first pass. */
+@media (max-width:899px) {
+  html[data-theme="reading-room"] .bottom-nav .nav-btn,
+  html[data-theme="reading-room"] .bottom-nav.compact .nav-btn {
+    display: grid !important;
+    place-items: center !important;
+    align-content: center !important;
+  }
+  html[data-theme="reading-room"] .bottom-nav .nav-icon,
+  html[data-theme="reading-room"] .bottom-nav.compact .nav-icon {
+    position: absolute !important;
+    left: 50%;
+    top: 50%;
+    margin: 0 !important;
+    line-height: 0 !important;
+    transform: translate(-50%,-50%);
+  }
+  html[data-theme="reading-room"] .bottom-nav .nav-icon svg,
+  html[data-theme="reading-room"] .bottom-nav.compact .nav-icon svg {
+    display: block;
+    margin: 0;
+  }
+  html[data-theme="reading-room"] .bottom-nav .nav-btn.active::before,
+  html[data-theme="reading-room"] .bottom-nav.compact .nav-btn.active::before {
+    border: 0 !important;
+    background: rgba(122,122,122,.72) !important;
+    box-shadow: none !important;
+  }
+}
