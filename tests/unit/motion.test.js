@@ -17,16 +17,14 @@ function createHarness({ reduced = false, standalone = false } = {}) {
   let nextFrame = 1;
   const frames = new Map();
   const navClasses = classList();
-  const layoutClasses = classList();
   const mainClasses = classList();
   const navStyle = new Map();
   const nav = { classList: navClasses, style: { setProperty: (name, value) => navStyle.set(name, value) } };
-  const layout = { classList: layoutClasses };
   const main = target({ classList: mainClasses, style: { setProperty() {}, removeProperty() {} }, getBoundingClientRect: () => ({ width: 390 }) });
   const win = target({ scrollY: 0, innerHeight: 800, navigator: { standalone }, matchMedia: query => ({ matches: query.includes('reduced-motion') ? reduced : standalone }), requestAnimationFrame(callback) { const id = nextFrame++; frames.set(id, callback); return id; }, cancelAnimationFrame(id) { frames.delete(id); } });
-  const doc = target({ documentElement: { scrollHeight: 2000 }, querySelector: selector => ({ '.bottom-nav': nav, '.layout': layout, main, '#app main': main }[selector] || null) });
+  const doc = target({ documentElement: { scrollHeight: 2000 }, querySelector: selector => ({ '.bottom-nav': nav, main, '#app main': main }[selector] || null) });
   const runFrames = () => { for (const [id, callback] of [...frames]) { frames.delete(id); callback(); } };
-  return { win, doc, navClasses, layoutClasses, main, mainClasses, navStyle, runFrames };
+  return { win, doc, navClasses, main, mainClasses, navStyle, runFrames };
 }
 
 function touchEvent(type, touches) {
@@ -48,12 +46,10 @@ test('programmatic scroll is ignored while restoration is suspended, while delib
   harness.win.dispatchEvent(new Event('scroll'));
   harness.runFrames();
   assert.equal(harness.navClasses.contains('compact'), true);
-  assert.equal(harness.layoutClasses.contains('is-scrolled'), true);
   harness.win.scrollY = 642;
   harness.win.dispatchEvent(new Event('scroll'));
   harness.runFrames();
   assert.equal(harness.navClasses.contains('compact'), false);
-  assert.equal(harness.layoutClasses.contains('is-scrolled'), true);
   controller.destroy();
 });
 
