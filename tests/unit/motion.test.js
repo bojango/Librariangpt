@@ -66,6 +66,7 @@ test('tab navigation can explicitly expand the nav and reset its scroll baseline
   harness.win.scrollY = 421;
   controller.suspend({ expand: true });
   assert.equal(harness.navClasses.contains('compact'), false);
+  assert.equal(harness.topbarClasses.contains('compact'), false);
   controller.resume();
   harness.win.scrollY = 440;
   harness.win.dispatchEvent(new Event('scroll'));
