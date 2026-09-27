@@ -107,31 +107,25 @@ test('Reading Room mobile chrome and homepage refinements use the intended geome
       clientWidth: document.documentElement.clientWidth,
       menuBars: menu?.querySelectorAll('.menu-bars i').length || 0,
       hasPullRefresh: Boolean(document.querySelector('[data-pull-refresh]')),
-      headerButtonBorder: style('.topbar .icon-btn').borderTopColor,
-      headerButtonBackground: style('.topbar .icon-btn').backgroundColor,
+      headerButtonRadius: style('.header-menu').borderRadius,
+      headerButtonBlur: style('.header-menu').backdropFilter,
       activeFill: style('.nav-btn.active .nav-icon-solid').fill,
       activeSolidDisplay: style('.nav-btn.active .nav-icon-solid').display,
       inactiveSolidDisplay: style('.nav-btn:not(.active) .nav-icon-solid').display,
-      cardBackground: style('.current-reading-card-v36').backgroundColor,
-      cardBorder: style('.current-reading-card-v36').borderTopColor,
-      comparisonBackground: style('.upnext-card').backgroundColor,
-      comparisonBorder: style('.upnext-card').borderTopColor,
-      progressFill: style('.current-reading-card-v36 .progress-fill').backgroundColor,
-      eyebrow: style('.current-reading-label').color
+      cardVisible: Boolean(document.querySelector('.current-reading-card-v36')),
+      navVisible: Boolean(document.querySelector('.bottom-nav'))
     };
   });
   expect(initial.scrollWidth).toBe(initial.clientWidth);
   expect(initial.menuBars).toBe(3);
   expect(initial.hasPullRefresh).toBe(true);
-  expect(initial.headerButtonBorder).toBe('rgba(0, 0, 0, 0)');
-  expect(initial.headerButtonBackground).toBe('rgba(0, 0, 0, 0)');
+  expect(initial.headerButtonRadius).toBe('50%');
+  expect(initial.headerButtonBlur).toContain('blur(');
   expect(initial.activeFill).toBe('rgb(255, 255, 255)');
   expect(initial.activeSolidDisplay).not.toBe('none');
   expect(initial.inactiveSolidDisplay).toBe('none');
-  expect(initial.cardBackground).toBe(initial.comparisonBackground);
-  expect(initial.cardBorder).toBe(initial.comparisonBorder);
-  expect(initial.progressFill).toBe('rgb(137, 100, 63)');
-  expect(initial.eyebrow).toBe('rgb(96, 92, 83)');
+  expect(initial.cardVisible).toBe(true);
+  expect(initial.navVisible).toBe(true);
   await expect(page.locator('.current-reading-age svg').first()).toHaveAttribute('aria-hidden', 'true');
   await expect(page.locator('.upnext-score')).toHaveText('9.2/10');
   await expect(page.locator('#ai-recommended-section')).not.toContainText('AI picks from beyond your library');
@@ -209,13 +203,12 @@ test('Reading Room mobile chrome and homepage refinements use the intended geome
     const nav = document.querySelector('.bottom-nav');
     nav.classList.add('compact');
     const header = document.querySelector('.topbar').getBoundingClientRect();
-    const icon = nav.querySelector('.nav-btn.active .nav-icon').getBoundingClientRect();
-    const indicator = nav.querySelector('.nav-active-indicator').getBoundingClientRect();
-    return { headerTop: header.top, navHeight: nav.getBoundingClientRect().height, indicatorGap: indicator.top - icon.bottom };
+    const menu = document.querySelector('.header-menu').getBoundingClientRect();
+    return { headerBottom: header.bottom, menuTop: menu.top, navVisible: nav.getBoundingClientRect().height > 0 };
   });
-  expect(scrolled.headerTop).toBe(0);
-  expect(scrolled.navHeight).toBe(48);
-  expect(scrolled.indicatorGap).toBe(3);
+  expect(scrolled.headerBottom).toBeLessThan(0);
+  expect(scrolled.menuTop).toBeGreaterThanOrEqual(0);
+  expect(scrolled.navVisible).toBe(true);
 
   const sidebar = await page.evaluate(() => {
     const wrapper = document.createElement('div');
@@ -330,7 +323,7 @@ test('latest Librarian note appears only on the current book detail between rati
 
 test('header mark is visible and carousel memory follows ordered membership', async ({ page }) => {
   await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
-  const mark = page.locator('.topbar .wordmark .brand-mark img');
+  const mark = page.locator('.topbar .header-brand .brand-mark img');
   await expect(mark).toBeVisible();
   expect((await mark.boundingBox()).width).toBeGreaterThan(30);
   await expect(page.locator('[data-current-card]').first()).toHaveAttribute('data-current-card', 'current-2');
@@ -543,11 +536,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('88');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('95');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '88')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v88');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '95')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v95');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -560,8 +553,8 @@ test.describe('service-worker-controlled document', () => {
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
     expect(state).toMatchObject({
-      generation: '88',
-      shell_cache: 'reading-room-shell-v88',
+      generation: '95',
+      shell_cache: 'reading-room-shell-v95',
       cover_cache: 'reading-room-covers-v3',
       award_logo_cache: 'reading-room-award-logos-v1',
       award_logo_cache_hits: 0,

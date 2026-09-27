@@ -1,4 +1,37 @@
 import { uiCopyHtml } from './copy.js';
+import { escapeHtml } from '../utils/text.js';
+
+const PAGE_TITLES = Object.freeze({
+  home: 'Home', library: 'Library', wishlist: 'Wishlist', profile: 'Profile',
+  recommendations: 'Recommended', stats: 'Stats'
+});
+
+export function headerTitle(route, title) {
+  if (route === 'book') return title || 'Book';
+  return title || PAGE_TITLES[route] || String(route || 'Home').replace(/[-_]/g, ' ').replace(/^./, letter => letter.toUpperCase());
+}
+
+export function greetingForHour(hour) {
+  if (hour >= 5 && hour < 12) return 'Good morning';
+  if (hour >= 12 && hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
+export function refreshHeaderGreeting(doc = document, date = new Date()) {
+  const greeting = greetingForHour(date.getHours());
+  doc.querySelectorAll('.header-greeting').forEach(node => { node.textContent = greeting; });
+}
+
+export function installHeaderGreetingClock(doc = document, win = window) {
+  let timer;
+  const tick = () => {
+    refreshHeaderGreeting(doc);
+    timer = win.setTimeout(tick, 60000 - new Date().getSeconds() * 1000);
+  };
+  tick();
+  doc.addEventListener('visibilitychange', () => { if (!doc.hidden) refreshHeaderGreeting(doc); });
+  return () => win.clearTimeout(timer);
+}
 
 export function navigation(active) {
   const icons = {
@@ -11,6 +44,8 @@ export function navigation(active) {
   return `<nav class="bottom-nav" aria-label="Main navigation">${items.map(([key, label]) => `<button class="nav-btn ${active === key ? 'active' : ''}" data-route="${key}"${active === key ? ' aria-current="page"' : ''}><span class="nav-icon">${icons[key]}</span><span class="nav-label">${label}</span></button>`).join('')}<i class="nav-active-indicator" aria-hidden="true"></i></nav>`;
 }
 
-export function chrome(content, active) {
-  return `<div class="layout"><header class="topbar"><button class="wordmark" data-route="home" aria-label="Go to Reading Room home"><div class="brand-mark"><img src="./assets/reading-room-logo.png?v=87" alt=""></div><span class="reading-room-wordmark">Reading Room</span></button><div class="top-actions"><button class="icon-btn" data-menu aria-label="Open menu"><span class="menu-bars"><i></i><i></i><i></i></span></button></div></header><div class="pull-refresh-indicator" data-pull-refresh role="status" aria-live="polite"><span class="pull-refresh-icon" aria-hidden="true"><span class="pull-refresh-arrow">↓</span><span class="pull-refresh-spinner"></span></span><span class="pull-refresh-label">Pull to refresh</span></div><main>${content}</main>${navigation(active)}</div>`;
+export function chrome(content, active, { route = active, title } = {}) {
+  const pageTitle = escapeHtml(headerTitle(route, title));
+  const greeting = greetingForHour(new Date().getHours());
+  return `<div class="layout"><div class="top-actions"><button class="icon-btn header-menu" data-menu aria-label="Open menu"><span class="menu-bars"><i></i><i></i><i></i></span></button></div><header class="topbar"><div class="header-meta"><div class="header-title" title="${pageTitle}">${pageTitle}</div><div class="header-greeting">${greeting}</div></div><button class="header-brand" data-route="home" aria-label="Go to Reading Room home"><span class="brand-mark"><img src="./assets/reading-room-logo.png?v=95" alt=""></span></button></header><div class="pull-refresh-indicator" data-pull-refresh role="status" aria-live="polite"><span class="pull-refresh-icon" aria-hidden="true"><span class="pull-refresh-arrow">↓</span><span class="pull-refresh-spinner"></span></span><span class="pull-refresh-label">Pull to refresh</span></div><main>${content}</main>${navigation(active)}</div>`;
 }

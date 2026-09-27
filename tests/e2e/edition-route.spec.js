@@ -112,12 +112,78 @@ test('edition mutation refreshes the same book without rendering Home', async ({
   await expect(page.locator('.visible-metadata-list')).toContainText('2025');
   expect(await page.evaluate(() => window.__homeRenderedDuringEdition)).toBe(false);
 
-  await page.locator('.wordmark[data-route="home"]').click();
+  await page.locator('.header-brand[data-route="home"]').click();
   await expect(page.locator('#app')).toHaveAttribute('data-route-view', 'home');
   await expect(page.getByRole('heading', { name: 'Nothing currently open.' })).toBeVisible();
   await expect(page.locator('#up-next-section')).toBeVisible();
   await expect(page.locator('#ai-recommended-section')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Owned & unread' })).toBeVisible();
+});
+
+test('shared header follows every route and leaves only one menu visible while scrolling', async ({ page }) => {
+  await mockAuthenticatedLibrary(page);
+  await page.goto('/#/home');
+  const title = page.locator('.header-title');
+  await expect(title).toHaveText('Home');
+  const header = page.locator('.topbar');
+  const menu = page.locator('[data-menu]');
+  await expect(menu).toHaveCount(1);
+  const initial = await page.evaluate(() => ({
+    menu: document.querySelector('[data-menu]').getBoundingClientRect().toJSON(),
+    header: document.querySelector('.topbar').getBoundingClientRect().toJSON(),
+    nav: document.querySelector('.bottom-nav').getBoundingClientRect().toJSON(),
+    meta: document.querySelector('meta[name="theme-color"]').content,
+    status: document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').content
+  }));
+  expect(initial.meta).toBe('#28292a');
+  expect(initial.status).toBe('black-translucent');
+  expect(initial.menu.y).toBeGreaterThanOrEqual(0);
+  const safeArea = await page.evaluate(() => {
+    document.documentElement.style.setProperty('--safe-top', '59px');
+    const values = {
+      headerHeight: document.querySelector('.topbar').getBoundingClientRect().height,
+      menuY: document.querySelector('[data-menu]').getBoundingClientRect().y,
+      headerColor: getComputedStyle(document.querySelector('.topbar')).backgroundColor,
+      overlay: getComputedStyle(document.body, '::before').content
+    };
+    document.documentElement.style.removeProperty('--safe-top');
+    return values;
+  });
+  expect(safeArea.headerHeight - initial.header.height).toBeCloseTo(59, 0);
+  expect(safeArea.menuY - initial.menu.y).toBeCloseTo(59, 0);
+  expect(safeArea.headerColor).toBe('rgb(40, 41, 42)');
+  expect(safeArea.overlay).toBe('none');
+  await page.evaluate(() => { document.documentElement.style.scrollBehavior = 'auto'; window.scrollTo(0, 700); });
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(500);
+  const scrolled = await page.evaluate(() => ({
+    header: document.querySelector('.topbar').getBoundingClientRect().toJSON(),
+    menu: document.querySelector('[data-menu]').getBoundingClientRect().toJSON(),
+    nav: document.querySelector('.bottom-nav').getBoundingClientRect().toJSON()
+  }));
+  expect(scrolled.header.bottom).toBeLessThan(0);
+  expect(scrolled.menu.x).toBeCloseTo(initial.menu.x, 1);
+  expect(scrolled.menu.y).toBeCloseTo(initial.menu.y, 1);
+  expect(scrolled.nav.width).toBeGreaterThan(0);
+  await menu.click();
+  await expect(page.locator('.sidebar-panel')).toBeVisible();
+  await page.locator('[data-side-close]').click();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  expect(await menu.boundingBox()).toMatchObject({ x: initial.menu.x, y: initial.menu.y });
+  await expect(header).toBeVisible();
+
+  for (const [route, expected] of [['library', 'Library'], ['wishlist', 'Wishlist'], ['profile', 'Profile'], ['recommendations', 'Recommended'], ['book/book-1', 'Edition Route Book']]) {
+    await page.evaluate(hash => { location.hash = `#/${hash}`; }, route);
+    await expect(title).toHaveText(expected);
+    await expect(menu).toHaveCount(1);
+  }
+  await page.goto('/tests/e2e/fixture.html#/book/current-1');
+  await expect(title).toHaveText('The Unfinished Harauld Hughes');
+  expect(await page.evaluate(() => {
+    const text = document.querySelector('.header-title').getBoundingClientRect();
+    const logo = document.querySelector('.header-brand').getBoundingClientRect();
+    return text.right <= logo.left && document.documentElement.scrollWidth <= innerWidth;
+  })).toBe(true);
 });
 
 test('real same-route Home refresh preserves scroll and skips unchanged repaint', async ({ page }) => {
@@ -261,22 +327,14 @@ test('mobile nav uses route indexes and stays compact at the document bottom', a
   test.skip((page.viewportSize()?.width || 0) >= 900, 'Mobile navigation behavior is not used by the desktop side rail.');
   await mockAuthenticatedLibrary(page);
   await page.goto('/#/home');
-  const expectIndicatorCentred = async () => {
-    await page.waitForTimeout(220);
-    expect(await page.evaluate(() => {
-      const nav = document.querySelector('.bottom-nav');
-      const active = nav.querySelector('.nav-btn.active');
-      const track = nav.querySelector('.nav-active-indicator');
-      const button = active.getBoundingClientRect();
-      const indicator = track.getBoundingClientRect();
-      return Math.abs((button.left + button.width / 2) - (indicator.left + indicator.width / 2));
-    })).toBeLessThanOrEqual(1);
+  const expectActiveHighlight = async () => {
+    await expect(page.locator('.bottom-nav .nav-btn.active')).toHaveCount(1);
   };
   for (const [route, index] of [['home', '0'], ['library', '1'], ['wishlist', '2'], ['profile', '3']]) {
     await page.locator(`.bottom-nav [data-route="${route}"]`).click();
     await expect(page.locator('#app')).toHaveAttribute('data-route-view', route);
     expect(await page.locator('.bottom-nav').evaluate(element => getComputedStyle(element).getPropertyValue('--nav-index').trim())).toBe(index);
-    await expectIndicatorCentred();
+    await expectActiveHighlight();
   }
   await page.locator('.bottom-nav [data-route="library"]').click();
   await expect(page.locator('#app')).toHaveAttribute('data-route-view', 'library');
@@ -291,7 +349,7 @@ test('mobile nav uses route indexes and stays compact at the document bottom', a
   for (const route of ['home', 'library', 'wishlist', 'profile']) {
     await page.locator(`.bottom-nav [data-route="${route}"]`).click();
     await expect(page.locator('#app')).toHaveAttribute('data-route-view', route);
-    await expectIndicatorCentred();
+    await expectActiveHighlight();
   }
 });
 

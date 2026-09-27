@@ -2228,81 +2228,8 @@ html[data-theme="reading-room"] body :is(
   }
 }
 
-/* iOS standalone/Safari safe area. Paint the status-bar area explicitly with
-   the same charcoal material as the header so no cream layer can bleed above
-   the topbar. */
-html[data-theme="reading-room"] body::before {
-  content: "";
-  position: fixed;
-  z-index: 90;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: max(env(safe-area-inset-top), 1px);
-  pointer-events: none;
-  background:
-    linear-gradient(145deg, rgba(255,255,255,.055), transparent 38%),
-    #28292a;
-}
-
-
-/* Header charcoal correction v93
-   Keep this intentionally boring: one uninterrupted charcoal plane. Safari
-   was compositing the previous blur/gradient layers into a beige halo and a
-   dark seam. */
-html[data-theme="reading-room"] .topbar,
-html[data-theme="reading-room"] .topbar.compact {
-  background: #28292a !important;
-  background-image: none !important;
-  border: 0 !important;
-  border-bottom: 0 !important;
-  box-shadow: none !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
-html[data-theme="reading-room"] .topbar::before,
-html[data-theme="reading-room"] .topbar::after,
-html[data-theme="reading-room"] .topbar.compact::before,
-html[data-theme="reading-room"] .topbar.compact::after {
-  content: none !important;
-  display: none !important;
-  background: none !important;
-  box-shadow: none !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
-
-/* Safari's browser/status chrome can expose page pixels above the document
-   header. Paint that whole strip charcoal too rather than relying on a
-   translucent theme-colour handoff. */
-html[data-theme="reading-room"] body::before {
-  content: "";
-  display: block !important;
-  position: fixed;
-  z-index: 90;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: max(env(safe-area-inset-top), 54px);
-  pointer-events: none;
-  background: #28292a !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
-
-
-/* Header recovery v94
-   Remove the fixed safe-area overlay. It was covering the menu/logo and
-   persisting after the real header had scrolled away. */
-html[data-theme="reading-room"] body::before {
-  content: none !important;
-  display: none !important;
-}
-
-/* The actual header is the only charcoal bar. It stays in document flow,
-   remains fully solid, and scrolls away with the page. */
+/* The header owns the iOS safe area in normal flow. Its charcoal surface
+   scrolls away with the page without an overlay or blur layer. */
 html[data-theme="reading-room"] .topbar,
 html[data-theme="reading-room"] .topbar.compact {
   position: relative !important;
@@ -2325,3 +2252,84 @@ html[data-theme="reading-room"] .topbar.compact::after {
   content: none !important;
   display: none !important;
 }
+
+/* The menu is a single viewport anchored control; the header remains in flow. */
+html[data-theme="reading-room"] .layout > .top-actions {
+  position: fixed;
+  z-index: 70;
+  top: calc(var(--safe-top) + 9px);
+  left: max(16px, env(safe-area-inset-left, 0px));
+}
+html[data-theme="reading-room"] .layout > .top-actions .header-menu {
+  width: 35px !important;
+  height: 35px !important;
+  padding: 0 !important;
+  border: 1px solid rgba(255,255,255,.14) !important;
+  border-radius: 50% !important;
+  color: #fff !important;
+  background: linear-gradient(145deg,rgba(255,255,255,.13),rgba(255,255,255,.05) 52%,rgba(0,0,0,.02)),var(--rr-glass-dark-strong) !important;
+  box-shadow: inset 1px 1px rgba(255,255,255,.11), inset -1px -1px rgba(0,0,0,.16), 0 1px 4px rgba(0,0,0,.07) !important;
+  -webkit-backdrop-filter: blur(var(--rr-glass-blur)) saturate(var(--rr-glass-saturation)) !important;
+  backdrop-filter: blur(var(--rr-glass-blur)) saturate(var(--rr-glass-saturation)) !important;
+}
+html[data-theme="reading-room"] .header-menu .menu-bars { width: 14px; gap: 3px; }
+html[data-theme="reading-room"] .header-menu .menu-bars i { width: 14px; height: 1.5px; }
+html[data-theme="reading-room"] .header-menu:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+html[data-theme="reading-room"] .topbar,
+html[data-theme="reading-room"] .topbar.compact {
+  display: grid !important;
+  grid-template-columns: minmax(0,1fr) 35px !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-height: calc(55px + var(--safe-top)) !important;
+  padding: calc(8px + var(--safe-top)) max(18px, env(safe-area-inset-right, 0px)) 4px max(61px, calc(env(safe-area-inset-left, 0px) + 45px)) !important;
+  background: #28292a !important;
+  transition: none !important;
+}
+html[data-theme="reading-room"] .header-meta { min-width: 0; color: #f7f4ec; }
+html[data-theme="reading-room"] .header-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: 400 25px/1.05 Georgia, 'Times New Roman', serif;
+  letter-spacing: -.025em;
+}
+html[data-theme="reading-room"] .header-greeting {
+  margin-top: 3px;
+  color: rgba(247,244,236,.69);
+  font: 400 12px/1.2 Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+html[data-theme="reading-room"] .header-brand {
+  width: 35px;
+  height: 35px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+html[data-theme="reading-room"] .header-brand .brand-mark {
+  width: 35px;
+  height: 35px;
+  border: 0;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+html[data-theme="reading-room"] .header-brand img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: grayscale(1) contrast(6) brightness(1.5);
+  mix-blend-mode: screen;
+}
+html[data-theme="reading-room"] .header-brand:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+/* Keep the alternate skin usable with the shared header markup. */
+html[data-theme="terminal"] .layout > .top-actions { position: fixed; z-index: 70; top: calc(var(--safe-top) + 10px); left: 18px; }
+html[data-theme="terminal"] .topbar { padding-left: 68px !important; }
+html[data-theme="terminal"] .header-meta { min-width: 0; }
+html[data-theme="terminal"] .header-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 700 19px/1.1 var(--font-terminal); }
+html[data-theme="terminal"] .header-greeting { margin-top: 3px; font-size: 11px; }
+html[data-theme="terminal"] .header-brand { width: 31px; height: 31px; padding: 0; border: 0; background: transparent; }
+html[data-theme="terminal"] .header-brand .brand-mark, html[data-theme="terminal"] .header-brand img { display: block; width: 31px; height: 31px; object-fit: contain; box-shadow: none; }
