@@ -138,8 +138,12 @@ test('shared header follows every route and leaves only one menu visible while s
     bodyColor: getComputedStyle(document.body).backgroundColor,
     layoutColor: getComputedStyle(document.querySelector('.layout')).backgroundColor,
     headerBlur: getComputedStyle(document.querySelector('.topbar')).backdropFilter,
+    headerShadow: getComputedStyle(document.querySelector('.topbar')).boxShadow,
+    wrapperBlur: getComputedStyle(document.querySelector('.top-actions')).backdropFilter,
     topOverlay: getComputedStyle(document.querySelector('.layout'), '::before').content,
     menuMaterial: [getComputedStyle(document.querySelector('[data-menu]')).backgroundImage, getComputedStyle(document.querySelector('[data-menu]')).backgroundColor, getComputedStyle(document.querySelector('[data-menu]')).backdropFilter],
+    menuClip: getComputedStyle(document.querySelector('[data-menu]')).clipPath,
+    menuShadow: getComputedStyle(document.querySelector('[data-menu]')).boxShadow,
     titleSize: getComputedStyle(document.querySelector('.header-title')).fontSize,
     logo: document.querySelector('.header-brand img').getAttribute('src')
   }));
@@ -149,12 +153,16 @@ test('shared header follows every route and leaves only one menu visible while s
   expect(initial.bodyColor).toBe(initial.rootColor);
   expect(initial.layoutColor).toBe('rgb(241, 238, 229)');
   expect(initial.headerBlur).toBe('none');
+  expect(initial.headerShadow).toBe('none');
+  expect(initial.wrapperBlur).toBe('none');
   expect(initial.topOverlay).toBe('none');
   expect(initial.menuMaterial[1]).toBe('rgba(18, 19, 20, 0.52)');
   expect(initial.menuMaterial[2]).toContain('blur(');
+  expect(initial.menuClip).toContain('circle(');
+  expect(initial.menuShadow).not.toContain('0px 2px 6px');
   expect(initial.titleSize).toBe('21px');
   expect(initial.logo).toContain('reading-room-books.svg');
-  expect(initial.menu.width).toBe(54);
+  expect(initial.menu.width).toBe(50);
   expect(initial.menu.y).toBeGreaterThanOrEqual(0);
   const safeArea = await page.evaluate(() => {
     document.documentElement.style.setProperty('--safe-top', '59px');

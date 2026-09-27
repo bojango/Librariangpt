@@ -20,7 +20,7 @@ test('authenticated fixture supports route, filter and detail lifecycles', async
   await page.goto('/tests/e2e/fixture.html', { waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('heading', { name: 'The Unfinished Harauld Hughes' })).toBeVisible();
   await page.locator('[data-route="library"]').first().click();
-  await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
+  await expect(page.locator('.header-title')).toHaveText('Library');
   await page.locator('[data-filter="Read"]').click();
   await expect(page.locator('.book-card')).toHaveCount(1);
   await page.locator('.book-card').click();
@@ -29,7 +29,7 @@ test('authenticated fixture supports route, filter and detail lifecycles', async
   await expect(page.locator('.rating-public')).toBeVisible();
   await expect(page.locator('related-books')).toHaveCount(1);
   await page.locator('[data-back]').press('Enter');
-  await expect(page.getByRole('heading', { name: 'Read' })).toBeVisible();
+  await expect(page.locator('[data-filter="Read"]')).toHaveClass(/active/);
 });
 
 test('currently-reading carousel and wishlist render directly', async ({ page }) => {
@@ -38,8 +38,27 @@ test('currently-reading carousel and wishlist render directly', async ({ page })
   await expect(page.locator('[data-carousel-dot]')).toHaveCount(2);
   await expect(page.locator('[data-current-card] .book-librarian-note, [data-current-card] .librarian-note')).toHaveCount(0);
   await page.locator('[data-route="wishlist"]').first().click();
-  await expect(page.getByRole('heading', { name: 'Wishlist' })).toBeVisible();
+  await expect(page.locator('.header-title')).toHaveText('Wishlist');
   await expect(page.locator('.book-card')).toHaveCount(2);
+});
+
+test('mobile header context replaces duplicate catalogue headings', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/tests/e2e/fixture.html');
+  await expect(page.locator('.header-subtitle')).toHaveText(/^Good (morning|afternoon|evening)$/);
+  await page.locator('[data-route="library"]').first().click();
+  await expect(page.locator('.header-title')).toHaveText('Library');
+  await expect(page.locator('.header-subtitle')).toHaveText('Your books');
+  await expect(page.locator('main > .toolbar')).toBeVisible();
+  await expect(page.locator('main .page-heading')).toHaveCount(0);
+  await page.locator('[data-route="wishlist"]').first().click();
+  await expect(page.locator('.header-title')).toHaveText('Wishlist');
+  await expect(page.locator('.header-subtitle')).toHaveText('2 books');
+  await expect(page.locator('main > .toolbar')).toBeVisible();
+  await expect(page.locator('main .page-heading')).toHaveCount(0);
+  await page.goto('/tests/e2e/fixture.html#/book/current-1');
+  await expect(page.locator('.header-subtitle')).toHaveText('Currently Reading · 20%');
+  await expect(page.locator('.header-subtitle')).not.toContainText('Reader One');
 });
 
 test('current-reading carousel keeps one height and settles each changed index once', async ({ page }) => {
@@ -429,7 +448,7 @@ test('rapid route changes only leave the final route rendered', async ({ page })
 test('rapid Home to Library to Home navigation renders Home completely', async ({ page }) => {
   await page.goto('/tests/e2e/fixture.html');
   await page.locator('[data-route="library"]').first().click();
-  await expect(page.getByRole('heading', { name: 'Library' })).toBeVisible();
+  await expect(page.locator('.header-title')).toHaveText('Library');
   await page.locator('[data-route="home"]').first().click();
   await expect(page.locator('[data-carousel]')).toBeVisible();
   await expect(page.locator('#up-next-section')).toBeVisible();
@@ -536,11 +555,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('96');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('97');
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '96')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v96');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === '97')).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v97');
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -553,8 +572,8 @@ test.describe('service-worker-controlled document', () => {
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
     expect(state).toMatchObject({
-      generation: '96',
-      shell_cache: 'reading-room-shell-v96',
+      generation: '97',
+      shell_cache: 'reading-room-shell-v97',
       cover_cache: 'reading-room-covers-v3',
       award_logo_cache: 'reading-room-award-logos-v1',
       award_logo_cache_hits: 0,
