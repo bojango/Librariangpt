@@ -16,7 +16,8 @@ export function savedTheme(storage = window.localStorage) {
 export function applyTheme(theme, { persist = true, doc = document } = {}) {
   const nextTheme = normaliseTheme(theme);
   doc.documentElement.dataset.theme = nextTheme;
-  doc.querySelector('meta[name="theme-color"]')?.setAttribute('content', nextTheme === THEMES.TERMINAL ? '#f3efe5' : '#28292a');
+  const pageColor = doc.defaultView?.getComputedStyle(doc.querySelector('.layout') || doc.body).backgroundColor || '#f1eee5';
+  doc.querySelector('meta[name="theme-color"]')?.setAttribute('content', nextTheme === THEMES.TERMINAL ? '#f3efe5' : doc.documentElement.classList.contains('header-offscreen') ? pageColor : '#28292a');
   if (persist) {
     try { window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme); }
     catch { /* Private browsing and restrictive storage should not block theme use. */ }

@@ -133,10 +133,28 @@ test('shared header follows every route and leaves only one menu visible while s
     header: document.querySelector('.topbar').getBoundingClientRect().toJSON(),
     nav: document.querySelector('.bottom-nav').getBoundingClientRect().toJSON(),
     meta: document.querySelector('meta[name="theme-color"]').content,
-    status: document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').content
+    status: document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').content,
+    rootColor: getComputedStyle(document.documentElement).backgroundColor,
+    bodyColor: getComputedStyle(document.body).backgroundColor,
+    layoutColor: getComputedStyle(document.querySelector('.layout')).backgroundColor,
+    headerBlur: getComputedStyle(document.querySelector('.topbar')).backdropFilter,
+    topOverlay: getComputedStyle(document.querySelector('.layout'), '::before').content,
+    menuMaterial: [getComputedStyle(document.querySelector('[data-menu]')).backgroundImage, getComputedStyle(document.querySelector('[data-menu]')).backgroundColor, getComputedStyle(document.querySelector('[data-menu]')).backdropFilter],
+    titleSize: getComputedStyle(document.querySelector('.header-title')).fontSize,
+    logo: document.querySelector('.header-brand img').getAttribute('src')
   }));
   expect(initial.meta).toBe('#28292a');
   expect(initial.status).toBe('black-translucent');
+  expect(initial.rootColor).toBe('rgb(40, 41, 42)');
+  expect(initial.bodyColor).toBe(initial.rootColor);
+  expect(initial.layoutColor).toBe('rgb(241, 238, 229)');
+  expect(initial.headerBlur).toBe('none');
+  expect(initial.topOverlay).toBe('none');
+  expect(initial.menuMaterial[1]).toBe('rgba(18, 19, 20, 0.52)');
+  expect(initial.menuMaterial[2]).toContain('blur(');
+  expect(initial.titleSize).toBe('21px');
+  expect(initial.logo).toContain('reading-room-books.svg');
+  expect(initial.menu.width).toBe(54);
   expect(initial.menu.y).toBeGreaterThanOrEqual(0);
   const safeArea = await page.evaluate(() => {
     document.documentElement.style.setProperty('--safe-top', '59px');
@@ -155,12 +173,21 @@ test('shared header follows every route and leaves only one menu visible while s
   expect(safeArea.overlay).toBe('none');
   await page.evaluate(() => { document.documentElement.style.scrollBehavior = 'auto'; window.scrollTo(0, 700); });
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(500);
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).toBe(initial.layoutColor);
   const scrolled = await page.evaluate(() => ({
     header: document.querySelector('.topbar').getBoundingClientRect().toJSON(),
     menu: document.querySelector('[data-menu]').getBoundingClientRect().toJSON(),
-    nav: document.querySelector('.bottom-nav').getBoundingClientRect().toJSON()
+    nav: document.querySelector('.bottom-nav').getBoundingClientRect().toJSON(),
+    rootColor: getComputedStyle(document.documentElement).backgroundColor,
+    bodyColor: getComputedStyle(document.body).backgroundColor,
+    meta: document.querySelector('meta[name="theme-color"]').content,
+    menuMaterial: [getComputedStyle(document.querySelector('[data-menu]')).backgroundImage, getComputedStyle(document.querySelector('[data-menu]')).backgroundColor, getComputedStyle(document.querySelector('[data-menu]')).backdropFilter]
   }));
   expect(scrolled.header.bottom).toBeLessThan(0);
+  expect(scrolled.rootColor).toBe(initial.layoutColor);
+  expect(scrolled.bodyColor).toBe(initial.layoutColor);
+  expect(scrolled.meta).toBe(initial.layoutColor);
+  expect(scrolled.menuMaterial).toEqual(initial.menuMaterial);
   expect(scrolled.menu.x).toBeCloseTo(initial.menu.x, 1);
   expect(scrolled.menu.y).toBeCloseTo(initial.menu.y, 1);
   expect(scrolled.nav.width).toBeGreaterThan(0);
@@ -169,6 +196,7 @@ test('shared header follows every route and leaves only one menu visible while s
   await page.locator('[data-side-close]').click();
   await page.evaluate(() => window.scrollTo(0, 0));
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).toBe(initial.rootColor);
   expect(await menu.boundingBox()).toMatchObject({ x: initial.menu.x, y: initial.menu.y });
   await expect(header).toBeVisible();
 

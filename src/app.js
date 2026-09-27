@@ -33,9 +33,11 @@ import { FONT_OPTIONS, applyPreferences, cachePreferences, copySectionReset, eff
 import { UI_COPY } from './ui/copy.js';
 import { escapeHtml } from './utils/text.js';
 import { installHeaderGreetingClock } from './ui/chrome.js';
+import { installStatusSurface, syncStatusSurface } from './ui/status-surface.js';
 
 const app = document.querySelector('#app');
 installHeaderGreetingClock();
+installStatusSurface();
 initialiseTheme();
 let preferences = readCachedPreferences();
 applyPreferences(preferences, savedTheme());
@@ -179,6 +181,7 @@ function paint(html, { restore = false, restoreY: requestedRestoreY = null, pres
     app.replaceChildren(template.content);
   }
   app.dataset.routeView = store.value.route.name;
+  syncStatusSurface();
   activateCovers(activationRoot);
   activateAwardLogos(activationRoot);
   animateProgress(activationRoot, previousProgress);
