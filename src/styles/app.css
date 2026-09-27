@@ -2291,3 +2291,37 @@ html[data-theme="reading-room"] body::before {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
+
+
+/* Header recovery v94
+   Remove the fixed safe-area overlay. It was covering the menu/logo and
+   persisting after the real header had scrolled away. */
+html[data-theme="reading-room"] body::before {
+  content: none !important;
+  display: none !important;
+}
+
+/* The actual header is the only charcoal bar. It stays in document flow,
+   remains fully solid, and scrolls away with the page. */
+html[data-theme="reading-room"] .topbar,
+html[data-theme="reading-room"] .topbar.compact {
+  position: relative !important;
+  top: auto !important;
+  z-index: 40 !important;
+  min-height: calc(70px + var(--safe-top)) !important;
+  padding: calc(14px + var(--safe-top)) clamp(18px,4vw,52px) 14px !important;
+  background: #28292a !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+html[data-theme="reading-room"] .topbar::before,
+html[data-theme="reading-room"] .topbar::after,
+html[data-theme="reading-room"] .topbar.compact::before,
+html[data-theme="reading-room"] .topbar.compact::after {
+  content: none !important;
+  display: none !important;
+}
