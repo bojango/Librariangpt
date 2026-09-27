@@ -2244,3 +2244,50 @@ html[data-theme="reading-room"] body::before {
     linear-gradient(145deg, rgba(255,255,255,.055), transparent 38%),
     #28292a;
 }
+
+
+/* Header charcoal correction v93
+   Keep this intentionally boring: one uninterrupted charcoal plane. Safari
+   was compositing the previous blur/gradient layers into a beige halo and a
+   dark seam. */
+html[data-theme="reading-room"] .topbar,
+html[data-theme="reading-room"] .topbar.compact {
+  background: #28292a !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+html[data-theme="reading-room"] .topbar::before,
+html[data-theme="reading-room"] .topbar::after,
+html[data-theme="reading-room"] .topbar.compact::before,
+html[data-theme="reading-room"] .topbar.compact::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+/* Safari's browser/status chrome can expose page pixels above the document
+   header. Paint that whole strip charcoal too rather than relying on a
+   translucent theme-colour handoff. */
+html[data-theme="reading-room"] body::before {
+  content: "";
+  display: block !important;
+  position: fixed;
+  z-index: 90;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: max(env(safe-area-inset-top), 54px);
+  pointer-events: none;
+  background: #28292a !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
