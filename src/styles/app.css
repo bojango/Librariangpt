@@ -2136,27 +2136,27 @@ html[data-theme="reading-room"].header-offscreen body {
   background-color: var(--bg) !important;
 }
 
-/* iOS 26 adds a native soft scroll-edge blur over content drawn beneath the
-   status bar. Paint that safe-area inset with a fixed solid surface so there
-   is no moving text/image content for WebKit to blur. */
-html[data-theme="reading-room"] body::before {
-  content: '';
-  position: fixed;
-  z-index: 60;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: max(var(--safe-top), 1px);
-  pointer-events: none;
-  background: #28292a;
-  box-shadow: none;
-  filter: none;
-  -webkit-filter: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-}
-html[data-theme="reading-room"].header-offscreen body::before {
-  background: var(--bg);
+/* iOS 27 PWA scroll-pocket suppression.
+   With black-translucent removed, WebKit can create a fixed color extension
+   for the obscured top inset. This invisible fixed strip is deliberately wide,
+   taller than WebKit's 10px thin-edge threshold, and carries a solid computed
+   background colour without painting visible pixels. WebKit samples it as the
+   top color extension and hides the native progressive blur. */
+.ios-pwa-status-strip { display: none; }
+@supports (-webkit-touch-callout: none) {
+  :root[data-standalone][data-theme="reading-room"] .ios-pwa-status-strip {
+    display: block;
+    position: fixed;
+    z-index: 2147483647;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 11px;
+    pointer-events: none;
+    background-color: #28292a;
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
 }
 html[data-theme="reading-room"] .topbar::before,
 html[data-theme="reading-room"] .topbar::after,
