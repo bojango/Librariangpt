@@ -2277,3 +2277,42 @@ html[data-theme="terminal"] .header-title { overflow: hidden; white-space: nowra
 html[data-theme="terminal"] .header-subtitle { margin-top: 3px; font-size: 11px; }
 html[data-theme="terminal"] .header-brand { width: 31px; height: 31px; padding: 0; border: 0; background: transparent; }
 html[data-theme="terminal"] .header-brand .brand-mark, html[data-theme="terminal"] .header-brand img { display: block; width: 31px; height: 31px; object-fit: contain; box-shadow: none; }
+
+
+/* Reading Room active/primary control correction v102.
+   Keep primary actions and selected segmented controls visually consistent
+   with the charcoal header while leaving secondary/destructive controls alone. */
+html[data-theme="reading-room"] body .btn.btn-primary,
+html[data-theme="reading-room"] body button.btn.btn-primary {
+  background: #28292a !important;
+  background-image: none !important;
+  border-color: #28292a !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+html[data-theme="reading-room"] body .btn.btn-primary:disabled,
+html[data-theme="reading-room"] body button.btn.btn-primary:disabled {
+  background: #28292a !important;
+  background-image: none !important;
+  border-color: #28292a !important;
+  color: rgba(255,255,255,.72) !important;
+  -webkit-text-fill-color: rgba(255,255,255,.72) !important;
+}
+
+html[data-theme="reading-room"] body .theme-selector .theme-option.active {
+  background: #28292a !important;
+  background-image: none !important;
+  border-color: #28292a !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="reading-room"] body .profile-tabs button.active {
+  background: #28292a !important;
+  background-image: none !important;
+  border-color: #28292a !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  box-shadow: none !important;
+}
