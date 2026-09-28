@@ -8,8 +8,8 @@ test('generation 101 document, worker and built app remain coherent with no gene
     readFile('sw.js', 'utf8'),
     readFile('dist/app.js', 'utf8')
   ]);
-  assert.match(html, /reading-room-generation" content="98"/);
-  assert.match(html, /dist\/app\.js\?v=98/);
+  assert.match(html, /reading-room-generation" content="101"/);
+  assert.match(html, /dist\/app\.js\?v=101/);
   assert.match(worker, /const GENERATION = '101'/);
   assert.match(worker, /reading-room-shell-v\$\{GENERATION\}/);
   assert.match(worker, /jetbrains-mono-regular\.ttf/);
