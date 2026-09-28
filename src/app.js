@@ -120,9 +120,9 @@ function syncHeader(current, next) {
     oldTitle.textContent = newTitle.textContent;
     oldTitle.title = newTitle.title;
   }
-  const oldGreeting = current.querySelector('.header-greeting');
-  const newGreeting = next.querySelector('.header-greeting');
-  if (oldGreeting && newGreeting) oldGreeting.textContent = newGreeting.textContent;
+  const oldSubtitle = current.querySelector('.header-subtitle');
+  const newSubtitle = next.querySelector('.header-subtitle');
+  if (oldSubtitle && newSubtitle) oldSubtitle.replaceWith(newSubtitle);
 }
 
 function markRouteEntry(main) {

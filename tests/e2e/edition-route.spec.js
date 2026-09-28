@@ -137,13 +137,21 @@ test('shared header follows every route and leaves only one menu visible while s
     rootColor: getComputedStyle(document.documentElement).backgroundColor,
     bodyColor: getComputedStyle(document.body).backgroundColor,
     layoutColor: getComputedStyle(document.querySelector('.layout')).backgroundColor,
+    headerColor: getComputedStyle(document.querySelector('.topbar')).backgroundColor,
+    headerImage: getComputedStyle(document.querySelector('.topbar')).backgroundImage,
     headerBlur: getComputedStyle(document.querySelector('.topbar')).backdropFilter,
     headerShadow: getComputedStyle(document.querySelector('.topbar')).boxShadow,
+    headerFilter: getComputedStyle(document.querySelector('.topbar')).filter,
+    headerTransition: getComputedStyle(document.querySelector('.topbar')).transitionProperty,
     wrapperBlur: getComputedStyle(document.querySelector('.top-actions')).backdropFilter,
     topOverlay: getComputedStyle(document.querySelector('.layout'), '::before').content,
     menuMaterial: [getComputedStyle(document.querySelector('[data-menu]')).backgroundImage, getComputedStyle(document.querySelector('[data-menu]')).backgroundColor, getComputedStyle(document.querySelector('[data-menu]')).backdropFilter],
     menuClip: getComputedStyle(document.querySelector('[data-menu]')).clipPath,
     menuShadow: getComputedStyle(document.querySelector('[data-menu]')).boxShadow,
+    menuFilter: getComputedStyle(document.querySelector('[data-menu]')).filter,
+    menuOverflow: getComputedStyle(document.querySelector('[data-menu]')).overflow,
+    menuIsolation: getComputedStyle(document.querySelector('[data-menu]')).isolation,
+    innerGlass: [getComputedStyle(document.querySelector('[data-menu]'), '::before').backgroundColor, getComputedStyle(document.querySelector('[data-menu]'), '::before').backdropFilter, getComputedStyle(document.querySelector('[data-menu]'), '::before').pointerEvents],
     titleSize: getComputedStyle(document.querySelector('.header-title')).fontSize,
     logo: document.querySelector('.header-brand img').getAttribute('src')
   }));
@@ -152,14 +160,23 @@ test('shared header follows every route and leaves only one menu visible while s
   expect(initial.rootColor).toBe('rgb(40, 41, 42)');
   expect(initial.bodyColor).toBe(initial.rootColor);
   expect(initial.layoutColor).toBe('rgb(241, 238, 229)');
+  expect(initial.headerColor).toBe('rgb(40, 41, 42)');
+  expect(initial.headerImage).toBe('none');
   expect(initial.headerBlur).toBe('none');
   expect(initial.headerShadow).toBe('none');
+  expect(initial.headerFilter).toBe('none');
+  expect(initial.headerTransition).toBe('none');
   expect(initial.wrapperBlur).toBe('none');
   expect(initial.topOverlay).toBe('none');
-  expect(initial.menuMaterial[1]).toBe('rgba(18, 19, 20, 0.52)');
-  expect(initial.menuMaterial[2]).toContain('blur(');
-  expect(initial.menuClip).toContain('circle(');
-  expect(initial.menuShadow).not.toContain('0px 2px 6px');
+  expect(initial.menuMaterial).toEqual(['none', 'rgba(0, 0, 0, 0)', 'none']);
+  expect(initial.menuClip).toBe('none');
+  expect(initial.menuShadow).toBe('none');
+  expect(initial.menuFilter).toBe('none');
+  expect(initial.menuOverflow).toBe('hidden');
+  expect(initial.menuIsolation).toBe('isolate');
+  expect(initial.innerGlass[0]).toBe('rgba(18, 19, 20, 0.52)');
+  expect(initial.innerGlass[1]).toContain('blur(');
+  expect(initial.innerGlass[2]).toBe('none');
   expect(initial.titleSize).toBe('21px');
   expect(initial.logo).toContain('reading-room-books.svg');
   expect(initial.menu.width).toBe(50);
@@ -189,13 +206,15 @@ test('shared header follows every route and leaves only one menu visible while s
     rootColor: getComputedStyle(document.documentElement).backgroundColor,
     bodyColor: getComputedStyle(document.body).backgroundColor,
     meta: document.querySelector('meta[name="theme-color"]').content,
-    menuMaterial: [getComputedStyle(document.querySelector('[data-menu]')).backgroundImage, getComputedStyle(document.querySelector('[data-menu]')).backgroundColor, getComputedStyle(document.querySelector('[data-menu]')).backdropFilter]
+    menuMaterial: [getComputedStyle(document.querySelector('[data-menu]')).backgroundImage, getComputedStyle(document.querySelector('[data-menu]')).backgroundColor, getComputedStyle(document.querySelector('[data-menu]')).backdropFilter],
+    innerGlass: [getComputedStyle(document.querySelector('[data-menu]'), '::before').backgroundColor, getComputedStyle(document.querySelector('[data-menu]'), '::before').backdropFilter, getComputedStyle(document.querySelector('[data-menu]'), '::before').pointerEvents]
   }));
   expect(scrolled.header.bottom).toBeLessThan(0);
   expect(scrolled.rootColor).toBe(initial.layoutColor);
   expect(scrolled.bodyColor).toBe(initial.layoutColor);
   expect(scrolled.meta).toBe(initial.layoutColor);
   expect(scrolled.menuMaterial).toEqual(initial.menuMaterial);
+  expect(scrolled.innerGlass).toEqual(initial.innerGlass);
   expect(scrolled.menu.x).toBeCloseTo(initial.menu.x, 1);
   expect(scrolled.menu.y).toBeCloseTo(initial.menu.y, 1);
   expect(scrolled.nav.width).toBeGreaterThan(0);
@@ -220,6 +239,47 @@ test('shared header follows every route and leaves only one menu visible while s
     const logo = document.querySelector('.header-brand').getBoundingClientRect();
     return text.right <= logo.left && document.documentElement.scrollWidth <= innerWidth;
   })).toBe(true);
+});
+
+test('main-only navigation replaces the title and complete subtitle state', async ({ page }) => {
+  await mockAuthenticatedLibrary(page);
+  await page.goto('/#/home');
+  const app = page.locator('#app');
+  const header = page.locator('.topbar');
+  const title = header.locator('.header-title');
+  const subtitle = header.locator('.header-subtitle');
+  await header.evaluate(element => { element.dataset.instanceMarker = 'route-subtitles'; });
+
+  async function expectHeader(route, expectedTitle, expectedSubtitle, greeting = false) {
+    await expect(app).toHaveAttribute('data-route-view', route);
+    await expect(header).toHaveAttribute('data-instance-marker', 'route-subtitles');
+    await expect(title).toHaveText(expectedTitle);
+    await expect(subtitle).toHaveText(expectedSubtitle);
+    if (greeting) await expect(subtitle).toHaveClass(/header-greeting/);
+    else await expect(subtitle).not.toHaveClass(/header-greeting/);
+  }
+
+  await expectHeader('home', 'Home', /^Good (morning|afternoon|evening)$/, true);
+  await page.locator('.bottom-nav [data-route="library"]').click();
+  await expectHeader('library', 'Library', 'Your books');
+  await page.locator('.bottom-nav [data-route="home"]').click();
+  await expectHeader('home', 'Home', /^Good (morning|afternoon|evening)$/, true);
+  await page.locator('.bottom-nav [data-route="wishlist"]').click();
+  await expectHeader('wishlist', 'Wishlist', '0 books');
+  await page.locator('.bottom-nav [data-route="home"]').click();
+  await expectHeader('home', 'Home', /^Good (morning|afternoon|evening)$/, true);
+  await page.evaluate(() => { location.hash = '#/book/book-1'; });
+  await expectHeader('book', 'Edition Route Book', 'Read');
+  await page.locator('.header-brand[data-route="home"]').click();
+  await expectHeader('home', 'Home', /^Good (morning|afternoon|evening)$/, true);
+  await page.locator('.bottom-nav [data-route="library"]').click();
+  await expectHeader('library', 'Library', 'Your books');
+  await page.evaluate(() => { location.hash = '#/book/book-1'; });
+  await expectHeader('book', 'Edition Route Book', 'Read');
+  await page.evaluate(() => { location.hash = '#/recommendations'; });
+  await expectHeader('recommendations', 'Recommended', 'Picked for you');
+  await page.locator('.bottom-nav [data-route="profile"]').click();
+  await expectHeader('profile', 'Profile', 'Your reading profile');
 });
 
 test('real same-route Home refresh preserves scroll and skips unchanged repaint', async ({ page }) => {

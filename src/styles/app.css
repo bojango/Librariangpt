@@ -54,7 +54,7 @@ a { color: inherit; }
 .auth-note { margin-top: 16px; font-size: 12px; color: var(--faint) !important; }
 
 .layout { min-height: 100dvh; padding-bottom: calc(82px + var(--safe-bottom)); }
-.topbar { position: sticky; z-index: 20; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: calc(70px + var(--safe-top)); padding: calc(14px + var(--safe-top)) clamp(18px,4vw,52px) 14px; background: linear-gradient(to bottom, rgba(17,16,15,.97), rgba(17,16,15,.82), rgba(17,16,15,0)); backdrop-filter: blur(10px); }
+.topbar { position: relative; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: calc(70px + var(--safe-top)); padding: calc(14px + var(--safe-top)) clamp(18px,4vw,52px) 14px; background: #28292a; }
 .wordmark { display: flex; align-items: center; gap: 11px; font: 600 22px/1 Georgia, serif; letter-spacing: -.02em; }
 .wordmark .brand-mark { width: 34px; border-radius: 10px; font-size: 18px; box-shadow: none; }
 .top-actions { display: flex; gap: 8px; }
@@ -224,7 +224,6 @@ body{background:var(--bg)!important}
 .input:focus{border-color:#171613!important;box-shadow:0 0 0 1px #171613!important}
 
 /* Header */
-.topbar{background:linear-gradient(to bottom,rgba(241,238,229,.98),rgba(241,238,229,.94),rgba(241,238,229,.78))!important;border-bottom:1px solid rgba(23,22,19,.08);backdrop-filter:blur(14px)!important}
 .wordmark{color:#171613!important}.wordmark span{font-size:21px}.wordmark .brand-mark{background:#171613!important;color:#f1eee5!important;border-radius:var(--control-radius,0)!important}
 .menu-bars{display:grid;gap:3px;width:16px}.menu-bars i{display:block;height:1.5px;background:currentColor;width:16px}
 main{color:#171613!important}
@@ -316,7 +315,7 @@ main{color:#171613!important}
  .detail-copy-v4{width:100%}.rating-primary-row{grid-template-columns:1fr 1fr;gap:7px}.rating-card{padding:9px 8px;gap:7px}.rating-card img,.rating-fallback,.rating-user-mark{width:30px;height:30px;flex-basis:30px}.rating-copy strong{font-size:20px}.rating-copy span{font-size:9px}
  .book-synopsis p{font-size:15px;line-height:1.62}.reading-dates{grid-template-columns:repeat(2,minmax(0,1fr))}.reading-dates>div:last-child{grid-column:1/-1}
  .cover-picker-grid{grid-template-columns:repeat(2,1fr)}.bottom-nav{bottom:max(5px,var(--safe-bottom))!important}.layout{padding-bottom:calc(62px + var(--safe-bottom))!important}
- .topbar{min-height:calc(60px + var(--safe-top))!important;padding-top:calc(9px + var(--safe-top))!important;padding-bottom:9px!important}.wordmark .brand-mark{width:31px!important}.metadata-row{grid-template-columns:100px minmax(0,1fr)}
+ .wordmark .brand-mark{width:31px!important}.metadata-row{grid-template-columns:100px minmax(0,1fr)}
 }
 
 
@@ -1308,19 +1307,6 @@ html[data-theme="reading-room"] body {
   overflow-x: visible !important;
 }
 
-html[data-theme="reading-room"] .topbar {
-  position: sticky !important;
-  top: 0;
-  z-index: 40;
-  display: grid;
-  grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
-  gap: 10px;
-  background: var(--bg) !important;
-  border-bottom: 1px solid rgba(23,22,19,.08);
-  box-shadow: none;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
 html[data-theme="reading-room"] .topbar .wordmark {
   grid-column: 2;
   grid-row: 1;
@@ -1681,10 +1667,6 @@ html[data-theme="terminal"] .pull-refresh-indicator {
 }
 
 /* Reading Room charcoal chrome v86 */
-html[data-theme="reading-room"] .topbar {
-  background: #28292a !important;
-  border-bottom-color: #28292a !important;
-}
 html[data-theme="reading-room"] .topbar .top-actions .icon-btn {
   color: #f7f4ec !important;
 }
@@ -2153,21 +2135,6 @@ html[data-theme="reading-room"].header-offscreen,
 html[data-theme="reading-room"].header-offscreen body {
   background-color: var(--bg) !important;
 }
-html[data-theme="reading-room"] .topbar,
-html[data-theme="reading-room"] .topbar.compact {
-  position: relative !important;
-  top: auto !important;
-  z-index: 40 !important;
-  min-height: calc(70px + var(--safe-top)) !important;
-  padding: calc(14px + var(--safe-top)) clamp(18px,4vw,52px) 14px !important;
-  background: #28292a !important;
-  background-image: none !important;
-  border: 0 !important;
-  border-bottom: 0 !important;
-  box-shadow: none !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
 html[data-theme="reading-room"] .topbar::before,
 html[data-theme="reading-room"] .topbar::after,
 html[data-theme="reading-room"] .topbar.compact::before,
@@ -2187,23 +2154,42 @@ html[data-theme="reading-room"] .layout > .top-actions .header-menu {
   width: 50px !important;
   height: 50px !important;
   padding: 0 !important;
-  border: 1px solid rgba(255,255,255,.14) !important;
+  position: relative;
+  border: 0 !important;
   border-radius: 50% !important;
-  clip-path: circle(50% at 50% 50%);
+  clip-path: none !important;
   overflow: hidden;
   isolation: isolate;
   color: #fff !important;
-  background: linear-gradient(145deg,rgba(255,255,255,.17),rgba(255,255,255,.04) 38%,rgba(0,0,0,.025)),rgba(18,19,20,.52) !important;
-  box-shadow: inset 1px 1px rgba(255,255,255,.20), inset -1px -1px rgba(0,0,0,.19) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+html[data-theme="reading-room"] .layout > .top-actions .header-menu::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: inherit;
+  background: linear-gradient(145deg,rgba(255,255,255,.17),rgba(255,255,255,.04) 38%,rgba(0,0,0,.025)),rgba(18,19,20,.52);
+  box-shadow: inset 1px 1px rgba(255,255,255,.20), inset -1px -1px rgba(0,0,0,.19);
   -webkit-backdrop-filter: blur(var(--rr-glass-blur)) saturate(var(--rr-glass-saturation)) contrast(var(--rr-glass-contrast)) !important;
   backdrop-filter: blur(var(--rr-glass-blur)) saturate(var(--rr-glass-saturation)) contrast(var(--rr-glass-contrast)) !important;
 }
-html[data-theme="reading-room"] .header-menu .menu-bars { width: 14px; gap: 3px; }
+html[data-theme="reading-room"] .header-menu .menu-bars { position: relative; z-index: 1; width: 14px; gap: 3px; }
 html[data-theme="reading-room"] .header-menu .menu-bars i { width: 14px; height: 1.5px; }
 html[data-theme="reading-room"] .header-menu:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 
 html[data-theme="reading-room"] .topbar,
 html[data-theme="reading-room"] .topbar.compact {
+  position: relative !important;
+  top: auto !important;
+  z-index: 40 !important;
   display: grid !important;
   grid-template-columns: minmax(0,1fr) 35px !important;
   align-items: center !important;
@@ -2211,6 +2197,13 @@ html[data-theme="reading-room"] .topbar.compact {
   min-height: calc(70px + var(--safe-top)) !important;
   padding: calc(8px + var(--safe-top)) max(18px, env(safe-area-inset-right, 0px)) 8px max(80px, calc(env(safe-area-inset-left, 0px) + 64px)) !important;
   background: #28292a !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
   transition: none !important;
 }
 html[data-theme="reading-room"] .header-meta { min-width: 0; color: #f7f4ec; }
