@@ -2135,6 +2135,29 @@ html[data-theme="reading-room"].header-offscreen,
 html[data-theme="reading-room"].header-offscreen body {
   background-color: var(--bg) !important;
 }
+
+/* iOS 26 adds a native soft scroll-edge blur over content drawn beneath the
+   status bar. Paint that safe-area inset with a fixed solid surface so there
+   is no moving text/image content for WebKit to blur. */
+html[data-theme="reading-room"] body::before {
+  content: '';
+  position: fixed;
+  z-index: 60;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: max(var(--safe-top), 1px);
+  pointer-events: none;
+  background: #28292a;
+  box-shadow: none;
+  filter: none;
+  -webkit-filter: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html[data-theme="reading-room"].header-offscreen body::before {
+  background: var(--bg);
+}
 html[data-theme="reading-room"] .topbar::before,
 html[data-theme="reading-room"] .topbar::after,
 html[data-theme="reading-room"] .topbar.compact::before,
@@ -2180,8 +2203,8 @@ html[data-theme="reading-room"] .layout > .top-actions .header-menu::before {
     linear-gradient(145deg, rgba(255,255,255,.14), rgba(255,255,255,.035) 40%, rgba(0,0,0,.035)),
     rgba(18,19,20,.34);
   box-shadow: inset 1px 1px rgba(255,255,255,.16), inset -1px -1px rgba(0,0,0,.14);
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
+  -webkit-backdrop-filter: blur(6px) saturate(145%) contrast(1.03) !important;
+  backdrop-filter: blur(6px) saturate(145%) contrast(1.03) !important;
 }
 html[data-theme="reading-room"] .header-menu .menu-bars { position: relative; z-index: 1; width: 14px; gap: 3px; }
 html[data-theme="reading-room"] .header-menu .menu-bars i { width: 14px; height: 1.5px; }
