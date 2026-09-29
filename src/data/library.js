@@ -42,6 +42,9 @@ export function clearRequestDedupe() {
 
 export function loadLibrarySnapshot() {
   return dedupe('library-snapshot', async () => {
+    // Coalesce meaningful database changes into one refresh before reading the queue.
+    // Preserve the cached queue if the planner is temporarily unavailable.
+    await optional(supabase.rpc('refresh_up_next', { p_reason: 'library_snapshot', p_force: false }), null);
     const [books, recommendations, upNext, aiRecommendations, chapters, profile, tasteProfile, readingHistory] = await Promise.all([
       supabase.from('v_library').select('*').order('title'),
       optional(supabase.from('recommendations').select('book_id,recommendation_strength,match_score_10,recommendation_status,why_recommended,frontend_featured,frontend_shelf,user_interest,prediction_accuracy_5,outcome,date_recommended').order('match_score_10', { ascending: false, nullsFirst: false })),

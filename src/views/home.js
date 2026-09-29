@@ -2,6 +2,7 @@ import { chrome } from '../ui/chrome.js';
 import { cover, esc, progressPct, progressText, readingAgeText } from '../ui/format.js';
 import { currentTitlePresentation } from '../utils/text.js';
 import { uiCopyHtml } from '../ui/copy.js';
+import { upNextMetadata } from '../features/up-next-metadata.js';
 
 export const VISIBLE_UP_NEXT_COUNT = 5;
 
@@ -71,7 +72,7 @@ function currentReading(state) {
 }
 
 function upNextCard(item) {
-  return `<article class="upnext-card" data-upnext-id="${item.queue_id || item.id}" tabindex="0" role="button">${cover(item, 'upnext-cover')}<div class="upnext-copy"><div class="upnext-card-top"><span class="upnext-position">${item.position}</span><p class="upnext-source ${item.source === 'Manual' ? 'manual' : 'ai'}">${item.source === 'Manual' ? 'Your pick' : 'Librarian pick'}${item.locked ? ' · locked' : ''}</p></div><h3>${esc(item.title)}</h3><p class="upnext-author">${esc(item.authors || 'Unknown author')}</p>${item.ai_score != null ? `<p class="upnext-score">${Number(item.ai_score).toFixed(1)}/10</p>` : ''}<p class="upnext-reason">${esc(item.reason || item.why_recommended || 'Queued for later.')}</p></div></article>`;
+  return `<article class="upnext-card" data-upnext-id="${item.queue_id || item.id}" tabindex="0" role="button">${cover(item, 'upnext-cover')}<div class="upnext-copy"><div class="upnext-card-top"><span class="upnext-position">${item.position}</span><p class="upnext-source ${item.source === 'Manual' ? 'manual' : 'ai'}">${item.source === 'Manual' ? 'Your pick' : 'Librarian pick'}${item.locked ? ' · locked' : ''}</p></div><h3>${esc(item.title)}</h3><p class="upnext-author">${esc(item.authors || 'Unknown author')}</p>${upNextMetadata(item)}<p class="upnext-reason">${esc(item.reason || item.why_recommended || 'Queued for later.')}</p></div></article>`;
 }
 
 function upNext(state) {

@@ -2316,3 +2316,39 @@ html[data-theme="reading-room"] body .profile-tabs button.active {
   -webkit-text-fill-color: #fff !important;
   box-shadow: none !important;
 }
+
+.upnext-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .22rem .35rem;
+  margin: .28rem 0 .42rem;
+  color: #625e58;
+}
+.upnext-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: .24rem;
+  min-width: 0;
+  font-size: .67rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.upnext-fact svg { width: 12px; height: 12px; flex: 0 0 12px; }
+.upnext-fact span { overflow: hidden; text-overflow: ellipsis; }
+.upnext-detail-meta .upnext-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem .8rem;
+  margin-top: .55rem;
+}
+.upnext-detail-meta .upnext-fact { font-size: .78rem; }
+.upnext-detail-backdrop .modal {
+  width: min(94vw, 620px) !important;
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  margin: auto !important;
+}
+@media (max-width: 620px) {
+  .upnext-detail-meta .upnext-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; }
+}

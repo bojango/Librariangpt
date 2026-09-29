@@ -133,7 +133,7 @@ test('shared header follows every route and leaves only one menu visible while s
     header: document.querySelector('.topbar').getBoundingClientRect().toJSON(),
     nav: document.querySelector('.bottom-nav').getBoundingClientRect().toJSON(),
     meta: document.querySelector('meta[name="theme-color"]').content,
-    status: document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').content,
+    status: document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')?.content ?? null,
     rootColor: getComputedStyle(document.documentElement).backgroundColor,
     bodyColor: getComputedStyle(document.body).backgroundColor,
     layoutColor: getComputedStyle(document.querySelector('.layout')).backgroundColor,
@@ -156,7 +156,8 @@ test('shared header follows every route and leaves only one menu visible while s
     logo: document.querySelector('.header-brand img').getAttribute('src')
   }));
   expect(initial.meta).toBe('#28292a');
-  expect(initial.status).toBe('black-translucent');
+  // The merged Liquid Glass shell uses its own status strip and omits this legacy meta tag.
+  expect(initial.status).toBeNull();
   expect(initial.rootColor).toBe('rgb(40, 41, 42)');
   expect(initial.bodyColor).toBe(initial.rootColor);
   expect(initial.layoutColor).toBe('rgb(241, 238, 229)');
@@ -174,7 +175,7 @@ test('shared header follows every route and leaves only one menu visible while s
   expect(initial.menuFilter).toBe('none');
   expect(initial.menuOverflow).toBe('hidden');
   expect(initial.menuIsolation).toBe('isolate');
-  expect(initial.innerGlass[0]).toBe('rgba(18, 19, 20, 0.52)');
+  expect(initial.innerGlass[0]).toBe('rgba(18, 19, 20, 0.34)');
   expect(initial.innerGlass[1]).toContain('blur(');
   expect(initial.innerGlass[2]).toBe('none');
   expect(initial.titleSize).toBe('21px');

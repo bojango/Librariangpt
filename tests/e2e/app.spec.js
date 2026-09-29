@@ -1,4 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { readFileSync } from 'node:fs';
+
+const shellGeneration = readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
+  .match(/name="reading-room-generation" content="([^"]+)"/)[1];
 
 test('cold launch renders the authentication shell without overflow', async ({ page }) => {
   await page.goto('/');
@@ -148,7 +152,7 @@ test('Reading Room mobile chrome and homepage refinements use the intended geome
   expect(initial.cardVisible).toBe(true);
   expect(initial.navVisible).toBe(true);
   await expect(page.locator('.current-reading-age svg').first()).toHaveAttribute('aria-hidden', 'true');
-  await expect(page.locator('.upnext-score')).toHaveText('9.2/10');
+  await expect(page.locator('.upnext-fact[title="Next Fit"]')).toHaveText('9.2/10');
   await expect(page.locator('#ai-recommended-section')).not.toContainText('AI picks from beyond your library');
   await expect(page.locator('#ai-recommended-section .recommended-badge')).toHaveText('8.8');
   await expect(page.locator('#ai-recommended-section .recommended-card-score')).toHaveCount(0);
@@ -557,11 +561,11 @@ test.describe('service-worker-controlled document', () => {
     await page.goto('/');
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({ waitUntil: 'load' });
-    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe('98');
+    expect(await page.locator('meta[name="reading-room-generation"]').getAttribute('content')).toBe(shellGeneration);
     const resources = await page.evaluate(() => performance.getEntriesByType('resource').map(entry => entry.name).filter(name => /(?:app\.css|app\.js)/.test(name)));
     expect(resources.length).toBeGreaterThanOrEqual(2);
-    expect(resources.every(url => new URL(url).searchParams.get('v') === '98')).toBe(true);
-    expect(await page.evaluate(() => caches.keys())).toContain('reading-room-shell-v98');
+    expect(resources.every(url => new URL(url).searchParams.get('v') === shellGeneration)).toBe(true);
+    expect(await page.evaluate(() => caches.keys())).toContain(`reading-room-shell-v${shellGeneration}`);
   });
 
   test('Test Mode can request aggregate service-worker diagnostic state', async ({ page }) => {
@@ -574,8 +578,8 @@ test.describe('service-worker-controlled document', () => {
       navigator.serviceWorker.controller.postMessage({ type: 'GET_DIAGNOSTIC_STATE' }, [channel.port2]);
     }));
     expect(state).toMatchObject({
-      generation: '98',
-      shell_cache: 'reading-room-shell-v98',
+      generation: shellGeneration,
+      shell_cache: `reading-room-shell-v${shellGeneration}`,
       cover_cache: 'reading-room-covers-v3',
       award_logo_cache: 'reading-room-award-logos-v1',
       award_logo_cache_hits: 0,

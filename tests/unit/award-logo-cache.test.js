@@ -4,6 +4,7 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 const workerSource = await readFile('sw.js', 'utf8');
+const currentShell = `reading-room-shell-v${workerSource.match(/const GENERATION = '([^']+)'/)[1]}`;
 
 function createHarness(initialNetwork) {
   const listeners = {};
@@ -108,7 +109,7 @@ test('award cache lifecycle is independent of shell releases and removes only ob
   const harness = createHarness(async () => new Response('unused'));
   await Promise.all([
     harness.cacheFor('reading-room-shell-v65').put('old-shell', new Response('x')),
-    harness.cacheFor('reading-room-shell-v98').put('shell', new Response('x')),
+    harness.cacheFor(currentShell).put('shell', new Response('x')),
     harness.cacheFor('reading-room-covers-v3').put('cover', new Response('x')),
     harness.cacheFor('reading-room-award-logos-v0').put('old-award', new Response('x')),
     harness.cacheFor('reading-room-award-logos-v1').put(awardUrl, new Response('award'))
@@ -117,7 +118,7 @@ test('award cache lifecycle is independent of shell releases and removes only ob
   assert.deepEqual([...harness.stores.keys()].sort(), [
     'reading-room-award-logos-v1',
     'reading-room-covers-v3',
-    'reading-room-shell-v98'
+    currentShell
   ]);
 });
 
