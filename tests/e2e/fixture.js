@@ -7,6 +7,7 @@ import { snapshotFingerprint } from '../../src/lifecycle.js';
 import { activateCovers, collectCoverImages, reuseCoverImages } from '../../src/ui/cover.js';
 import { initialiseCarousel } from '../../src/features/current-reading-carousel.js';
 import { upNextManagerRows } from '../../src/features/up-next-markup.js';
+import { installStatusSurface, syncStatusSurface } from '../../src/ui/status-surface.js';
 
 const books = [
   { id: 'current-1', title: 'The Unfinished Harauld Hughes', authors: 'Reader One', overall_status: 'Currently Reading', ownership_status: 'Owned', started_at: '2026-07-28', current_page: 40, total_pages: 200, progress_percent: 20, cover_url: '/delayed-cover.svg', primary_genre: 'Fiction' },
@@ -27,6 +28,7 @@ const state = {
   readingHistory: [], profileTab: 'stats', detail: null
 };
 const app = document.querySelector('#app');
+installStatusSurface();
 
 function detailFor(book) {
   const ratings = book.id === 'extra-0'
@@ -44,6 +46,7 @@ function detailFor(book) {
 function paint(html, { reuseCovers = false, preserveScroll = null } = {}) {
   const pool = reuseCovers ? collectCoverImages(app) : null;
   app.innerHTML = html;
+  syncStatusSurface();
   if (pool) reuseCoverImages(app, pool); else activateCovers(app);
   window.fixtureCarouselEvents ||= [];
   initialiseCarousel(app, { onSettledChange: event => window.fixtureCarouselEvents.push(event) });

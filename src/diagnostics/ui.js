@@ -25,7 +25,7 @@ export function diagnosticHistoryMarkup(sessions, activeId = null) {
 export function syncTestIndicator(diagnostics) {
   document.querySelectorAll('[data-test-indicator]').forEach(node => node.remove());
   if (!diagnostics.isActive()) return;
-  const actions = document.querySelector('.topbar .top-actions');
+  const actions = document.querySelector('.topbar .header-meta');
   if (!actions) return;
   const indicator = document.createElement('span');
   indicator.dataset.testIndicator = '';

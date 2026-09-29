@@ -190,9 +190,8 @@ test('header keeps the existing Reading Room mark as a visible image', async () 
     readFile('src/ui/chrome.js', 'utf8'),
     readFile('src/styles/app.css', 'utf8')
   ]);
-  assert.match(markup, /<div class="brand-mark"><img src="\.\/assets\/reading-room-logo\.png\?v=87" alt=""><\/div>/);
-  assert.match(css, /\.topbar \.wordmark>\.brand-mark img\{display:block!important/);
-  assert.doesNotMatch(css, /\.topbar \.wordmark>\.brand-mark img\{display:none!important/);
+  assert.match(markup, /<span class="brand-mark"><img src="\.\/assets\/reading-room-books\.svg\?v=98" alt=""><\/span>/);
+  assert.match(css, /html\[data-theme="reading-room"\] \.header-brand img \{/);
 });
 
 test('reserve migration appends recommendation-backed Owned - Unread candidates to depth eight', async () => {

@@ -10,5 +10,5 @@ function recommendationRow(item) {
 export function recommendationsView(state) {
   const items = state.aiRecommendations || [];
   const content = `<div class="recommendations-page"><header class="page-heading recommendations-heading"><p class="eyebrow">AI discovery</p><h1>Recommended for you</h1><p>${items.length} active ${items.length === 1 ? 'recommendation' : 'recommendations'}, shaped by your reading record.</p></header>${items.length ? `<div class="recommendation-editorial-list">${items.map(recommendationRow).join('')}</div>` : '<div class="empty-shelf">No active recommendations right now.</div>'}</div>`;
-  return chrome(content, 'library');
+  return chrome(content, 'library', { route: 'recommendations' });
 }

@@ -32,8 +32,12 @@ import { applyTheme, initialiseTheme, savedTheme, themeSelectorMarkup } from './
 import { FONT_OPTIONS, applyPreferences, cachePreferences, copySectionReset, effectiveAppearance, preferenceStatesEqual, readCachedPreferences, loadRemotePreferences, normalisePreferences, saveRemotePreferences, sectionReset, themeReset, updateAppearanceDraft, updateCopyDraft, validHex } from './ui/preferences.js';
 import { UI_COPY } from './ui/copy.js';
 import { escapeHtml } from './utils/text.js';
+import { installHeaderGreetingClock } from './ui/chrome.js';
+import { installStatusSurface, syncStatusSurface } from './ui/status-surface.js';
 
 const app = document.querySelector('#app');
+installHeaderGreetingClock();
+installStatusSurface();
 initialiseTheme();
 let preferences = readCachedPreferences();
 applyPreferences(preferences, savedTheme());
@@ -109,6 +113,18 @@ function syncNavigation(current, next) {
   });
 }
 
+function syncHeader(current, next) {
+  const oldTitle = current.querySelector('.header-title');
+  const newTitle = next.querySelector('.header-title');
+  if (oldTitle && newTitle) {
+    oldTitle.textContent = newTitle.textContent;
+    oldTitle.title = newTitle.title;
+  }
+  const oldSubtitle = current.querySelector('.header-subtitle');
+  const newSubtitle = next.querySelector('.header-subtitle');
+  if (oldSubtitle && newSubtitle) oldSubtitle.replaceWith(newSubtitle);
+}
+
 function markRouteEntry(main) {
   if (!main || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   main.classList.add('route-enter');
@@ -156,6 +172,7 @@ function paint(html, { restore = false, restoreY: requestedRestoreY = null, pres
     if (coverPool) reusedCoverCount = reuseCoverImages(nextMain, coverPool, { activate: false });
     if (transition) markRouteEntry(nextMain);
     currentMain.replaceWith(nextMain);
+    syncHeader(currentLayout, nextLayout);
     syncNavigation(currentLayout.querySelector(':scope > .bottom-nav'), nextLayout.querySelector(':scope > .bottom-nav'));
     activationRoot = nextMain;
     replacement = 'main_only';
@@ -164,6 +181,7 @@ function paint(html, { restore = false, restoreY: requestedRestoreY = null, pres
     app.replaceChildren(template.content);
   }
   app.dataset.routeView = store.value.route.name;
+  syncStatusSurface();
   activateCovers(activationRoot);
   activateAwardLogos(activationRoot);
   animateProgress(activationRoot, previousProgress);

@@ -17,6 +17,16 @@ test('Library Recommended is a route control and never a catalogue filter', () =
 
   const staleState = { ...state, filters: { library: 'Recommended' } };
   assert.deepEqual(filteredBooks(staleState, 'library').map(book => book.id), ['a', 'b']);
+  assert.match(html, /class="header-subtitle">Your books<\/div>/);
+  assert.doesNotMatch(html, /class="page-heading"|Catalogue|books in this view/);
+});
+
+test('Wishlist moves the live filtered count into the shared header', () => {
+  const state = { books: [{ id: 'a', title: 'Alpha', overall_status: 'Wishlist' }, { id: 'b', title: 'Beta', overall_status: 'Wishlist' }], filters: { library: 'All' }, queries: { wishlist: 'Alpha' } };
+  const html = libraryView(state, 'wishlist');
+  assert.match(html, /class="header-subtitle">1 book<\/div>/);
+  assert.doesNotMatch(html, /class="page-heading"|Catalogue|books in this view/);
+  assert.match(html, /<main><div class="toolbar"><button class="btn btn-primary" data-add-book/);
 });
 
 test('Recommendations route renders active AI picks as editorial rows with match scores', () => {

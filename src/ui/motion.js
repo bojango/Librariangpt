@@ -17,7 +17,8 @@ export function installMotionController({ getRoute, goBack, win = window, doc = 
   const maxScrollY = () => Math.max(0, (doc.documentElement?.['scroll' + 'Height'] || 0) - win.innerHeight);
   const legalY = value => Math.min(maxScrollY(), Math.max(0, value));
   const resetBaseline = () => { lastY = legalY(win.scrollY); direction = 0; distance = 0; };
-  const expand = () => nav()?.classList.remove('compact');
+  const setCompact = compact => { nav()?.classList.toggle('compact', compact); };
+  const expand = () => setCompact(false);
   const setNavRoute = (route = getRoute()?.name, { animate = true } = {}) => {
     const element = nav();
     if (!element || typeof NAV_INDEX[route] !== 'number') return;
@@ -52,7 +53,7 @@ export function installMotionController({ getRoute, goBack, win = window, doc = 
     const nextDirection = delta > 0 ? 1 : -1;
     if (nextDirection !== direction) { direction = nextDirection; distance = 0; }
     distance += Math.abs(delta);
-    if (direction > 0 && y > 64 && distance >= DOWNWARD_THRESHOLD) { nav()?.classList.add('compact'); distance = 0; }
+    if (direction > 0 && y > 64 && distance >= DOWNWARD_THRESHOLD) { setCompact(true); distance = 0; }
     else if (direction < 0 && distance >= UPWARD_THRESHOLD) { expand(); distance = 0; }
     if (y <= 8) expand();
   };

@@ -54,7 +54,7 @@ a { color: inherit; }
 .auth-note { margin-top: 16px; font-size: 12px; color: var(--faint) !important; }
 
 .layout { min-height: 100dvh; padding-bottom: calc(82px + var(--safe-bottom)); }
-.topbar { position: sticky; z-index: 20; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: calc(70px + var(--safe-top)); padding: calc(14px + var(--safe-top)) clamp(18px,4vw,52px) 14px; background: linear-gradient(to bottom, rgba(17,16,15,.97), rgba(17,16,15,.82), rgba(17,16,15,0)); backdrop-filter: blur(10px); }
+.topbar { position: relative; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: calc(70px + var(--safe-top)); padding: calc(14px + var(--safe-top)) clamp(18px,4vw,52px) 14px; background: #28292a; }
 .wordmark { display: flex; align-items: center; gap: 11px; font: 600 22px/1 Georgia, serif; letter-spacing: -.02em; }
 .wordmark .brand-mark { width: 34px; border-radius: 10px; font-size: 18px; box-shadow: none; }
 .top-actions { display: flex; gap: 8px; }
@@ -224,7 +224,6 @@ body{background:var(--bg)!important}
 .input:focus{border-color:#171613!important;box-shadow:0 0 0 1px #171613!important}
 
 /* Header */
-.topbar{background:linear-gradient(to bottom,rgba(241,238,229,.98),rgba(241,238,229,.94),rgba(241,238,229,.78))!important;border-bottom:1px solid rgba(23,22,19,.08);backdrop-filter:blur(14px)!important}
 .wordmark{color:#171613!important}.wordmark span{font-size:21px}.wordmark .brand-mark{background:#171613!important;color:#f1eee5!important;border-radius:var(--control-radius,0)!important}
 .menu-bars{display:grid;gap:3px;width:16px}.menu-bars i{display:block;height:1.5px;background:currentColor;width:16px}
 main{color:#171613!important}
@@ -316,7 +315,7 @@ main{color:#171613!important}
  .detail-copy-v4{width:100%}.rating-primary-row{grid-template-columns:1fr 1fr;gap:7px}.rating-card{padding:9px 8px;gap:7px}.rating-card img,.rating-fallback,.rating-user-mark{width:30px;height:30px;flex-basis:30px}.rating-copy strong{font-size:20px}.rating-copy span{font-size:9px}
  .book-synopsis p{font-size:15px;line-height:1.62}.reading-dates{grid-template-columns:repeat(2,minmax(0,1fr))}.reading-dates>div:last-child{grid-column:1/-1}
  .cover-picker-grid{grid-template-columns:repeat(2,1fr)}.bottom-nav{bottom:max(5px,var(--safe-bottom))!important}.layout{padding-bottom:calc(62px + var(--safe-bottom))!important}
- .topbar{min-height:calc(60px + var(--safe-top))!important;padding-top:calc(9px + var(--safe-top))!important;padding-bottom:9px!important}.wordmark .brand-mark{width:31px!important}.metadata-row{grid-template-columns:100px minmax(0,1fr)}
+ .wordmark .brand-mark{width:31px!important}.metadata-row{grid-template-columns:100px minmax(0,1fr)}
 }
 
 
@@ -1308,19 +1307,6 @@ html[data-theme="reading-room"] body {
   overflow-x: visible !important;
 }
 
-html[data-theme="reading-room"] .topbar {
-  position: sticky !important;
-  top: 0;
-  z-index: 40;
-  display: grid;
-  grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
-  gap: 10px;
-  background: var(--bg) !important;
-  border-bottom: 1px solid rgba(23,22,19,.08);
-  box-shadow: none;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
 html[data-theme="reading-room"] .topbar .wordmark {
   grid-column: 2;
   grid-row: 1;
@@ -1681,10 +1667,6 @@ html[data-theme="terminal"] .pull-refresh-indicator {
 }
 
 /* Reading Room charcoal chrome v86 */
-html[data-theme="reading-room"] .topbar {
-  background: #28292a !important;
-  border-bottom-color: #28292a !important;
-}
 html[data-theme="reading-room"] .topbar .top-actions .icon-btn {
   color: #f7f4ec !important;
 }
@@ -1789,4 +1771,548 @@ html[data-theme="reading-room"] .current-reading-card-v36 .current-reading-botto
 }
 html[data-theme="reading-room"] .current-reading-card-v36 .progress-fill {
   background: #28292a !important;
+}
+
+
+/* Reading Room Liquid Glass v89 */
+html[data-theme="reading-room"]{
+ --rr-glass-dark:rgba(18,19,20,.64);--rr-glass-dark-strong:rgba(18,19,20,.76);
+ --rr-glass-border-light:rgba(255,255,255,.34);--rr-glass-blur:16px;
+ --rr-glass-saturation:185%;--rr-glass-contrast:1.08;--rr-card-material-radius:18px
+}
+html[data-theme="reading-room"] :is(.hero,.stat,.info,.review-panel,.recommendation-panel,.metadata-accordion,.reading-dates>div,.reading-stats-grid>div,.visible-metadata-list,.rating-card,.award-tile,.upnext-card,.recommended-card,.recommendation-editorial-card,.recommended-list-card,.profile-card,.taste-signals section){
+ border-radius:max(var(--radius),var(--rr-card-material-radius))!important;
+ border-color:rgba(23,22,19,.12)!important;
+ background:linear-gradient(145deg,rgba(255,255,255,.36),rgba(255,255,255,.10) 40%,rgba(23,22,19,.025) 100%),rgba(247,244,236,.58)!important;
+ box-shadow:inset 1px 1px rgba(255,255,255,.76),inset -1px -1px rgba(23,22,19,.095),0 4px 14px rgba(23,22,19,.045)!important
+}
+html[data-theme="reading-room"] :is(.btn,.filter,.icon-btn,.theme-option,.auth-tabs button,.queue-manager-actions button,.add-mode-switch button,.profile-tabs button,.profile-edit){
+ border-radius:max(var(--control-radius),12px)!important;border-color:rgba(23,22,19,.14)!important;
+ background:linear-gradient(145deg,rgba(255,255,255,.46),transparent 48%),rgba(247,244,236,.54)!important;
+ box-shadow:inset 1px 1px rgba(255,255,255,.8),inset -1px -1px rgba(23,22,19,.10),0 2px 7px rgba(23,22,19,.04)!important;
+ -webkit-backdrop-filter:blur(10px) saturate(160%);backdrop-filter:blur(10px) saturate(160%)
+}
+html[data-theme="reading-room"] .btn-primary{
+ border-color:rgba(255,255,255,.18)!important;
+ background:linear-gradient(145deg,rgba(255,255,255,.13),transparent 42%),rgba(40,41,42,.92)!important;color:#fff!important;
+ box-shadow:inset 1px 1px rgba(255,255,255,.27),inset -1px -1px rgba(0,0,0,.34),0 3px 9px rgba(23,22,19,.12)!important
+}
+@media(max-width:899px){
+ html[data-theme="reading-room"] .bottom-nav,html[data-theme="reading-room"] .bottom-nav.compact{
+  top:auto!important;right:auto!important;left:50%!important;bottom:calc(12px + var(--safe-bottom))!important;
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0!important;height:58px;min-height:58px!important;
+  width:min(520px,calc(100% - 24px))!important;padding:5px 7px!important;overflow:hidden;border:1px solid rgba(255,255,255,.14)!important;border-radius:999px!important;
+  background:linear-gradient(145deg,rgba(255,255,255,.12),transparent 34%,rgba(255,255,255,.025) 68%,rgba(0,0,0,.08) 100%),var(--rr-glass-dark)!important;
+  box-shadow:inset 1px 1px rgba(255,255,255,.20),inset -1px -1px rgba(0,0,0,.38),0 8px 26px rgba(0,0,0,.18)!important;
+  -webkit-backdrop-filter:blur(var(--rr-glass-blur)) saturate(var(--rr-glass-saturation)) contrast(var(--rr-glass-contrast))!important;
+  backdrop-filter:blur(var(--rr-glass-blur)) saturate(var(--rr-glass-saturation)) contrast(var(--rr-glass-contrast))!important;
+  transform:translateX(-50%)!important;transition:width 250ms var(--ease-premium),height 250ms var(--ease-premium),padding 250ms var(--ease-premium),background 220ms ease!important
+ }
+ html[data-theme="reading-room"] .bottom-nav::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(112deg,rgba(255,255,255,.12),transparent 28%,rgba(255,255,255,.035) 58%,transparent 78%)}
+ html[data-theme="reading-room"] .bottom-nav.compact{width:min(224px,calc(100% - 96px))!important;height:49px;min-height:49px!important;padding:3px 5px!important;background:linear-gradient(145deg,rgba(255,255,255,.09),transparent 38%),rgba(18,19,20,.59)!important}
+ html[data-theme="reading-room"] .bottom-nav .nav-label,html[data-theme="reading-room"] .bottom-nav.compact .nav-label{display:none!important}
+ html[data-theme="reading-room"] .bottom-nav .nav-active-indicator{display:none!important}
+ html[data-theme="reading-room"] .bottom-nav .nav-btn,html[data-theme="reading-room"] .bottom-nav.compact .nav-btn{
+  position:relative;z-index:1;min-width:0;min-height:46px!important;padding:0!important;gap:0!important;border:0!important;border-radius:999px!important;background:transparent!important;box-shadow:none!important;color:rgba(247,244,236,.88)!important
+ }
+ html[data-theme="reading-room"] .bottom-nav.compact .nav-btn{min-height:43px!important}
+ html[data-theme="reading-room"] .bottom-nav .nav-btn::before{
+  content:"";position:absolute;z-index:-1;left:50%;top:50%;width:58px;height:44px;border:1px solid transparent;border-radius:999px;transform:translate(-50%,-50%);opacity:0;
+  transition:opacity 180ms ease,width 220ms var(--ease-premium),height 220ms var(--ease-premium)
+ }
+ html[data-theme="reading-room"] .bottom-nav .nav-btn.active::before{
+  opacity:1;border-color:rgba(255,255,255,.11);background:linear-gradient(145deg,rgba(255,255,255,.15),transparent 48%),rgba(255,255,255,.17);
+  box-shadow:inset 1px 1px rgba(255,255,255,.21),inset -1px -1px rgba(0,0,0,.21)
+ }
+ html[data-theme="reading-room"] .bottom-nav.compact .nav-btn::before{width:46px;height:40px}
+ html[data-theme="reading-room"] .bottom-nav .nav-btn.active,html[data-theme="reading-room"] .bottom-nav .nav-btn.active .nav-icon{color:#fff!important}
+ html[data-theme="reading-room"] .bottom-nav .nav-icon,html[data-theme="reading-room"] .bottom-nav .nav-icon svg{width:21px!important;height:21px!important}
+ html[data-theme="reading-room"] .bottom-nav.compact .nav-icon,html[data-theme="reading-room"] .bottom-nav.compact .nav-icon svg{width:19px!important;height:19px!important}
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+ @media(max-width:899px){html[data-theme="reading-room"] .bottom-nav,html[data-theme="reading-room"] .bottom-nav.compact{background:rgba(30,31,32,.94)!important}}
+}
+
+
+/* Liquid Glass optical corrections v90 */
+html[data-theme="reading-room"] .btn-primary,
+html[data-theme="reading-room"] .btn-primary:disabled {
+  background: #28292a !important;
+  border-color: #28292a !important;
+  color: #fff !important;
+}
+html[data-theme="reading-room"] .btn-primary:disabled {
+  opacity: 1 !important;
+  cursor: default;
+}
+
+/* Up Next and recommendation cards need a little more breathing room without
+   changing their information hierarchy. */
+html[data-theme="reading-room"] .upnext-card,
+html[data-theme="reading-room"] .recommended-card {
+  flex-basis: min(86vw,326px) !important;
+  min-height: 150px !important;
+  padding: 14px !important;
+}
+@media (min-width:700px) {
+  html[data-theme="reading-room"] .upnext-card,
+  html[data-theme="reading-room"] .recommended-card {
+    flex-basis: 338px !important;
+  }
+}
+
+/* Centre every nav glyph geometrically. The selected-page lens is deliberately
+   flat, matching the Instagram reference instead of the embossed first pass. */
+@media (max-width:899px) {
+  html[data-theme="reading-room"] .bottom-nav .nav-btn,
+  html[data-theme="reading-room"] .bottom-nav.compact .nav-btn {
+    display: grid !important;
+    place-items: center !important;
+    align-content: center !important;
+  }
+  html[data-theme="reading-room"] .bottom-nav .nav-icon,
+  html[data-theme="reading-room"] .bottom-nav.compact .nav-icon {
+    position: absolute !important;
+    left: 50%;
+    top: 50%;
+    margin: 0 !important;
+    line-height: 0 !important;
+    transform: translate(-50%,-50%);
+  }
+  html[data-theme="reading-room"] .bottom-nav .nav-icon svg,
+  html[data-theme="reading-room"] .bottom-nav.compact .nav-icon svg {
+    display: block;
+    margin: 0;
+  }
+  html[data-theme="reading-room"] .bottom-nav .nav-btn.active::before,
+  html[data-theme="reading-room"] .bottom-nav.compact .nav-btn.active::before {
+    border: 0 !important;
+    background: rgba(122,122,122,.72) !important;
+    box-shadow: none !important;
+  }
+}
+
+
+/* Liquid Glass optical corrections v91 */
+html[data-theme="reading-room"] {
+  background: #28292a !important;
+}
+html[data-theme="reading-room"] body {
+  background: var(--bg) !important;
+}
+
+/* Primary actions: beat the older component-level !important rules. */
+html[data-theme="reading-room"] body .layout .btn.btn-primary,
+html[data-theme="reading-room"] body .layout button.btn.btn-primary,
+html[data-theme="reading-room"] body .modal .btn.btn-primary,
+html[data-theme="reading-room"] body .book-admin-modal .btn.btn-primary {
+  background: #28292a !important;
+  background-image: none !important;
+  border-color: #28292a !important;
+  color: #fff !important;
+  box-shadow: 0 2px 7px rgba(23,22,19,.10) !important;
+}
+html[data-theme="reading-room"] body .layout .btn.btn-primary:disabled,
+html[data-theme="reading-room"] body .layout button.btn.btn-primary:disabled,
+html[data-theme="reading-room"] body .modal .btn.btn-primary:disabled {
+  background: #28292a !important;
+  background-image: none !important;
+  border-color: #28292a !important;
+  color: rgba(255,255,255,.72) !important;
+  opacity: .72 !important;
+}
+
+/* Softer material depth: broad tonal falloff instead of a hard bevel. */
+html[data-theme="reading-room"] :is(
+  .hero,.stat,.info,.review-panel,.recommendation-panel,
+  .metadata-accordion,.reading-dates>div,.reading-stats-grid>div,
+  .visible-metadata-list,.rating-card,.award-tile,.upnext-card,
+  .recommended-card,.recommendation-editorial-card,.recommended-list-card,
+  .profile-card,.taste-signals section
+) {
+  border-color: rgba(23,22,19,.075) !important;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.26) 0%,
+      rgba(255,255,255,.12) 24%,
+      rgba(255,255,255,.035) 54%,
+      rgba(23,22,19,.018) 100%
+    ),
+    rgba(247,244,236,.55) !important;
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,.34),
+    inset 0 -2px 5px rgba(23,22,19,.025),
+    0 3px 10px rgba(23,22,19,.025) !important;
+}
+
+@media (max-width:899px) {
+  /* Tighter Instagram-style dock. */
+  html[data-theme="reading-room"] .bottom-nav {
+    width: min(320px, calc(100% - 72px)) !important;
+    height: 54px !important;
+    min-height: 54px !important;
+    padding: 4px 6px !important;
+  }
+  html[data-theme="reading-room"] .bottom-nav.compact {
+    width: 172px !important;
+    max-width: calc(100% - 150px) !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 2px 4px !important;
+  }
+
+  /* Exact optical/box centring in both states. */
+  html[data-theme="reading-room"] .bottom-nav .nav-btn,
+  html[data-theme="reading-room"] .bottom-nav.compact .nav-btn {
+    position: relative !important;
+    z-index: 1;
+    display: grid !important;
+    place-items: center !important;
+    align-content: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 0 !important;
+  }
+  html[data-theme="reading-room"] .bottom-nav .nav-icon,
+  html[data-theme="reading-room"] .bottom-nav.compact .nav-icon {
+    position: static !important;
+    z-index: 2;
+    display: grid !important;
+    place-items: center !important;
+    width: 20px !important;
+    height: 20px !important;
+    margin: 0 !important;
+    transform: none !important;
+    line-height: 0 !important;
+  }
+  html[data-theme="reading-room"] .bottom-nav .nav-icon svg {
+    display: block !important;
+    width: 20px !important;
+    height: 20px !important;
+    margin: 0 !important;
+  }
+  html[data-theme="reading-room"] .bottom-nav.compact .nav-icon,
+  html[data-theme="reading-room"] .bottom-nav.compact .nav-icon svg {
+    width: 17px !important;
+    height: 17px !important;
+  }
+
+  /* Flat selected state, no faux lens bevel. */
+  html[data-theme="reading-room"] .bottom-nav .nav-btn::before,
+  html[data-theme="reading-room"] .bottom-nav.compact .nav-btn::before {
+    z-index: 0 !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%,-50%) !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  html[data-theme="reading-room"] .bottom-nav .nav-btn.active::before {
+    width: 52px !important;
+    height: 42px !important;
+    background: rgba(125,125,125,.72) !important;
+  }
+  html[data-theme="reading-room"] .bottom-nav.compact .nav-btn.active::before {
+    width: 34px !important;
+    height: 32px !important;
+    background: rgba(125,125,125,.72) !important;
+  }
+}
+
+
+/* Liquid Glass optical corrections v92 */
+
+/* Give buttons the same soft material falloff as the cards. The highlight
+   spreads into the surface instead of tracing a sharp plastic-looking rim. */
+html[data-theme="reading-room"] body :is(
+  .btn:not(.btn-primary),
+  .filter,
+  .theme-option,
+  .auth-tabs button,
+  .queue-manager-actions button,
+  .add-mode-switch button,
+  .profile-tabs button,
+  .profile-edit
+) {
+  border-color: rgba(23,22,19,.085) !important;
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.30) 0%,
+      rgba(255,255,255,.13) 26%,
+      rgba(255,255,255,.04) 58%,
+      rgba(23,22,19,.018) 100%
+    ),
+    rgba(247,244,236,.58) !important;
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,.30),
+    inset 0 -2px 5px rgba(23,22,19,.025),
+    0 2px 8px rgba(23,22,19,.03) !important;
+}
+
+html[data-theme="reading-room"] body :is(
+  .layout .btn.btn-primary,
+  .modal .btn.btn-primary,
+  .book-admin-modal .btn.btn-primary
+) {
+  background:
+    linear-gradient(
+      145deg,
+      rgba(255,255,255,.07) 0%,
+      rgba(255,255,255,.025) 34%,
+      rgba(0,0,0,.025) 100%
+    ),
+    #28292a !important;
+  border-color: rgba(255,255,255,.055) !important;
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,.12),
+    inset 0 -2px 5px rgba(0,0,0,.08),
+    0 2px 8px rgba(23,22,19,.055) !important;
+}
+
+/* Match the dock's depth to the softer card/button treatment. Keep the glass
+   transparent; only the edge lighting is reduced. */
+@media (max-width:899px) {
+  html[data-theme="reading-room"] .bottom-nav,
+  html[data-theme="reading-room"] .bottom-nav.compact {
+    border-color: rgba(255,255,255,.085) !important;
+    background:
+      linear-gradient(
+        145deg,
+        rgba(255,255,255,.075) 0%,
+        rgba(255,255,255,.025) 30%,
+        transparent 58%,
+        rgba(0,0,0,.035) 100%
+      ),
+      rgba(18,19,20,.64) !important;
+    box-shadow:
+      inset 0 1px 2px rgba(255,255,255,.11),
+      inset 0 -3px 8px rgba(0,0,0,.10),
+      0 4px 14px rgba(0,0,0,.10) !important;
+  }
+  html[data-theme="reading-room"] .bottom-nav.compact {
+    background:
+      linear-gradient(
+        145deg,
+        rgba(255,255,255,.065) 0%,
+        rgba(255,255,255,.02) 34%,
+        transparent 62%,
+        rgba(0,0,0,.03) 100%
+      ),
+      rgba(18,19,20,.60) !important;
+    box-shadow:
+      inset 0 1px 2px rgba(255,255,255,.10),
+      inset 0 -2px 6px rgba(0,0,0,.09),
+      0 3px 12px rgba(0,0,0,.09) !important;
+  }
+  html[data-theme="reading-room"] .bottom-nav::before {
+    background: linear-gradient(
+      112deg,
+      rgba(255,255,255,.07),
+      transparent 30%,
+      rgba(255,255,255,.018) 58%,
+      transparent 78%
+    ) !important;
+  }
+}
+
+/* The document canvas paints the iOS status inset; the in-flow header
+   scrolls away without a fixed overlay or blur layer. */
+html[data-theme="reading-room"],
+html[data-theme="reading-room"] body {
+  background-color: #28292a !important;
+}
+html[data-theme="reading-room"] .layout {
+  background-color: var(--bg) !important;
+}
+html[data-theme="reading-room"].header-offscreen,
+html[data-theme="reading-room"].header-offscreen body {
+  background-color: var(--bg) !important;
+}
+
+/* iOS 27 PWA scroll-pocket suppression.
+   With black-translucent removed, WebKit can create a fixed color extension
+   for the obscured top inset. This invisible fixed strip is deliberately wide,
+   taller than WebKit's 10px thin-edge threshold, and carries a solid computed
+   background colour without painting visible pixels. WebKit samples it as the
+   top color extension and hides the native progressive blur. */
+.ios-pwa-status-strip { display: none; }
+@supports (-webkit-touch-callout: none) {
+  :root[data-standalone][data-theme="reading-room"] .ios-pwa-status-strip {
+    display: block;
+    position: fixed;
+    z-index: 2147483647;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 11px;
+    pointer-events: none;
+    background-color: #28292a;
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+}
+html[data-theme="reading-room"] .topbar::before,
+html[data-theme="reading-room"] .topbar::after,
+html[data-theme="reading-room"] .topbar.compact::before,
+html[data-theme="reading-room"] .topbar.compact::after {
+  content: none !important;
+  display: none !important;
+}
+
+/* The menu is a single viewport anchored control; the header remains in flow. */
+html[data-theme="reading-room"] .layout > .top-actions {
+  position: fixed;
+  z-index: 70;
+  top: calc(var(--safe-top) + 10px);
+  left: max(16px, env(safe-area-inset-left, 0px));
+}
+html[data-theme="reading-room"] .layout > .top-actions .header-menu {
+  width: 50px !important;
+  height: 50px !important;
+  padding: 0 !important;
+  position: relative;
+  border: 0 !important;
+  border-radius: 50% !important;
+  clip-path: none !important;
+  overflow: hidden;
+  isolation: isolate;
+  color: #fff !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+html[data-theme="reading-room"] .layout > .top-actions .header-menu::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: inherit;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.14), rgba(255,255,255,.035) 40%, rgba(0,0,0,.035)),
+    rgba(18,19,20,.34);
+  box-shadow: inset 1px 1px rgba(255,255,255,.16), inset -1px -1px rgba(0,0,0,.14);
+  -webkit-backdrop-filter: blur(6px) saturate(145%) contrast(1.03) !important;
+  backdrop-filter: blur(6px) saturate(145%) contrast(1.03) !important;
+}
+html[data-theme="reading-room"] .header-menu .menu-bars { position: relative; z-index: 1; width: 14px; gap: 3px; }
+html[data-theme="reading-room"] .header-menu .menu-bars i { width: 14px; height: 1.5px; }
+html[data-theme="reading-room"] .header-menu:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+html[data-theme="reading-room"] .topbar,
+html[data-theme="reading-room"] .topbar.compact {
+  position: relative !important;
+  top: auto !important;
+  z-index: 40 !important;
+  display: grid !important;
+  grid-template-columns: minmax(0,1fr) 35px !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-height: calc(70px + var(--safe-top)) !important;
+  padding: calc(8px + var(--safe-top)) max(18px, env(safe-area-inset-right, 0px)) 8px max(80px, calc(env(safe-area-inset-left, 0px) + 64px)) !important;
+  background: #28292a !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  -webkit-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  transition: none !important;
+}
+html[data-theme="reading-room"] .header-meta { min-width: 0; color: #f7f4ec; }
+html[data-theme="reading-room"] .header-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font: 400 21px/1.05 Georgia, 'Times New Roman', serif;
+  letter-spacing: -.025em;
+}
+html[data-theme="reading-room"] .header-subtitle {
+  margin-top: 3px;
+  color: rgba(247,244,236,.69);
+  font: 400 12px/1.2 Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+html[data-theme="reading-room"] .header-brand {
+  width: 35px;
+  height: 35px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+html[data-theme="reading-room"] .header-brand .brand-mark {
+  width: 35px;
+  height: 35px;
+  border: 0;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+html[data-theme="reading-room"] .header-brand img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: none;
+  mix-blend-mode: normal;
+}
+html[data-theme="reading-room"] .header-brand:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+
+/* Keep the alternate skin usable with the shared header markup. */
+html[data-theme="terminal"] .layout > .top-actions { position: fixed; z-index: 70; top: calc(var(--safe-top) + 10px); left: 18px; }
+html[data-theme="terminal"] .topbar { padding-left: 68px !important; }
+html[data-theme="terminal"] .header-meta { min-width: 0; }
+html[data-theme="terminal"] .header-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 700 19px/1.1 var(--font-terminal); }
+html[data-theme="terminal"] .header-subtitle { margin-top: 3px; font-size: 11px; }
+html[data-theme="terminal"] .header-brand { width: 31px; height: 31px; padding: 0; border: 0; background: transparent; }
+html[data-theme="terminal"] .header-brand .brand-mark, html[data-theme="terminal"] .header-brand img { display: block; width: 31px; height: 31px; object-fit: contain; box-shadow: none; }
+
+
+/* Reading Room active/primary control correction v102.
+   Keep primary actions and selected segmented controls visually consistent
+   with the charcoal header while leaving secondary/destructive controls alone. */
+html[data-theme="reading-room"] body .btn.btn-primary,
+html[data-theme="reading-room"] body button.btn.btn-primary {
+  background: #28292a !important;
+  background-image: none !important;
+  border-color: #28292a !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+html[data-theme="reading-room"] body .btn.btn-primary:disabled,
+html[data-theme="reading-room"] body button.btn.btn-primary:disabled {
+  background: #28292a !important;
+  background-image: none !important;
+  border-color: #28292a !important;
+  color: rgba(255,255,255,.72) !important;
+  -webkit-text-fill-color: rgba(255,255,255,.72) !important;
+}
+
+html[data-theme="reading-room"] body .theme-selector .theme-option.active {
+  background: #28292a !important;
+  background-image: none !important;
+  border-color: #28292a !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  box-shadow: none !important;
+}
+
+html[data-theme="reading-room"] body .profile-tabs button.active {
+  background: #28292a !important;
+  background-image: none !important;
+  border-color: #28292a !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  box-shadow: none !important;
 }

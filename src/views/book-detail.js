@@ -123,5 +123,5 @@ export function bookDetailView(state) {
     .replace('>Your review<', `>${uiCopyHtml('book.yourReview')}<`)
     .replace('>Librarian note<', `>${uiCopyHtml('book.librarianNote')}<`)
     .replace('>Why it was recommended<', `>${uiCopyHtml('book.whyRecommended')}<`);
-  return chrome(labelled, state.route.returnTo || 'library');
+  return chrome(labelled, state.route.returnTo || 'library', { route: 'book', title: book.title, book });
 }
