@@ -1,4 +1,7 @@
 import { supabase } from './data/supabase.js';
+import { loadTimeSession, finishTimeSession } from './data/nfc.js';
+import { readingSessionFinishView } from './views/reading-session-finish.js';
+import { openNfcBookmarks } from './features/nfc-bookmark.js';
 import { clearRequestDedupe, invoke, loadBookDetail, refreshLibrary, rpc, setDataDiagnosticHook, updateReaderProfile, uploadProfileAvatar } from './data/library.js';
 import { createAppState } from './state.js';
 import { createRouter } from './router.js';
@@ -218,6 +221,15 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
   diagnostics.event('route_render_start', { route: route.name, book_id: route.bookId || null, mode, render_generation: version, route_changed: routeChanged });
   store.setRoute(route);
   if (!store.value.session) { paint(authView(store.value.authMode), { renderMode: mode }); diagnostics.event('route_render_complete', { route: route.name, mode, render_generation: version }); return; }
+  if (route.name === 'reading-session-finish') {
+    try {
+      const session = await loadTimeSession(route.sessionId);
+      if (!store.isCurrent(version)) return;
+      paint(readingSessionFinishView(session), { positionY: 0, renderMode: mode });
+      app.querySelector('#nfc-current-page')?.focus();
+    } catch { if (store.isCurrent(version)) paint(errorView('This reading session is unavailable. Sign in as its owner.'), { renderMode: mode }); }
+    return;
+  }
   if (!store.value.books.length) { paint(claimView(), { renderMode: mode }); diagnostics.event('route_render_complete', { route: route.name, mode, render_generation: version }); return; }
 
   if (route.name === 'book') {
@@ -487,6 +499,13 @@ app.addEventListener('click', async event => {
   }
   if (target.closest('[data-menu]')) { openMenu(); return; }
   if (target.closest('[data-profile-edit]')) { openProfileEditor(); return; }
+  if (target.closest('[data-nfc-bookmarks]')) { await openNfcBookmarks(store.value.books); return; }
+  if (target.closest('[data-nfc-skip]')) {
+    const button = target.closest('[data-nfc-skip]'); button.disabled = true;
+    try { const result = await finishTimeSession(button.dataset.nfcSkip, null, true); router.navigate({ name: 'book', bookId: result.book_id }, { replace: true }); }
+    catch (error) { button.disabled = false; toast(error.message || 'Could not skip page entry.', true); }
+    return;
+  }
   if (target.closest('[data-avatar-menu]')) { openAvatarMenu(); return; }
   const profileTab = target.closest('[data-profile-tab]');
   if (profileTab) {
@@ -594,6 +613,18 @@ app.addEventListener('click', event => {
 });
 
 app.addEventListener('submit', async event => {
+  if (event.target.matches('#nfc-finish-form')) {
+    event.preventDefault();
+    const form = event.target; const button = form.querySelector('[type="submit"]'); button.disabled = true;
+    try {
+      const page = Number(form.elements.page.value);
+      if (!form.elements.page.value || !Number.isInteger(page) || page < 0) throw new Error('Enter a non-negative current page.');
+      const result = await finishTimeSession(form.dataset.sessionId, page);
+      await loadSnapshot();
+      router.navigate({ name: 'book', bookId: result.book_id }, { replace: true });
+    } catch (error) { form.querySelector('[data-nfc-error]').textContent = error.message || 'Could not save page.'; button.disabled = false; }
+    return;
+  }
   if (event.target.id === 'auth-form') {
     event.preventDefault(); const button = event.target.querySelector('[type="submit"]'); button.disabled = true;
     const result = store.value.authMode === 'signup' ? await supabase.auth.signUp({ email: event.target.email.value.trim(), password: event.target.password.value }) : await supabase.auth.signInWithPassword({ email: event.target.email.value.trim(), password: event.target.password.value });

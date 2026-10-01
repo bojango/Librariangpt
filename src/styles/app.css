@@ -2352,3 +2352,11 @@ html[data-theme="reading-room"] body .profile-tabs button.active {
 @media (max-width: 620px) {
   .upnext-detail-meta .upnext-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; }
 }
+
+.reading-session-finish { max-width: 420px; margin: 24px auto; padding: 20px; }
+.reading-session-finish h1 { overflow-wrap: anywhere; }
+.reading-session-finish .input { font-size: 20px; min-height: 52px; }
+.reading-session-finish .btn-primary { min-height: 56px; }
+.reading-session-finish [data-nfc-error] { color: var(--danger, #b53c3c); }
+.nfc-profile-section { margin-top: 24px; }
+.nfc-bookmark-form { margin: 20px 0; }

@@ -3,6 +3,7 @@ const ROUTES = new Set(['home', 'library', 'wishlist', 'profile', 'recommendatio
 export function parseRoute(hash = location.hash) {
   const path = String(hash || '').replace(/^#\/?/, '');
   const [name, bookId] = path.split('/');
+  if (name === 'reading-session' && bookId && path.split('/')[2] === 'finish') return { name: 'reading-session-finish', sessionId: decodeURIComponent(bookId), bookId: null };
   if (name === 'book' && bookId) return { name: 'book', bookId: decodeURIComponent(bookId) };
   // Keep bookmarked Stage 1 Stats links working without retaining a second page.
   if (name === 'stats') return { name: 'profile', bookId: null };
@@ -10,6 +11,7 @@ export function parseRoute(hash = location.hash) {
 }
 
 export function routeHash(route) {
+  if (route.name === 'reading-session-finish') return `#/reading-session/${encodeURIComponent(route.sessionId)}/finish`;
   return route.name === 'book' ? `#/book/${encodeURIComponent(route.bookId)}` : `#/${route.name}`;
 }
 

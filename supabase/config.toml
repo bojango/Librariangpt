@@ -1,2 +1,6 @@
 [functions.reading-checkin-bridge]
 verify_jwt = false
+
+[functions.nfc-reading-session]
+# Custom X-NFC-Bookmark-Token authentication is checked before mutation.
+verify_jwt = false
