@@ -13,9 +13,10 @@ async function mockApp(page, { authenticated = true, inaccessible = false, state
     });
   }
   let pageNumber = 273;
+  let ownership = 'Owned';
   let bookmark = null;
-  const saves = []; const bookmarkWrites = [];
-  const book = () => ({ id: 'book-1', title: 'NFC Test Book', authors: 'Test Author', overall_status: 'Currently Reading', ownership_status: 'Owned', current_page: pageNumber, total_pages: 364, metadata_status: 'complete' });
+  const saves = []; const bookmarkWrites = []; const statusWrites = [];
+  const book = () => ({ id: 'book-1', title: 'NFC Test Book', authors: 'Test Author', overall_status: 'Currently Reading', ownership_status: ownership, current_page: pageNumber, total_pages: 364, metadata_status: 'complete' });
   await page.route(`${api}/**`, async route => {
     const request = route.request(); const url = new URL(request.url()); const path = url.pathname;
     const json = (value, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value), headers: { 'access-control-allow-origin': '*' } });
@@ -34,13 +35,36 @@ async function mockApp(page, { authenticated = true, inaccessible = false, state
       const payload = request.postDataJSON(); bookmarkWrites.push(payload);
       bookmark = { ...bookmark, ...payload }; return json(null, 201);
     }
+    if (path.endsWith('/set_library_status')) {
+      const payload = request.postDataJSON(); statusWrites.push(payload);
+      ownership = payload.p_ownership; return json(null);
+    }
     if (path.endsWith('/v_library')) return json(url.searchParams.has('id') ? book() : [book()]);
     if (path.endsWith('/reader_profiles')) return json(null);
     if (path.includes('/rpc/')) return json(null);
     return json([]);
   });
-  return { saves, bookmarkWrites };
+  return { saves, bookmarkWrites, statusWrites };
 }
+
+test('NFC finish return retains persistent collection control and Profile configuration', async ({ page }) => {
+  const { statusWrites } = await mockApp(page);
+  await page.goto(`/#/reading-session/${sessionId}/finish`);
+  await page.getByRole('button', { name: 'Skip page entry' }).click();
+  const control = page.locator('[data-collection-status]');
+  await expect(control).toHaveCount(1);
+  await expect(control).toContainText('Owned');
+  await control.click();
+  await page.getByRole('button', { name: 'On Order', exact: true }).click();
+  await expect(control).toHaveCount(1);
+  await expect(control).toContainText('On Order');
+  expect(statusWrites).toEqual([{ p_book_id: 'book-1', p_status: 'Currently Reading', p_ownership: 'On Order', p_priority: null, p_source: 'frontend' }]);
+  await expect(page.locator('.detail-header .status-currently-reading')).toBeVisible();
+  await page.goto('/#/profile');
+  await page.getByRole('button', { name: 'Configure bookmark' }).click();
+  await expect(page.getByRole('button', { name: 'Create bookmark & token' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: 'Book' })).toHaveValue('');
+});
 
 test('direct finish deep link uses numeric prefill/autofocus and saves through NFC RPC then returns to book', async ({ page }) => {
   const { saves } = await mockApp(page);

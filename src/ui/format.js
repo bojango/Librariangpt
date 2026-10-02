@@ -75,12 +75,31 @@ const STATUS_CLASSES = new Map([
   ['Not Interested', 'not-interested']
 ]);
 
-export function statusPill(status) {
+export function statusPill(status, options = {}) {
   const label = String(status || '').trim();
   if (!label) return '';
   const kind = STATUS_CLASSES.get(label) || 'neutral';
   const icon = kind === 'read' ? '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8.25 3.1 3.1L13 4.75"/></svg>' : '';
-  return `<span class="status-pill status-${kind}">${icon}<span>${escapeHtml(label)}</span></span>`;
+  const interactive = options.interactive === true;
+  const tag = interactive ? 'button' : 'span';
+  const action = interactive ? ` type="button" class="status-pill status-${kind} status-pill-action" data-collection-status aria-label="Change library status from ${escapeHtml(label)}"` : ` class="status-pill status-${kind}"`;
+  const chevron = interactive ? '<span class="status-pill-chevron" aria-hidden="true"></span>' : '';
+  return `<${tag}${action}>${icon}<span>${escapeHtml(label)}</span>${chevron}</${tag}>`;
+}
+
+const READING_LIFECYCLE_PILLS = new Set(['Currently Reading', 'Read', 'Paused', 'DNF']);
+
+export function collectionStatusLabel(book = {}) {
+  const ownership = String(book.ownership_status || '').trim();
+  if (['Owned', 'On Order', 'Borrowed'].includes(ownership)) return ownership;
+  if (book.overall_status === 'Wishlist') return 'Wishlist';
+  return ownership || 'Not Owned';
+}
+
+export function bookStatusPills(book = {}) {
+  const readingStatus = READING_LIFECYCLE_PILLS.has(book.overall_status) ? book.overall_status : null;
+  const collectionStatus = collectionStatusLabel(book);
+  return `${readingStatus ? statusPill(readingStatus) : ''}${statusPill(collectionStatus, { interactive: true })}`;
 }
 
 export function coverPalette(title = '') {

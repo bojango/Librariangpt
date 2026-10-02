@@ -15,7 +15,7 @@ import { bookDetailView } from './views/book-detail.js';
 import { loadingBookView } from './views/loading.js';
 import { closeModal, showModal, toast } from './ui/feedback.js';
 import { openAddBook } from './features/add-book.js';
-import { addToWishlist, confirmPause, openCoverPicker, openDnf, openFinish, openPageCount, openProgress, openReview, openStart, refreshMetadata } from './features/reading-actions.js';
+import { addToWishlist, confirmPause, openCollectionStatus, openCoverPicker, openDnf, openFinish, openPageCount, openProgress, openReview, openStart, refreshMetadata } from './features/reading-actions.js';
 import { openRecommendation, openUpNextDetails, openUpNextManager } from './features/home-actions.js';
 import { initialiseCarousel } from './features/current-reading-carousel.js';
 import { openBookAdmin } from './features/book-admin.js';
@@ -527,6 +527,7 @@ app.addEventListener('click', async event => {
   else if (target.closest('[data-pause]')) confirmPause(book);
   else if (target.closest('[data-dnf]')) openDnf(book);
   else if (target.closest('[data-wishlist]')) addToWishlist(book, target.closest('[data-wishlist]'));
+  else if (target.closest('[data-collection-status]')) openCollectionStatus(book);
   else if (target.closest('[data-review]')) openReview(book);
   else if (target.closest('[data-page-count]')) openPageCount(book);
   else if (target.closest('[data-cover-picker]')) openCoverPicker(book);
