@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { carouselStart, currentReadingSignature } from '../../src/utils/carousel-memory.js';
 import { upNextManagerRows } from '../../src/features/up-next-markup.js';
+import { upNextMetadata, upNextOwnership } from '../../src/features/up-next-metadata.js';
 import { currentlyReadingBooks, homeRecommendations, homeView, VISIBLE_UP_NEXT_COUNT } from '../../src/views/home.js';
 
 function state(overrides = {}) {
@@ -95,7 +96,7 @@ test('Home See more uses the recommendations route', () => {
   assert.doesNotMatch(html, /data-recommendations-page/);
 });
 
-test('Home recommendation and queue cards use the compact score-only presentation', () => {
+test('Home separates Next Fit metadata from recommendation score', () => {
   const html = homeView(state({
     upNext: [{
       queue_id: 'queue-score', id: 'queued', title: 'Queued', position: 1,
@@ -106,12 +107,33 @@ test('Home recommendation and queue cards use the compact score-only presentatio
       match_score_10: 9.4, recommendation_strength: 'Wildcard'
     }]
   }));
-  assert.match(html, /class="upnext-score">9\.2\/10</);
+  assert.match(html, /title="Next Fit"/);
+  assert.match(html, />9\.2\/10</);
   assert.doesNotMatch(html, /High confidence/);
   assert.match(html, /class="recommended-badge">9\.4</);
   assert.doesNotMatch(html, /recommended-card-score/);
   assert.doesNotMatch(html, />Wildcard<|>Strong</);
   assert.doesNotMatch(html, /AI picks from beyond your library/);
+});
+
+test('Up Next card metadata uses canonical public rating and omits missing values', () => {
+  const row = {
+    queue_id: 'queue-1', id: 'book-1', title: 'Example', position: 1,
+    source: 'AI', total_pages: 262, ownership_status: 'Owned', ai_score: 9.3,
+    public_rating_5: 4.2, public_rating_provider: 'Goodreads'
+  };
+  const html = homeView(state({ upNext: [row] }));
+  assert.match(html, /262 pages/);
+  assert.match(html, /title="Availability"[^>]*>/);
+  assert.match(html, /title="Goodreads rating"/);
+  assert.match(html, />4\.2</);
+  assert.match(upNextMetadata(row, { detailed: true }), /4\.2 Goodreads/);
+  assert.match(upNextMetadata({ ...row, public_rating_provider: 'Open Library' }, { detailed: true }), /4\.2 Open Library/);
+  assert.doesNotMatch(upNextMetadata({ ...row, public_rating_5: null }), /rating/);
+  assert.doesNotMatch(upNextMetadata({ ...row, public_rating_5: 0 }), /rating/);
+  assert.equal(upNextOwnership({ ownership_status: 'On Order' }), 'On order');
+  assert.equal(upNextOwnership({ overall_status: 'Wishlist', ownership_status: 'Not Owned' }), 'Wishlist');
+  assert.equal(upNextOwnership({ ownership_status: 'Not Owned' }), 'Not owned');
 });
 
 test('currently reading age includes a decorative open-book icon', () => {
