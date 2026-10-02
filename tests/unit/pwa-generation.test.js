@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-test('generation 105 document, worker and built app remain coherent with no generation-105 cache reference', async () => {
+test('generation 105 document, worker and built app remain coherent with no generation-104 cache reference', async () => {
   const [html, worker, built] = await Promise.all([
     readFile('index.html', 'utf8'),
     readFile('sw.js', 'utf8'),
