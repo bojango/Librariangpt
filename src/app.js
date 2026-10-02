@@ -784,17 +784,39 @@ window.addEventListener('reading-room:refresh', event => refresh({
   bookId: event.detail?.bookId || (store.value.route.name === 'book' ? store.value.route.bookId : null)
 }));
 
+let pendingNfcRedirect = null;
+
+async function pendingNfcFinishRoute() {
+  if (!store.value.session || parseRoute().name !== 'home') return null;
+  if (pendingNfcRedirect) return pendingNfcRedirect;
+  pendingNfcRedirect = (async () => {
+    try {
+      const pending = await loadPendingTimeSession();
+      return pending?.id ? { name: 'reading-session-finish', sessionId: pending.id } : null;
+    } catch (error) {
+      diagnostics.event('nfc_pending_session_redirect_failed', { name: error?.name, message: error?.message });
+      console.info('[Reading Room] pending NFC session redirect skipped:', error?.message || error);
+      return null;
+    } finally {
+      pendingNfcRedirect = null;
+    }
+  })();
+  return pendingNfcRedirect;
+}
+
 async function redirectPendingNfcOnStartup() {
-  if (!store.value.session || parseRoute().name !== 'home') return;
-  try {
-    const pending = await loadPendingTimeSession();
-    if (!pending?.id) return;
-    history.replaceState(null, '', routeHash({ name: 'reading-session-finish', sessionId: pending.id }));
-    diagnostics.event('nfc_pending_session_redirect', { session_id: pending.id });
-  } catch (error) {
-    diagnostics.event('nfc_pending_session_redirect_failed', { name: error?.name, message: error?.message });
-    console.info('[Reading Room] pending NFC session redirect skipped:', error?.message || error);
-  }
+  const target = await pendingNfcFinishRoute();
+  if (!target) return;
+  history.replaceState(null, '', routeHash(target));
+  diagnostics.event('nfc_pending_session_redirect', { session_id: target.sessionId, source: 'startup' });
+}
+
+async function redirectPendingNfcOnResume() {
+  if (document.visibilityState === 'hidden') return;
+  const target = await pendingNfcFinishRoute();
+  if (!target || !router) return;
+  diagnostics.event('nfc_pending_session_redirect', { session_id: target.sessionId, source: 'resume' });
+  router.navigate(target, { replace: true });
 }
 
 async function init() {
@@ -855,6 +877,10 @@ async function init() {
     serviceWorkerRegistration = registration;
     connectServiceWorkerDiagnostics(diagnostics, registration).catch(() => {});
   }).catch(error => console.info('[Reading Room] service worker unavailable:', error?.message || error));
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') void redirectPendingNfcOnResume();
+  });
+  window.addEventListener('focus', () => { void redirectPendingNfcOnResume(); });
   diagnostics.event('app_init_complete');
 }
 

@@ -106,6 +106,17 @@ test('pending NFC startup redirect does not override an explicit non-home route'
   await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible();
 });
 
+test('foregrounding an already-running home PWA redirects a pending NFC session', async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, 'standalone', { value: true }));
+  await mockApp(page, { pendingOnLaunch: true });
+  await page.goto('/#/profile');
+  await page.evaluate(() => { location.hash = '#/home'; });
+  await expect(page).toHaveURL(/#\/home$/);
+  await page.evaluate(() => { window.dispatchEvent(new Event('focus')); });
+  await expect(page).toHaveURL(new RegExp(`#\\/reading-session\\/${sessionId}\\/finish$`));
+  await expect(page.getByRole('spinbutton', { name: 'Current page' })).toBeVisible();
+});
+
 test('signed-out deep link requires login, UUID alone exposes no session', async ({ page }) => {
   await mockApp(page, { authenticated: false });
   await page.goto(`/#/reading-session/${sessionId}/finish`);
