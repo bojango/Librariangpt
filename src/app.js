@@ -1,10 +1,10 @@
 import { supabase } from './data/supabase.js';
-import { loadTimeSession, finishTimeSession } from './data/nfc.js';
+import { loadTimeSession, loadPendingTimeSession, finishTimeSession } from './data/nfc.js';
 import { readingSessionFinishView } from './views/reading-session-finish.js';
 import { openNfcBookmarks } from './features/nfc-bookmark.js';
 import { clearRequestDedupe, invoke, loadBookDetail, refreshLibrary, rpc, setDataDiagnosticHook, updateReaderProfile, uploadProfileAvatar } from './data/library.js';
 import { createAppState } from './state.js';
-import { createRouter } from './router.js';
+import { createRouter, parseRoute, routeHash } from './router.js';
 import { detailFingerprint, sameRoute, snapshotFingerprint } from './lifecycle.js';
 import { authView, claimView, errorView } from './views/auth.js';
 import { homeView } from './views/home.js';
@@ -784,6 +784,19 @@ window.addEventListener('reading-room:refresh', event => refresh({
   bookId: event.detail?.bookId || (store.value.route.name === 'book' ? store.value.route.bookId : null)
 }));
 
+async function redirectPendingNfcOnStartup() {
+  if (!store.value.session || parseRoute().name !== 'home') return;
+  try {
+    const pending = await loadPendingTimeSession();
+    if (!pending?.id) return;
+    history.replaceState(null, '', routeHash({ name: 'reading-session-finish', sessionId: pending.id }));
+    diagnostics.event('nfc_pending_session_redirect', { session_id: pending.id });
+  } catch (error) {
+    diagnostics.event('nfc_pending_session_redirect_failed', { name: error?.name, message: error?.message });
+    console.info('[Reading Room] pending NFC session redirect skipped:', error?.message || error);
+  }
+}
+
 async function init() {
   diagnostics.event('app_init_start');
   router = createRouter((route, context) => renderRoute(route, {
@@ -805,6 +818,7 @@ async function init() {
     catch (error) { paint(errorView(error.message)); }
     diagnostics.event('auth_bootstrap_complete', { has_library: libraryLoaded });
   } else diagnostics.event('auth_bootstrap_skipped', { reason: 'no_session' });
+  await redirectPendingNfcOnStartup();
   router.start();
   supabase.auth.onAuthStateChange(async (authEvent, nextSession) => {
     const previousUserId = store.value.session?.user?.id || null;

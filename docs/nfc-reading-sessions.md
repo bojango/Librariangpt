@@ -90,9 +90,12 @@ Disabled bookmarks keep their history. Re-enable to end a still-running period.
 5. Test two deliberate scans more than 10 seconds apart; enter page and Save.
 
 The tag need not store a secret. Notifications belong entirely to the Shortcut.
-Opening a URL may choose Safari rather than an installed PWA on iOS; sign in in
-whichever browser receives the finish link. In-app hash navigation and standalone
-reload are covered by the iPhone tests.
+On iOS, the Shortcut may launch the installed PWA using its root `webapp://` URL.
+Because iOS does not reliably preserve the hash route in that scheme, an authenticated
+home/root launch now checks for the newest ended NFC session whose page entry is still
+pending and replaces the startup route with its existing finish screen. Explicit
+non-home routes are never overridden. Normal HTTPS finish links remain valid fallbacks,
+and direct finish-route reloads remain supported.
 
 ## Deployment and rollback
 

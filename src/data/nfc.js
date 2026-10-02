@@ -27,6 +27,15 @@ export async function loadTimeSession(id) {
   const book = unwrap(await supabase.from('v_library').select('id,title,current_page,total_pages').eq('id', session.book_id).single());
   return { ...session, book };
 }
+export async function loadPendingTimeSession() {
+  const rows = unwrap(await supabase.from('reading_time_sessions')
+    .select('id')
+    .not('ended_at', 'is', null)
+    .eq('progress_state', 'pending')
+    .order('ended_at', { ascending: false })
+    .limit(1));
+  return rows?.[0] || null;
+}
 export async function finishTimeSession(id, page, skip = false) {
   return unwrap(await supabase.rpc('finish_nfc_reading_session', { p_session_id: id, p_page: page, p_skip: skip }));
 }
