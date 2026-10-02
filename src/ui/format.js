@@ -87,6 +87,21 @@ export function statusPill(status, options = {}) {
   return `<${tag}${action}>${icon}<span>${escapeHtml(label)}</span>${chevron}</${tag}>`;
 }
 
+const READING_LIFECYCLE_PILLS = new Set(['Currently Reading', 'Read', 'Paused', 'DNF']);
+
+export function collectionStatusLabel(book = {}) {
+  const ownership = String(book.ownership_status || '').trim();
+  if (['Owned', 'On Order', 'Borrowed'].includes(ownership)) return ownership;
+  if (book.overall_status === 'Wishlist') return 'Wishlist';
+  return ownership || 'Not Owned';
+}
+
+export function bookStatusPills(book = {}) {
+  const readingStatus = READING_LIFECYCLE_PILLS.has(book.overall_status) ? book.overall_status : null;
+  const collectionStatus = collectionStatusLabel(book);
+  return `${readingStatus ? statusPill(readingStatus) : ''}${statusPill(collectionStatus, { interactive: true })}`;
+}
+
 export function coverPalette(title = '') {
   let hash = 2166136261;
   for (const char of title) hash = Math.imul(hash ^ char.charCodeAt(0), 16777619);
