@@ -51,6 +51,53 @@ export async function addToWishlist(book, button = null) {
   catch (error) { button?.classList.remove('wishlist-changing'); toast(error.message || 'Could not update wishlist', true); }
 }
 
+const READING_LIFECYCLE_STATUSES = new Set(['Currently Reading', 'Read', 'Paused', 'DNF']);
+
+function collectionStatusTarget(book, choice) {
+  const lifecycle = READING_LIFECYCLE_STATUSES.has(book.overall_status);
+  if (choice === 'Owned') return { status: lifecycle ? book.overall_status : 'Owned - Unread', ownership: 'Owned' };
+  if (choice === 'On Order') return { status: lifecycle ? book.overall_status : 'Wishlist', ownership: 'On Order' };
+  if (choice === 'Wishlist') return { status: 'Wishlist', ownership: 'Not Owned' };
+  if (choice === 'Borrowed') return { status: lifecycle ? book.overall_status : 'Owned - Unread', ownership: 'Borrowed' };
+  const retained = ['Wishlist', 'Recommended', 'Not Interested'].includes(book.overall_status) ? book.overall_status : 'Recommended';
+  return { status: lifecycle ? book.overall_status : retained, ownership: 'Not Owned' };
+}
+
+export function openCollectionStatus(book) {
+  const lifecycle = READING_LIFECYCLE_STATUSES.has(book.overall_status);
+  const options = ['Owned', 'On Order', ...(lifecycle ? [] : ['Wishlist']), 'Borrowed', 'Not Owned'];
+  const current = book.ownership_status === 'On Order'
+    ? 'On Order'
+    : book.ownership_status === 'Owned'
+      ? 'Owned'
+      : book.ownership_status === 'Borrowed'
+        ? 'Borrowed'
+        : book.overall_status === 'Wishlist'
+          ? 'Wishlist'
+          : 'Not Owned';
+  const root = showModal(`<h2>Library status</h2><p>Update how this book sits in your library. Reading progress and completed history are kept separate.</p><div class="collection-status-options">${options.map(option => `<button class="btn collection-status-option ${option === current ? 'is-current' : ''}" type="button" data-collection-choice="${esc(option)}" ${option === current ? 'aria-current="true"' : ''}>${esc(option)}</button>`).join('')}</div><div class="modal-actions"><button class="btn" type="button" data-close>Cancel</button></div>`);
+  root.querySelectorAll('[data-collection-choice]').forEach(button => button.addEventListener('click', async () => {
+    const choice = button.dataset.collectionChoice;
+    const target = collectionStatusTarget(book, choice);
+    root.querySelectorAll('[data-collection-choice]').forEach(option => { option.disabled = true; });
+    try {
+      await rpc('set_library_status', {
+        p_book_id: book.id,
+        p_status: target.status,
+        p_ownership: target.ownership,
+        p_priority: null,
+        p_source: 'frontend'
+      });
+      closeModal();
+      toast(`Library status updated to ${choice}.`);
+      refresh();
+    } catch (error) {
+      root.querySelectorAll('[data-collection-choice]').forEach(option => { option.disabled = false; });
+      toast(error.message || 'Could not update library status', true);
+    }
+  }));
+}
+
 export function openReview(book) {
   const root = showModal(`<h2>${book.user_rating_5 != null ? 'Edit' : 'Add'} your rating</h2><form id="review-form" class="form-stack"><div class="quick-stars">${[1,2,3,4,5].map(value => `<button type="button" data-star="${value}" aria-label="${value} star${value === 1 ? '' : 's'}" aria-pressed="false">★</button>`).join('')}</div><div class="field"><label for="rating">Your rating / 5</label><input class="input rating-input" id="rating" name="rating" type="number" min="0" max="5" step="0.01" value="${book.user_rating_5 ?? ''}" required></div><div class="field"><label for="notes">Review notes</label><textarea class="input" id="notes" name="notes" rows="7">${esc(book.review_notes || book.user_review || '')}</textarea></div><div class="modal-actions"><button class="btn" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit">Save</button></div></form>`);
   const input = root.querySelector('#rating');
