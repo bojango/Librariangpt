@@ -9,11 +9,13 @@ import { handleNfcRequest, tokenHash } from '../../supabase/functions/nfc-readin
 const bookmark = '40000000-0000-0000-0000-000000000001';
 const secondBookmark = '40000000-0000-0000-0000-000000000002';
 export const extension = 'supabase/migrations/20261003055328_active_nfc_reading_sessions.sql';
+export const classification = 'supabase/migrations/20261003125936_nfc_session_kind.sql';
 
 test('active NFC PostgreSQL extension preserves canonical lifecycle and owner boundaries', async t => {
   const db = await plannerDb(); t.after(() => db.close());
   await db.exec(await readFile('supabase/migrations/20261001190514_nfc_reading_sessions.sql', 'utf8'));
   await db.exec(await readFile(extension, 'utf8'));
+  await db.exec(await readFile(classification, 'utf8'));
   await seed(db);
   await db.exec('grant select,update on public.library_entries,public.reading_sessions to service_role; grant select on public.books,public.progress_logs,public.library_events to service_role');
   const hash = 'ab'.repeat(32);
@@ -27,6 +29,17 @@ test('active NFC PostgreSQL extension preserves canonical lifecycle and owner bo
   const clearDefault = async () => db.exec('update public.nfc_bookmarks set active_book_id=null');
   const scenario = (name, run) => t.test(name, async () => {
     await db.exec('begin'); try { await run(); } finally { await db.exec('rollback'); }
+  });
+  await scenario('timed sessions default to reading and ended pending sessions can be marked test', async () => {
+    const started = await tap();
+    assert.equal((await rows('reading_time_sessions'))[0].session_kind, 'reading');
+    await age(); await tap();
+    const marked = await call('set_nfc_session_kind', [started.session_id, 'test']);
+    assert.equal(marked.session_kind, 'test');
+    assert.equal((await rows('reading_time_sessions'))[0].session_kind, 'test');
+    await assert.rejects(call('set_nfc_session_kind', [started.session_id, 'invalid']), /Invalid session type/);
+    await call('finish_nfc_reading_session', [started.session_id, null, true]);
+    await assert.rejects(call('set_nfc_session_kind', [started.session_id, 'reading']), /Only an ended session awaiting page entry/);
   });
   await scenario('sole eligible book starts and persists shared active default', async () => {
     const s = await tap(); assert.equal(s.book_id, bookId(99)); assert.equal(s.status, 'started');

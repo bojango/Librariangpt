@@ -36,6 +36,9 @@ export async function controlTimeSession(id, action, bookId = null) {
 export async function loadPendingStart(id) {
   return unwrap(await supabase.from('nfc_pending_starts').select('id,tapped_at,reason').eq('id', id).single());
 }
+export async function setTimeSessionKind(id, kind = 'reading') {
+  return unwrap(await supabase.rpc('set_nfc_session_kind', { p_session_id: id, p_session_kind: kind }));
+}
 export async function finishTimeSession(id, page, skip = false) {
   return unwrap(await supabase.rpc('finish_nfc_reading_session', { p_session_id: id, p_page: page, p_skip: skip }));
 }

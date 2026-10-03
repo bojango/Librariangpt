@@ -2378,6 +2378,8 @@ html[data-theme="reading-room"] body .profile-tabs button.active {
 .session-facts dt { color: var(--muted); }
 .session-facts dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .session-actions { display: flex; justify-content: space-between; gap: 16px; margin-top: 20px; }
+.session-kind-control { display: flex; align-items: center; justify-content: space-between; gap: 14px; color: var(--muted); font-size: 13px; }
+.reading-session-finish .session-kind-control .input { width: auto; min-height: 40px; padding: 8px 34px 8px 11px; font-size: 14px; }
 .session-book-list { display: grid; gap: 10px; max-height: 45dvh; overflow-y: auto; margin-top: 16px; }
 .session-book-option { display: flex; flex-direction: column; text-align: left; align-items: flex-start; white-space: normal; }
 .session-book-option small { color: var(--muted); }

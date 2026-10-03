@@ -1,5 +1,5 @@
 import { supabase } from './data/supabase.js';
-import { loadTimeSession, loadNfcDestination, loadPendingStart, controlTimeSession, finishTimeSession } from './data/nfc.js';
+import { loadTimeSession, loadNfcDestination, loadPendingStart, controlTimeSession, setTimeSessionKind, finishTimeSession } from './data/nfc.js';
 import { readingSessionFinishView } from './views/reading-session-finish.js';
 import { readingSessionActiveView } from './views/reading-session-active.js';
 import { attachSessionDisplay, createNfcLifecycleCheck } from './features/reading-session.js';
@@ -559,8 +559,12 @@ app.addEventListener('click', async event => {
   }
   if (target.closest('[data-nfc-skip]')) {
     const button = target.closest('[data-nfc-skip]'); button.disabled = true;
-    try { const result = await finishTimeSession(button.dataset.nfcSkip, null, true); router.navigate({ name: 'book', bookId: result.book_id }, { replace: true }); }
-    catch (error) { button.disabled = false; toast(error.message || 'Could not skip page entry.', true); }
+    try {
+      const form = button.closest('.reading-session-finish')?.querySelector('#nfc-finish-form');
+      await setTimeSessionKind(button.dataset.nfcSkip, form?.elements.kind?.value || 'reading');
+      const result = await finishTimeSession(button.dataset.nfcSkip, null, true);
+      router.navigate({ name: 'book', bookId: result.book_id }, { replace: true });
+    } catch (error) { button.disabled = false; toast(error.message || 'Could not skip page entry.', true); }
     return;
   }
   if (target.closest('[data-avatar-menu]')) { openAvatarMenu(); return; }
@@ -677,6 +681,7 @@ app.addEventListener('submit', async event => {
     try {
       const page = Number(form.elements.page.value);
       if (!form.elements.page.value || !Number.isInteger(page) || page < 0) throw new Error('Enter a non-negative current page.');
+      await setTimeSessionKind(form.dataset.sessionId, form.elements.kind.value);
       const result = await finishTimeSession(form.dataset.sessionId, page);
       await loadSnapshot();
       router.navigate({ name: 'book', bookId: result.book_id }, { replace: true });

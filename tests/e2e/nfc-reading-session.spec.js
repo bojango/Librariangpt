@@ -15,7 +15,7 @@ async function mockApp(page, { authenticated = true, inaccessible = false, state
   let pageNumber = 273;
   let ownership = 'Owned';
   let bookmark = null;
-  const saves = []; const bookmarkWrites = []; const statusWrites = []; const controls = []; const lifecycleQueries = [];
+  const saves = []; const kinds = []; const bookmarkWrites = []; const statusWrites = []; const controls = []; const lifecycleQueries = [];
   let destination = pendingOnLaunch ? 'reading-session-finish' : activeOnLaunch ? 'reading-session-active' : selectionOnLaunch ? 'reading-session-choose' : null;
   let endedAt = activeOnLaunch ? null : '2026-10-01T10:20:34Z';
   let startedAt = activeOnLaunch ? new Date(Date.now() - 1234000).toISOString() : '2026-10-01T10:00:00Z';
@@ -39,7 +39,11 @@ async function mockApp(page, { authenticated = true, inaccessible = false, state
     if (path.endsWith('/reading_time_sessions')) {
       if (url.searchParams.get('select') === 'id') return json(pendingOnLaunch ? [{ id: sessionId }] : []);
       if (inaccessible) return json({ message: 'Row unavailable' }, 406);
-      return json({ id: sessionId, book_id: selectedBook, start_page: startPage, started_at: startedAt, ended_at: endedAt, progress_state: state });
+      return json({ id: sessionId, book_id: selectedBook, start_page: startPage, started_at: startedAt, ended_at: endedAt, progress_state: state, session_kind: 'reading' });
+    }
+    if (path.endsWith('/set_nfc_session_kind')) {
+      const payload = request.postDataJSON(); kinds.push(payload);
+      return json({ status: 'updated', session_id: sessionId, session_kind: payload.p_session_kind });
     }
     if (path.endsWith('/finish_nfc_reading_session')) {
       const payload = request.postDataJSON(); saves.push(payload);
@@ -61,7 +65,7 @@ async function mockApp(page, { authenticated = true, inaccessible = false, state
     if (path.includes('/rpc/')) return json(null);
     return json([]);
   });
-  return { saves, bookmarkWrites, statusWrites, controls, lifecycleQueries, setDestination: value => { destination = value; if (value === 'reading-session-finish') endedAt = new Date().toISOString(); } };
+  return { saves, kinds, bookmarkWrites, statusWrites, controls, lifecycleQueries, setDestination: value => { destination = value; if (value === 'reading-session-finish') endedAt = new Date().toISOString(); } };
 }
 
 test('NFC finish return retains persistent collection control and Profile configuration', async ({ page }) => {
@@ -95,6 +99,17 @@ test('direct finish deep link uses numeric prefill/autofocus and saves through N
   await input.fill('280'); await page.getByRole('button', { name: 'Save session', exact: true }).click();
   await expect(page).toHaveURL(/#\/book\/book-1$/);
   expect(saves).toEqual([{ p_session_id: sessionId, p_page: 280, p_skip: false }]);
+});
+
+test('finish session type defaults to Reading and can mark a skipped QA session as Test', async ({ page }) => {
+  const { kinds, saves } = await mockApp(page);
+  await page.goto(`/#/reading-session/${sessionId}/finish`);
+  const kind = page.getByRole('combobox', { name: 'Session type' });
+  await expect(kind).toHaveValue('reading');
+  await kind.selectOption('test');
+  await page.getByRole('button', { name: 'Skip page entry' }).click();
+  expect(kinds).toEqual([{ p_session_id: sessionId, p_session_kind: 'test' }]);
+  expect(saves[0].p_skip).toBe(true);
 });
 
 test('PWA reload preserves finish route; skip resolves page entry', async ({ page }) => {

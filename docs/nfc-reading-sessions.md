@@ -80,7 +80,11 @@ that book's canonical page, and updates the shared active default. Finish then
 prefills the corrected book's current page. Saved/skipped history cannot be changed.
 
 Finish shows title/author, HH:MM:SS duration, local start/end times, starting page,
-numeric current page, live pages read and pages/hour. Rate is omitted for durations
+numeric current page, live pages read and pages/hour.
+A compact Session type selector defaults to Reading; Test is available for occasional
+QA so future stats can exclude those rows without deleting them. Migration
+`20261003125936_nfc_session_kind.sql` classifies all pre-existing NFC timed rows
+as Test and defaults all future timed sessions to Reading. Rate is omitted for durations
 under a minute or invalid pages; a valid same-page session shows zero. Unknown
 total pages do not prevent entry. Fractions, negative/reversed pages and pages
 beyond a known total are rejected. Progress cannot go backwards relative to either
