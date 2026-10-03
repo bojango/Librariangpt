@@ -27,8 +27,8 @@ export async function loadTimeSession(id) {
   const book = unwrap(await supabase.from('v_library').select('id,title,authors,current_page,total_pages').eq('id', session.book_id).single());
   return { ...session, book };
 }
-export async function loadNfcDestination() {
-  return unwrap(await supabase.rpc('nfc_session_destination'));
+export async function loadNfcDestination(includeBook = false) {
+  return unwrap(await supabase.rpc('nfc_app_destination', { p_include_book: includeBook }));
 }
 export async function controlTimeSession(id, action, bookId = null) {
   return unwrap(await supabase.rpc('control_nfc_session', { p_id: id, p_action: action, p_book_id: bookId }));

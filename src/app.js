@@ -23,6 +23,7 @@ import { addToWishlist, confirmPause, openCollectionStatus, openCoverPicker, ope
 import { openRecommendation, openUpNextDetails, openUpNextManager } from './features/home-actions.js';
 import { initialiseCarousel } from './features/current-reading-carousel.js';
 import { openBookAdmin } from './features/book-admin.js';
+import { copyNfcBookId } from './features/nfc-book-link.js';
 import { openEditionBrowser } from './features/editions.js';
 import { handleExactCopyAction } from './features/exact-copy.js';
 import { handleQuoteAction } from './features/quotes.js';
@@ -594,6 +595,7 @@ app.addEventListener('click', async event => {
   else if (target.closest('[data-cover-picker]')) openCoverPicker(book);
   else if (target.closest('[data-refresh-metadata]')) refreshMetadata(book, target.closest('[data-refresh-metadata]'));
   else if (target.closest('[data-book-admin]')) openBookAdmin(book.id);
+  else if (target.closest('[data-copy-nfc-book-id]')) copyNfcBookId(book.id, { notify: toast });
   else if (target.closest('[data-editions]')) openEditionBrowser(book.id);
   else if (target.closest('[data-copy-verify]')) handleExactCopyAction('verify', book.id);
   else if (target.closest('[data-copy-confirm-pages]')) handleExactCopyAction('confirm-pages', book.id);
@@ -848,7 +850,7 @@ window.addEventListener('reading-room:refresh', event => refresh({
 
 let nfcStartingUp = true;
 const checkNfcLifecycle = createNfcLifecycleCheck({
-  load: loadNfcDestination,
+  load: () => loadNfcDestination(parseRoute().name === 'home'),
   allowed: () => Boolean(store.value.session) && document.visibilityState !== 'hidden'
     && ['home','reading-session-active','reading-session-choose'].includes(parseRoute().name),
   identity: () => store.value.session?.user?.id,

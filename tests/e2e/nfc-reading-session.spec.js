@@ -5,7 +5,7 @@ const api = `https://${project}.supabase.co`;
 const sessionId = '50000000-0000-0000-0000-000000000001';
 const user = { id: '10000000-0000-0000-0000-000000000001', aud: 'authenticated', role: 'authenticated', email: 'fixture@example.test' };
 
-async function mockApp(page, { authenticated = true, inaccessible = false, state = 'pending', pendingOnLaunch = false, activeOnLaunch = false, selectionOnLaunch = false } = {}) {
+async function mockApp(page, { authenticated = true, inaccessible = false, state = 'pending', pendingOnLaunch = false, activeOnLaunch = false, selectionOnLaunch = false, bookOnLaunch = null } = {}) {
   if (authenticated) {
     const accessToken = `${Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url')}.${Buffer.from(JSON.stringify({ sub: user.id, role: 'authenticated', aud: 'authenticated', exp: Math.floor(Date.now()/1000)+3600 })).toString('base64url')}.fixture`;
     await page.addInitScript(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), {
@@ -17,6 +17,8 @@ async function mockApp(page, { authenticated = true, inaccessible = false, state
   let bookmark = null;
   const saves = []; const kinds = []; const bookmarkWrites = []; const statusWrites = []; const controls = []; const lifecycleQueries = [];
   let destination = pendingOnLaunch ? 'reading-session-finish' : activeOnLaunch ? 'reading-session-active' : selectionOnLaunch ? 'reading-session-choose' : null;
+  let pendingBook = bookOnLaunch;
+  const consumedBooks = [];
   let endedAt = activeOnLaunch ? null : '2026-10-01T10:20:34Z';
   let startedAt = activeOnLaunch ? new Date(Date.now() - 1234000).toISOString() : '2026-10-01T10:00:00Z';
   let selectedBook = 'book-1', startPage = 273;
@@ -26,7 +28,15 @@ async function mockApp(page, { authenticated = true, inaccessible = false, state
     const request = route.request(); const url = new URL(request.url()); const path = url.pathname;
     const json = (value, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value), headers: { 'access-control-allow-origin': '*' } });
     if (path === '/auth/v1/user') return json(user);
-    if (path.endsWith('/nfc_session_destination')) { lifecycleQueries.push(request.method()); return json(destination ? { name: destination, sessionId } : null); }
+    if (path.endsWith('/nfc_app_destination')) {
+      lifecycleQueries.push(request.method());
+      if (destination) return json({ name: destination, sessionId });
+      if (request.postDataJSON().p_include_book && pendingBook) {
+        const bookId = pendingBook; pendingBook = null; consumedBooks.push(bookId);
+        return json({ name: 'book', bookId });
+      }
+      return json(null);
+    }
     if (path.endsWith('/nfc_pending_starts')) return json({ id: sessionId, tapped_at: startedAt, reason: 'no_current_book' });
     if (path.endsWith('/control_nfc_session')) {
       const payload = request.postDataJSON(); controls.push(payload);
@@ -65,8 +75,80 @@ async function mockApp(page, { authenticated = true, inaccessible = false, state
     if (path.includes('/rpc/')) return json(null);
     return json([]);
   });
-  return { saves, kinds, bookmarkWrites, statusWrites, controls, lifecycleQueries, setDestination: value => { destination = value; if (value === 'reading-session-finish') endedAt = new Date().toISOString(); } };
+  return { saves, kinds, bookmarkWrites, statusWrites, controls, lifecycleQueries, consumedBooks,
+    pendingBook: () => pendingBook, setBook: value => { pendingBook = value; },
+    setDestination: value => { destination = value; if (value === 'reading-session-finish') endedAt = new Date().toISOString(); } };
 }
+
+test('book sticker cold root consumes once, loads normal book detail and does not reopen on Home reload', async ({ page }) => {
+  const mock = await mockApp(page, { bookOnLaunch: 'book-2' });
+  await page.goto('/');
+  await expect(page).toHaveURL(/#\/book\/book-2$/);
+  await expect(page.getByRole('heading', { name: 'Next Main Read' })).toBeVisible();
+  expect(mock.consumedBooks).toEqual(['book-2']);
+  await page.goto('/#/home'); await page.reload();
+  await expect(page).toHaveURL(/#\/home$/);
+  expect(mock.consumedBooks).toEqual(['book-2']);
+  expect(mock.saves).toEqual([]); expect(mock.controls).toEqual([]); expect(mock.statusWrites).toEqual([]);
+});
+
+test('warm Home coalesces focus and visibility into one book destination retrieval', async ({ page }) => {
+  const mock = await mockApp(page);
+  await page.goto('/#/profile');
+  await page.evaluate(() => { location.hash = '#/home'; });
+  await expect(page.locator('#app')).toHaveAttribute('data-route-view','home');
+  mock.setBook('book-2');
+  await page.evaluate(() => { document.dispatchEvent(new Event('visibilitychange')); window.dispatchEvent(new Event('focus')); });
+  await expect(page).toHaveURL(/#\/book\/book-2$/);
+  expect(mock.lifecycleQueries).toHaveLength(1); expect(mock.consumedBooks).toEqual(['book-2']);
+});
+
+for (const hash of ['profile','book/book-1']) test(`book sticker leaves explicit ${hash} intact until Home lifecycle`, async ({ page }) => {
+  const mock = await mockApp(page, { bookOnLaunch: 'book-2' });
+  await page.goto(`/#/${hash}`);
+  await expect(page.locator('#app')).toHaveAttribute('data-route-view',hash.split('/')[0]);
+  await page.evaluate(() => { document.dispatchEvent(new Event('visibilitychange')); window.dispatchEvent(new Event('focus')); });
+  await expect(page).toHaveURL(new RegExp(`#/${hash}$`));
+  expect(mock.lifecycleQueries).toHaveLength(0); expect(mock.pendingBook()).toBe('book-2');
+  await page.evaluate(() => { location.hash = '#/home'; });
+  await expect(page.locator('#app')).toHaveAttribute('data-route-view','home');
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect(page).toHaveURL(/#\/book\/book-2$/);
+});
+
+for (const [option, suffix] of [['pendingOnLaunch','finish'],['activeOnLaunch','active'],['selectionOnLaunch','choose']]) test(`${suffix} priority preserves sticker until next eligible Home check`, async ({ page }) => {
+  const mock = await mockApp(page, { [option]: true, bookOnLaunch: 'book-2' });
+  await page.goto('/');
+  await expect(page).toHaveURL(new RegExp(`/${suffix}$`));
+  expect(mock.pendingBook()).toBe('book-2'); expect(mock.consumedBooks).toEqual([]);
+  mock.setDestination(null);
+  // Active/Choose resume must not consume even after the higher state disappears.
+  await page.waitForTimeout(800);
+  await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+  expect(mock.pendingBook()).toBe('book-2');
+  await page.goto('/#/home');
+  await page.reload();
+  await expect(page).toHaveURL(/#\/book\/book-2$/);
+  expect(mock.consumedBooks).toEqual(['book-2']);
+});
+
+test('Copy NFC book ID lives in collapsed metadata and copies exact canonical UUID with feedback', async ({ page }) => {
+  const canonicalId = '20000000-0000-0000-0000-000000000001';
+  await mockApp(page);
+  // Give the first fixture a canonical UUID for this clipboard test.
+  await page.route(`${api}/rest/v1/v_library*`, route => route.fulfill({ contentType: 'application/json', body: JSON.stringify(
+    route.request().url().includes('id=') ? { id: canonicalId,title: 'Clipboard book',authors:'Fixture',overall_status:'Wishlist',metadata_status:'complete' }
+      : [{ id: canonicalId,title:'Clipboard book',authors:'Fixture',overall_status:'Wishlist',metadata_status:'complete' }]
+  ) }));
+  await page.addInitScript(() => Object.defineProperty(navigator,'clipboard',{ value: { writeText: async value => { window.copiedBookId=value; } } }));
+  await page.goto(`/#/book/${canonicalId}`);
+  const copy = page.getByRole('button', { name: 'Copy NFC book ID' });
+  await expect(copy).toBeHidden();
+  await page.getByText('Book & edition details', { exact: true }).click();
+  await copy.click();
+  await expect.poll(() => page.evaluate(() => window.copiedBookId)).toBe(canonicalId);
+  await expect(page.getByText('NFC book ID copied.',{ exact:true })).toBeVisible();
+});
 
 test('NFC finish return retains persistent collection control and Profile configuration', async ({ page }) => {
   const { statusWrites } = await mockApp(page);
@@ -108,6 +190,7 @@ test('finish session type defaults to Reading and can mark a skipped QA session 
   await expect(kind).toHaveValue('reading');
   await kind.selectOption('test');
   await page.getByRole('button', { name: 'Skip page entry' }).click();
+  await expect(page).toHaveURL(/#\/book\/book-1$/);
   expect(kinds).toEqual([{ p_session_id: sessionId, p_session_kind: 'test' }]);
   expect(saves[0].p_skip).toBe(true);
 });

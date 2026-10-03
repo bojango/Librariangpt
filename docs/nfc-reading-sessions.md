@@ -209,3 +209,9 @@ Database controls are additive and can remain while that frontend is restored.
 The original `supabase/rollback/nfc_reading_sessions.sql` predates this extension;
 do not execute it against the extension without a reviewed rollback migration.
 Do not delete genuine timed history or rewrite canonical progress to roll back.
+
+## Book stickers
+
+Separate stickers inside individual books can open their normal book page using
+the same capability token without starting a timer. See [NFC book stickers](nfc-book-stickers.md)
+for the API, root-launch flow, priority, and deferred iOS setup.
