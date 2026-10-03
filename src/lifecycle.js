@@ -1,5 +1,5 @@
 export function routeKey(route = {}) {
-  if (route.name === 'reading-session-finish') return `reading-session-finish:${route.sessionId || ''}`;
+  if (route.name?.startsWith('reading-session-')) return `${route.name}:${route.sessionId || ''}`;
   return route.name === 'book' ? `book:${route.bookId || ''}` : String(route.name || 'home');
 }
 

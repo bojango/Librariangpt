@@ -1,6 +1,10 @@
 import { supabase } from './data/supabase.js';
-import { loadTimeSession, loadPendingTimeSession, finishTimeSession } from './data/nfc.js';
+import { loadTimeSession, loadNfcDestination, loadPendingStart, controlTimeSession, finishTimeSession } from './data/nfc.js';
 import { readingSessionFinishView } from './views/reading-session-finish.js';
+import { readingSessionActiveView } from './views/reading-session-active.js';
+import { attachSessionDisplay, createNfcLifecycleCheck } from './features/reading-session.js';
+import { attachSessionBookPicker, sessionBookPickerMarkup } from './features/session-book-picker.js';
+import { chrome } from './ui/chrome.js';
 import { openNfcBookmarks } from './features/nfc-bookmark.js';
 import { clearRequestDedupe, invoke, loadBookDetail, refreshLibrary, rpc, setDataDiagnosticHook, updateReaderProfile, uploadProfileAvatar } from './data/library.js';
 import { createAppState } from './state.js';
@@ -209,11 +213,13 @@ function paint(html, { restore = false, restoreY: requestedRestoreY = null, pres
   else if (Number.isFinite(preserveScroll)) positionAfterPaint(preserveScroll, 'refresh_preserve', { ...store.value.route }, renderMode);
 }
 
+let disposeSessionDisplay = null;
 async function renderRoute(route, { mode = 'navigation', detail = null, restoreY = null } = {}) {
   const priorRoute = { ...store.value.route };
   const routeChanged = !sameRoute(priorRoute, route);
   const routeRestoreY = Number.isFinite(restoreY) ? restoreY : store.scrollFor(route.name);
   if (mode === 'noop' && !routeChanged) { diagnostics.event('route_render_noop', { route: route.name, book_id: route.bookId || null, mode }); return; }
+  disposeSessionDisplay?.(); disposeSessionDisplay = null;
   const preservedY = mode === 'refresh' ? window.scrollY : null;
   const transition = mode === 'navigation' && routeChanged && !skipNextRouteTransition;
   skipNextRouteTransition = false;
@@ -221,11 +227,34 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
   diagnostics.event('route_render_start', { route: route.name, book_id: route.bookId || null, mode, render_generation: version, route_changed: routeChanged });
   store.setRoute(route);
   if (!store.value.session) { paint(authView(store.value.authMode), { renderMode: mode }); diagnostics.event('route_render_complete', { route: route.name, mode, render_generation: version }); return; }
-  if (route.name === 'reading-session-finish') {
+  if (route.name === 'reading-session-choose') {
+    try {
+      await loadPendingStart(route.sessionId);
+      if (!store.isCurrent(version)) return;
+      paint(chrome(`<section class="reading-session-finish">${sessionBookPickerMarkup(store.value.books, { pending: true })}</section>`, 'home', { route: route.name, title: 'Choose book' }), { positionY: 0, renderMode: mode });
+      attachSessionBookPicker(app, {
+        select: async bookId => {
+          const result = await controlTimeSession(route.sessionId, 'select', bookId);
+          await loadSnapshot();
+          router.navigate({ name: 'reading-session-active', sessionId: result.session_id }, { replace: true });
+        },
+        cancel: async () => { await controlTimeSession(route.sessionId, 'cancel'); router.navigate({ name: 'home' }, { replace: true }); }
+      });
+    } catch { if (store.isCurrent(version)) paint(errorView('This pending reading request is unavailable.'), { renderMode: mode }); }
+    return;
+  }
+  if (['reading-session-finish','reading-session-active'].includes(route.name)) {
     try {
       const session = await loadTimeSession(route.sessionId);
       if (!store.isCurrent(version)) return;
-      paint(readingSessionFinishView(session), { positionY: 0, renderMode: mode });
+      if (route.name === 'reading-session-active' && session.ended_at) {
+        router.navigate({ name: 'reading-session-finish', sessionId: session.id }, { replace: true }); return;
+      }
+      if (route.name === 'reading-session-finish' && !session.ended_at) {
+        router.navigate({ name: 'reading-session-active', sessionId: session.id }, { replace: true }); return;
+      }
+      paint(session.ended_at ? readingSessionFinishView(session) : readingSessionActiveView(session), { positionY: 0, renderMode: mode });
+      disposeSessionDisplay = attachSessionDisplay(app, session);
       app.querySelector('#nfc-current-page')?.focus();
     } catch { if (store.isCurrent(version)) paint(errorView('This reading session is unavailable. Sign in as its owner.'), { renderMode: mode }); }
     return;
@@ -500,6 +529,34 @@ app.addEventListener('click', async event => {
   if (target.closest('[data-menu]')) { openMenu(); return; }
   if (target.closest('[data-profile-edit]')) { openProfileEditor(); return; }
   if (target.closest('[data-nfc-bookmarks]')) { await openNfcBookmarks(store.value.books); return; }
+  if (target.closest('[data-session-change]')) {
+    const id = target.closest('[data-session-change]').dataset.sessionChange;
+    const root = showModal(sessionBookPickerMarkup(store.value.books));
+    attachSessionBookPicker(root, { select: async bookId => {
+      const result = await controlTimeSession(id, 'change', bookId);
+      closeModal(); await loadSnapshot();
+      router.navigate({ name: result.ended_at ? 'reading-session-finish' : 'reading-session-active', sessionId: id }, { replace: true });
+    } });
+    return;
+  }
+  if (target.closest('[data-session-end]')) {
+    const button = target.closest('[data-session-end]'); button.disabled = true;
+    try {
+      const result = await controlTimeSession(button.dataset.sessionEnd, 'end');
+      router.navigate({ name: 'reading-session-finish', sessionId: result.session_id }, { replace: true });
+    } catch (error) { toast(error.message || 'Could not end session', true); button.disabled = false; }
+    return;
+  }
+  if (target.closest('[data-session-restart]')) {
+    const id = target.closest('[data-session-restart]').dataset.sessionRestart;
+    const root = showModal('<h2>Restart session?</h2><p>The timer will start from now, using this book’s current page.</p><div class="modal-actions"><button class="btn" type="button" data-close>Cancel</button><button class="btn btn-primary" type="button" data-confirm-restart>Restart session</button></div>');
+    root.querySelector('[data-confirm-restart]').addEventListener('click', async event => {
+      const button = event.currentTarget; button.disabled = true;
+      try { await controlTimeSession(id, 'restart'); closeModal(); router.navigate({ name: 'reading-session-active', sessionId: id }, { replace: true }); }
+      catch (error) { toast(error.message || 'Could not restart session', true); button.disabled = false; }
+    });
+    return;
+  }
   if (target.closest('[data-nfc-skip]')) {
     const button = target.closest('[data-nfc-skip]'); button.disabled = true;
     try { const result = await finishTimeSession(button.dataset.nfcSkip, null, true); router.navigate({ name: 'book', bookId: result.book_id }, { replace: true }); }
@@ -784,40 +841,22 @@ window.addEventListener('reading-room:refresh', event => refresh({
   bookId: event.detail?.bookId || (store.value.route.name === 'book' ? store.value.route.bookId : null)
 }));
 
-let pendingNfcRedirect = null;
-
-async function pendingNfcFinishRoute() {
-  if (!store.value.session || parseRoute().name !== 'home') return null;
-  if (pendingNfcRedirect) return pendingNfcRedirect;
-  pendingNfcRedirect = (async () => {
-    try {
-      const pending = await loadPendingTimeSession();
-      return pending?.id ? { name: 'reading-session-finish', sessionId: pending.id } : null;
-    } catch (error) {
-      diagnostics.event('nfc_pending_session_redirect_failed', { name: error?.name, message: error?.message });
-      console.info('[Reading Room] pending NFC session redirect skipped:', error?.message || error);
-      return null;
-    } finally {
-      pendingNfcRedirect = null;
-    }
-  })();
-  return pendingNfcRedirect;
-}
-
-async function redirectPendingNfcOnStartup() {
-  const target = await pendingNfcFinishRoute();
-  if (!target) return;
-  history.replaceState(null, '', routeHash(target));
-  diagnostics.event('nfc_pending_session_redirect', { session_id: target.sessionId, source: 'startup' });
-}
-
-async function redirectPendingNfcOnResume() {
-  if (document.visibilityState === 'hidden') return;
-  const target = await pendingNfcFinishRoute();
-  if (!target || !router) return;
-  diagnostics.event('nfc_pending_session_redirect', { session_id: target.sessionId, source: 'resume' });
-  router.navigate(target, { replace: true });
-}
+let nfcStartingUp = true;
+const checkNfcLifecycle = createNfcLifecycleCheck({
+  load: loadNfcDestination,
+  allowed: () => Boolean(store.value.session) && document.visibilityState !== 'hidden'
+    && ['home','reading-session-active','reading-session-choose'].includes(parseRoute().name),
+  identity: () => store.value.session?.user?.id,
+  navigate: target => {
+    if (sameRoute(parseRoute(), target)) return;
+    diagnostics.event('nfc_session_redirect', { session_id: target.sessionId, source: nfcStartingUp ? 'startup' : 'resume' });
+    if (nfcStartingUp) history.replaceState(null, '', routeHash(target));
+    else router.navigate(target, { replace: true });
+  },
+  onError: error => diagnostics.event('nfc_session_redirect_failed', { name: error?.name, message: error?.message })
+});
+async function redirectPendingNfcOnStartup() { await checkNfcLifecycle({ force: true }); nfcStartingUp = false; }
+async function redirectPendingNfcOnResume() { await checkNfcLifecycle(); }
 
 async function init() {
   diagnostics.event('app_init_start');
@@ -850,6 +889,8 @@ async function init() {
     store.value.session = nextSession;
     if (diagnostics.isEnabled()) await diagnostics.setUserId(nextUserId);
     if (!nextSession) {
+      store.beginRender();
+      disposeSessionDisplay?.(); disposeSessionDisplay = null;
       libraryLoaded = false;
       sessionBootstrapUser = null;
       store.update({ books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], profile: null, tasteProfile: [], readingHistory: [], detail: null });
@@ -867,7 +908,8 @@ async function init() {
         } catch (error) { console.info('[Reading Room] preference sync deferred:', error?.message || error); }
         await loadSnapshot();
         if (store.value.session?.user?.id !== nextUserId) return;
-        await renderRoute({ ...store.value.route }, { mode: enteringSession ? 'startup' : 'refresh' });
+        await checkNfcLifecycle({ force: true });
+        await renderRoute({ ...parseRoute() }, { mode: enteringSession ? 'startup' : 'refresh' });
         diagnostics.event('auth_bootstrap_complete', { entering_session: enteringSession });
       } catch (error) { diagnostics.event('auth_bootstrap_failed', { name: error?.name, message: error?.message }); paint(errorView(error.message)); }
       finally { if (sessionBootstrapUser === nextUserId) sessionBootstrapUser = null; }

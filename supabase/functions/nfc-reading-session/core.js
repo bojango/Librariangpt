@@ -28,8 +28,12 @@ export async function handleNfcRequest(request, dependencies) {
     const result = await dependencies.tapBookmark(id, hash);
     if (result.status === 'unauthorized') return reply(result, 401);
     if (['ended', 'awaiting_page'].includes(result.status)) {
+      const seconds = Number.isFinite(Number(result.duration_seconds)) ? Math.max(0, Math.floor(Number(result.duration_seconds))) : 0;
+      result.duration_hms = [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60].map(n => String(n).padStart(2, '0')).join(':');
       result.finish_url = `${base.href.replace(/\/$/, '')}/#/reading-session/${encodeURIComponent(result.session_id)}/finish`;
     }
-    return reply(result, ['no_current_book', 'needs_book_selection', 'missing_reading_lifecycle'].includes(result.status) ? 409 : 200);
+    if (['no_current_book', 'needs_book_selection'].includes(result.status)) result.open_url = base.href;
+    // Selection is a persisted successful tap, not a dead HTTP error for Shortcuts.
+    return reply(result, result.status === 'missing_reading_lifecycle' ? 409 : 200);
   } catch { return reply({ status: 'temporarily_unavailable' }, 503); }
 }
