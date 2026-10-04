@@ -6,7 +6,7 @@ import { handleOpenBookRequest } from '../../supabase/functions/nfc-open-book/co
 import { tokenHash } from '../../supabase/functions/nfc-reading-session/core.js';
 import { copyNfcBookId } from '../../src/features/nfc-book-link.js';
 
-const migration = 'supabase/migrations/20261003162345_nfc_book_links.sql';
+const migration = 'supabase/migrations/20261003163603_nfc_book_links.sql';
 const bookmark = '40000000-0000-0000-0000-000000000001';
 const token = `${bookmark}.${'ab'.repeat(32)}`;
 
@@ -35,7 +35,7 @@ test('book sticker HTTP contract rejects invalid capabilities and payloads witho
 
 test('actual PostgreSQL book queue, consumption, priority and role boundaries', async t => {
   const db = await plannerDb(); t.after(() => db.close());
-  for (const file of ['20261001190514_nfc_reading_sessions.sql','20261003055328_active_nfc_reading_sessions.sql','20261003125936_nfc_session_kind.sql','20261003162345_nfc_book_links.sql']) await db.exec(await readFile(`supabase/migrations/${file}`, 'utf8'));
+  for (const file of ['20261001190514_nfc_reading_sessions.sql','20261003055328_active_nfc_reading_sessions.sql','20261003125936_nfc_session_kind.sql','20261003163603_nfc_book_links.sql']) await db.exec(await readFile(`supabase/migrations/${file}`, 'utf8'));
   await seed(db);
   await db.exec('grant select,update on public.library_entries,public.reading_sessions,public.books to service_role; grant select on public.progress_logs,public.library_events to service_role');
   const hash = await tokenHash(token);
@@ -129,7 +129,7 @@ test('copy action writes canonical UUID and provides success/failure feedback', 
 
 test('rollback-backed live SQL acceptance harness also passes against actual fixture schema', async t => {
   const db = await plannerDb(); t.after(() => db.close());
-  for (const file of ['20261001190514_nfc_reading_sessions.sql','20261003055328_active_nfc_reading_sessions.sql','20261003125936_nfc_session_kind.sql','20261003162345_nfc_book_links.sql']) await db.exec(await readFile(`supabase/migrations/${file}`,'utf8'));
+  for (const file of ['20261001190514_nfc_reading_sessions.sql','20261003055328_active_nfc_reading_sessions.sql','20261003125936_nfc_session_kind.sql','20261003163603_nfc_book_links.sql']) await db.exec(await readFile(`supabase/migrations/${file}`,'utf8'));
   await seed(db);
   await db.exec('grant select,update on public.library_entries,public.reading_sessions,public.books to service_role');
   await db.exec(await readFile('tests/sql/nfc-book-links-live.sql','utf8'));
