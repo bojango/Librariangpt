@@ -2359,3 +2359,29 @@ html[data-theme="reading-room"] body .profile-tabs button.active {
 @media (max-width: 620px) {
   .upnext-detail-meta .upnext-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .35rem; }
 }
+
+.reading-session-finish { max-width: 420px; margin: 24px auto; padding: 20px; }
+.reading-session-finish h1 { overflow-wrap: anywhere; }
+.reading-session-finish .input { font-size: 20px; min-height: 52px; }
+.reading-session-finish .btn-primary { min-height: 56px; }
+.reading-session-finish [data-nfc-error] { color: var(--danger, #b53c3c); }
+.nfc-profile-section { margin-top: 24px; }
+.nfc-bookmark-form { margin: 20px 0; }
+
+.session-book-heading { display: flex; align-items: baseline; gap: 16px; justify-content: space-between; }
+.session-book-heading h1 { margin-bottom: 0; }
+.session-author { margin-top: 8px; }
+.session-duration { font-size: clamp(2.5rem, 10vw, 3.5rem); font-variant-numeric: tabular-nums; letter-spacing: -.03em; margin: 32px 0 8px; text-align: center; }
+.session-duration-label { text-align: center; margin-bottom: 28px; }
+.session-facts { margin: 24px 0; }
+.session-facts > div { display: flex; justify-content: space-between; gap: 16px; margin: 14px 0; }
+.session-facts dt { color: var(--muted); }
+.session-facts dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.session-actions { display: flex; justify-content: space-between; gap: 16px; margin-top: 20px; }
+.session-kind-control { display: flex; align-items: center; justify-content: space-between; gap: 14px; color: var(--muted); font-size: 13px; }
+.reading-session-finish .session-kind-control .input { width: auto; min-height: 40px; padding: 8px 34px 8px 11px; font-size: 14px; }
+.session-book-list { display: grid; gap: 10px; max-height: 45dvh; overflow-y: auto; margin-top: 16px; }
+.session-book-option { display: flex; flex-direction: column; text-align: left; align-items: flex-start; white-space: normal; }
+.session-book-option small { color: var(--muted); }
+.session-book-option[hidden] { display: none; }
+.reading-session-finish .text-action { min-height: 44px; display: inline-flex; align-items: center; }

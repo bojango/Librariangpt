@@ -1,0 +1,10 @@
+{
+  "project_id": "fbbpovieqfsjunmqtxvf",
+  "slug": "nfc-reading-session",
+  "version": 2,
+  "status": "ACTIVE",
+  "verify_jwt": false,
+  "verified_at": "2026-10-03",
+  "migration": "20261003055328_active_nfc_reading_sessions",
+  "ezbr_sha256": "39724bc5b2a2761e21a7cfb8af06f1c3169492cd7dabd8e106b894598991393b"
+}

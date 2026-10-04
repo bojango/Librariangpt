@@ -66,4 +66,9 @@ The external hourly ChatGPT Reading Check-in automation remains the scheduler. I
 
 ## Security
 
-The browser contains only the public Supabase project URL and publishable key. Access is enforced by Supabase Auth and RLS. A final read-only advisor audit found outstanding remote configuration findings documented in `REFACTOR_STATUS.md`; this branch intentionally does not mutate production schema or Auth settings.
+The browser contains only the public Supabase project URL and publishable key. Access is enforced by Supabase Auth and RLS. Historical refactor findings are documented in `REFACTOR_STATUS.md`. The additive NFC migration was deployed separately and audited; it does not change existing Auth settings or weaken library RLS.
+
+## NFC bookmark sessions
+
+See [NFC setup and endpoint contract](docs/nfc-reading-sessions.md) for token setup,
+the timed-session architecture, tomorrow's iOS Shortcut steps and rollback.

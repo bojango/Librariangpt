@@ -1,0 +1,13 @@
+import { chrome } from '../ui/chrome.js';
+import { escapeHtml as esc } from '../utils/text.js';
+import { durationSeconds, durationHms, localSessionTime, sessionStats } from '../features/reading-session.js';
+
+export function sessionHeading(session, change) {
+  return `<p class="eyebrow">Reading session</p><div class="session-book-heading"><h1>${esc(session.book.title)}</h1>${change ? `<button class="text-action" type="button" data-session-change="${esc(session.id)}">Change</button>` : ''}</div><p class="muted session-author">${esc(session.book.authors || '')}</p>`;
+}
+export function readingSessionFinishView(session) {
+  const pending = session.ended_at && session.progress_state === 'pending';
+  const page = session.book.current_page ?? session.start_page;
+  const stats = sessionStats(session, String(page));
+  return chrome(`<section class="reading-session-finish">${sessionHeading(session, pending)}<p class="session-duration">${durationHms(durationSeconds(session))}</p><p class="eyebrow session-duration-label">Session length</p><dl class="session-facts"><div><dt>Started</dt><dd>${localSessionTime(session.started_at)}</dd></div><div><dt>Finished</dt><dd>${localSessionTime(session.ended_at)}</dd></div><div><dt>Started on page</dt><dd>${session.start_page}</dd></div></dl>${pending ? `<form id="nfc-finish-form" class="form-stack" data-session-id="${esc(session.id)}"><div class="field"><label for="nfc-current-page">Current page</label><input id="nfc-current-page" class="input" name="page" type="number" inputmode="numeric" min="${stats.minimum}" step="1" ${session.book.total_pages ? `max="${session.book.total_pages}"` : ''} value="${esc(page)}" required autofocus></div><dl class="session-facts"><div><dt>Pages read</dt><dd data-session-pages>${stats.pages ?? '—'}</dd></div><div><dt>Reading pace</dt><dd data-session-pace>${stats.pace == null ? '—' : `${stats.pace} pages/hour`}</dd></div></dl><label class="session-kind-control" for="nfc-session-kind"><span>Session type</span><select id="nfc-session-kind" class="input" name="kind"><option value="reading" ${session.session_kind !== 'test' ? 'selected' : ''}>Reading</option><option value="test" ${session.session_kind === 'test' ? 'selected' : ''}>Test</option></select></label><p role="alert" data-nfc-error></p><button class="btn btn-primary btn-full" type="submit">Save session</button></form><button class="text-action" type="button" data-nfc-skip="${esc(session.id)}">Skip page entry</button>` : `<p>${session.ended_at ? 'This session is already saved or skipped.' : 'This session is still running.'}</p><button class="btn" data-open-book="${esc(session.book_id)}">Back to book</button>`}</section>`, 'home', { route: 'reading-session-finish', title: 'Reading session' });
+}
