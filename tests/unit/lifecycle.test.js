@@ -15,6 +15,8 @@ test('snapshot comparison ignores route and viewport state but detects data chan
   const changed = { ...initial, books: [{ id: '1', title: 'Updated' }] };
   assert.equal(snapshotFingerprint(initial), snapshotFingerprint(viewportOnly));
   assert.notEqual(snapshotFingerprint(initial), snapshotFingerprint(changed));
+  assert.notEqual(snapshotFingerprint(initial), snapshotFingerprint({ ...initial, readingTimeSessions: [] }));
+  assert.notEqual(snapshotFingerprint({ ...initial, readingTimeSessions: [] }), snapshotFingerprint({ ...initial, readingTimeSessions: [{ id: 'time-1' }] }));
 });
 
 test('detail comparison detects edition mutations without changing route identity', () => {

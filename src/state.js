@@ -17,6 +17,7 @@ export function createAppState() {
     profile: null,
     tasteProfile: [],
     readingHistory: [],
+    readingTimeSessions: null,
     profileTab: 'stats',
     detail: null,
     route: { name: 'home', bookId: null },
