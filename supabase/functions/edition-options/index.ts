@@ -3,12 +3,13 @@ import {
   buildEditionEnrichmentPatch,
   chooseReferenceEdition,
   cleanIsbn,
+  isCredibleEdition,
   isValidIsbn,
   mergeEditionCandidates,
   sameEdition,
   shouldAutoSelectReference
 } from '../_shared/edition-ranking.js';
-import { fetchProviderJson, googleRetryAfter, openLibraryPageCount, providerDiagnostics, recordZeroResult } from '../_shared/provider-fetch.js';
+import { fetchProviderJson, googleRetryAfter, loadProviderDiagnostics, openLibraryPageCount, recordZeroResult } from '../_shared/provider-fetch.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -124,7 +125,7 @@ Deno.serve(async (request: Request) => {
     if (editionsResult.error) throw editionsResult.error;
 
     const book = { ...bookResult.data, reference_edition_id: stateResult.data.reference_edition_id };
-    const diagnostics = providerDiagnostics();
+    const diagnostics = await loadProviderDiagnostics(admin);
     const googleApiKey = Deno.env.get('GOOGLE_BOOKS_API_KEY') || '';
     let existing = editionsResult.data || [];
     knownEditionCount = existing.length;
@@ -224,18 +225,14 @@ Deno.serve(async (request: Request) => {
 
     const googleQueries = [...new Set([
       ...(selectedIsbn && isValidIsbn(selectedIsbn) ? [`isbn:${selectedIsbn}`] : []),
-      `intitle:"${discoveryTitle || title}"${author ? ` inauthor:"${author}"` : ''}`
+      ...(body?.skip_google_title_search === true ? [] : [`intitle:"${discoveryTitle || title}"${author ? ` inauthor:"${author}"` : ''}`])
     ])];
     let googleCount = 0;
     let googleResponded = false;
-    const retryAt = Date.parse(stateResult.data.metadata_retry_after || '');
-    const googleBackedOff = Number.isFinite(retryAt) && retryAt > Date.now();
-    if (googleBackedOff) {
-      diagnostics.google_books.rate_limited = true;
-      diagnostics.google_books.retry_after_at = stateResult.data.metadata_retry_after;
-      diagnostics.google_books.skipped_due_to_rate_limit = googleQueries.length;
-    }
-    for (const query of googleBackedOff ? [] : googleQueries) {
+    const googleBackedOff = diagnostics.google_books.rate_limited;
+    const sufficientIdentity = body?.enrichment === true && [...active, ...candidates].some(edition =>
+      isCredibleEdition(edition, workId) && edition.page_count && edition.cover_url && edition.publisher && edition.publication_year);
+    for (const query of sufficientIdentity ? [] : googleQueries) {
       const googleUrl = new URL('https://www.googleapis.com/books/v1/volumes');
       googleUrl.searchParams.set('q', query);
       googleUrl.searchParams.set('maxResults', '40');
@@ -266,7 +263,7 @@ Deno.serve(async (request: Request) => {
           metadata_payload: { google_books: item }
         });
       }
-      if (diagnostics.google_books.rate_limited || googleCount > 0) break;
+      if (diagnostics.google_books.rate_limited || googleCount > 0 || !response) break;
     }
 
     const merged = mergeEditionCandidates(candidates);

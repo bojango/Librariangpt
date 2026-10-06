@@ -8,7 +8,7 @@ import {
   sameEdition,
   shouldAutoSelectReference
 } from '../_shared/edition-ranking.js';
-import { fetchProviderJson, googleRetryAfter, openLibraryPageCount, providerDiagnostics, recordZeroResult } from '../_shared/provider-fetch.js';
+import { fetchProviderJson, loadProviderDiagnostics, openLibraryPageCount, recordZeroResult } from '../_shared/provider-fetch.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -168,33 +168,51 @@ Deno.serve(async (request: Request) => {
     loadedBook = { ...bookResult.data, reference_edition_id: coreResult.data.reference_edition_id };
     loadedEditions = editionsResult.data || [];
     originalMetadataStatus = coreResult.data.metadata_status || null;
-    const diagnostics = providerDiagnostics();
+    const diagnostics = await loadProviderDiagnostics(admin);
     const googleApiKey = Deno.env.get('GOOGLE_BOOKS_API_KEY') || '';
 
-    const resolving = await admin.from('books').update({ metadata_status: 'resolving', metadata_last_attempted_at: new Date().toISOString(), metadata_error: null }).eq('id', bookId);
+    const resolving = await admin.from('books').update({
+      ...(originalMetadataStatus === 'manual' ? {} : { metadata_status: 'resolving' }),
+      metadata_last_attempted_at: new Date().toISOString(), metadata_error: null
+    }).eq('id', bookId);
     if (resolving.error) throw resolving.error;
 
     const title = loadedBook.title;
     const discoveryTitle = [loadedBook.title, loadedBook.subtitle].map(clean).filter(Boolean).join(': ');
     const author = String(loadedBook.authors || '').split(',')[0].trim();
     const selectedEdition = activeEdition(loadedBook, loadedEditions);
+    let workId: string | null = selectedEdition?.open_library_work_id
+      || loadedEditions.find(edition => edition.open_library_work_id)?.open_library_work_id || null;
+    let work: any = selectedEdition?.metadata_payload?.open_library_work || null;
+    if (workId && !description(work?.description)) {
+      work = await fetchProviderJson(`https://openlibrary.org/works/${encodeURIComponent(workId)}.json`, 6500, diagnostics);
+    }
+    const fetchedWorkId = workId;
     const existingIsbn = cleanIsbn(selectedEdition?.isbn13 || selectedEdition?.isbn10 || loadedBook.isbn13 || loadedBook.isbn10);
     const credibleIsbns = [...new Set([existingIsbn, ...loadedEditions.filter(edition => isCredibleEdition(edition)).map(edition => cleanIsbn(edition.isbn13 || edition.isbn10))].filter(isValidIsbn))].slice(0, 3);
     const queries: string[] = [...credibleIsbns.map(isbn => `isbn:${isbn}`), `intitle:"${discoveryTitle || title}"${author ? ` inauthor:"${author}"` : ''}`];
-    const retryAt = Date.parse(coreResult.data.metadata_retry_after || '');
-    const googleBackedOff = Number.isFinite(retryAt) && retryAt > Date.now();
-    let storedVolume: any = null;
+    const googleBackedOff = diagnostics.google_books.rate_limited;
+    // Edition discovery persists complete provider responses on matched editions.
+    // Reuse them before requesting the same volume or repeating its ISBN search.
+    let storedVolume: any = selectedEdition?.metadata_payload?.google_books || null;
+    if (storedVolume?.volumeInfo) diagnostics.google_books.reused_evidence += 1;
     const googleResults: any[] = [];
-    if (googleBackedOff) {
-      diagnostics.google_books.rate_limited = true;
-      diagnostics.google_books.retry_after_at = coreResult.data.metadata_retry_after;
-      diagnostics.google_books.skipped_due_to_rate_limit = queries.length + 1;
-    } else {
+    const sufficientIdentity = isCredibleEdition(selectedEdition) && selectedEdition?.page_count
+      && selectedEdition?.cover_url && selectedEdition?.publisher && selectedEdition?.publication_year
+      && (loadedBook.synopsis || description(work?.description));
+    const discoveryAlreadyQueriedGoogle = body?.discovery_completed === true && Number(body?.google_attempted || 0) > 0;
+    if (googleBackedOff && !storedVolume?.volumeInfo && !sufficientIdentity && !discoveryAlreadyQueriedGoogle) {
+      diagnostics.google_books.skipped_due_to_rate_limit += queries.length + 1;
+    }
+    if (!storedVolume?.volumeInfo && !sufficientIdentity && !discoveryAlreadyQueriedGoogle) {
       storedVolume = await googleVolume(String(selectedEdition?.google_books_volume_id || loadedBook.google_books_volume_id || ''), diagnostics, googleApiKey);
-      for (const query of queries) {
+      // Following discovery, only fill gaps through targeted ISBN evidence.
+      const stageQueries = body?.discovery_completed === true ? credibleIsbns.map(isbn => `isbn:${isbn}`) : queries;
+      for (const query of storedVolume?.volumeInfo ? [] : stageQueries) {
         if (diagnostics.google_books.rate_limited) break;
         const result = await googleSearch(query, diagnostics, googleApiKey);
         googleResults.push(result);
+        if (!result) break;
         // An exact ISBN result is enough; do not fan out into title searches.
         if (Array.isArray(result?.items) && result.items.some((item: any) => googleCandidate(item, title, author, credibleIsbns, discoveryTitle).exact)) break;
       }
@@ -218,11 +236,8 @@ Deno.serve(async (request: Request) => {
     candidates = [...deduplicated.values()].sort((left, right) => right.score - left.score);
     let top = candidates[0] || null;
 
-    let openLibraryEdition: any = null;
-    let workId: string | null = selectedEdition?.open_library_work_id
-      || loadedEditions.find(edition => edition.open_library_work_id)?.open_library_work_id
-      || null;
-    if (existingIsbn && isValidIsbn(existingIsbn)) {
+    let openLibraryEdition: any = selectedEdition?.metadata_payload?.open_library || null;
+    if (!openLibraryEdition && existingIsbn && isValidIsbn(existingIsbn)) {
       openLibraryEdition = await fetchProviderJson(`https://openlibrary.org/isbn/${encodeURIComponent(existingIsbn)}.json`, 7000, diagnostics);
       workId = workId || openLibraryWorkId(openLibraryEdition?.works?.[0]?.key);
     }
@@ -247,20 +262,19 @@ Deno.serve(async (request: Request) => {
       }
     }
 
-    let work: any = null;
-    if (workId) work = await fetchProviderJson(`https://openlibrary.org/works/${encodeURIComponent(workId)}.json`, 6500, diagnostics);
+    if (workId && workId !== fetchedWorkId) work = await fetchProviderJson(`https://openlibrary.org/works/${encodeURIComponent(workId)}.json`, 6500, diagnostics);
     const ratingJobs = [openLibraryRating(admin, bookId, workId, diagnostics).catch(() => null)];
 
     if (!top || top.score < .64) {
       await Promise.allSettled(ratingJobs);
       const hasUsable = Boolean(loadedBook.synopsis || loadedBook.cover_url || loadedBook.display_edition_id || loadedEditions.some(edition => isCredibleEdition(edition)));
-      const status = hasUsable && coreResult.data.metadata_status === 'resolved' ? 'resolved' : hasUsable ? 'partial' : 'failed';
+      const status = originalMetadataStatus === 'manual' ? 'manual' : hasUsable && coreResult.data.metadata_status === 'resolved' ? 'resolved' : hasUsable ? 'partial' : 'failed';
       const metadataError = hasUsable
         ? 'Provider refresh could not improve the existing record; valid metadata was preserved.'
         : 'No reliable Google Books/Open Library or discovered-edition match';
       const update = await admin.from('books').update({
         metadata_status: status,
-        metadata_retry_after: status === 'resolved' ? null : diagnostics.google_books.rate_limited ? (googleBackedOff ? coreResult.data.metadata_retry_after : googleRetryAfter(diagnostics)) : new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+        metadata_retry_after: status === 'resolved' ? null : diagnostics.google_books.rate_limited ? diagnostics.google_books.retry_after_at : new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
         metadata_error: status === 'resolved' ? null : diagnostics.google_books.rate_limited ? 'Google Books is rate limited; credible edition identity was preserved.' : metadataError
       }).eq('id', bookId);
       if (update.error) throw update.error;
@@ -284,11 +298,12 @@ Deno.serve(async (request: Request) => {
     const isbn10 = top.isbn10 || fallback.isbn10 || null;
     const candidateEdition = {
       isbn13, isbn10,
-      publisher: fallback.publisher || volume.publisher || null,
-      publication_year: fallback.publication_year || publicationYear(volume.publishedDate),
+      publisher: fallback.publisher || volume.publisher || (typeof openLibraryEdition?.publishers?.[0] === 'string'
+        ? openLibraryEdition.publishers[0] : openLibraryEdition?.publishers?.[0]?.name) || null,
+      publication_year: fallback.publication_year || publicationYear(volume.publishedDate || openLibraryEdition?.publish_date),
       publication_date: fallback.publication_date || (/^\d{4}-\d{2}-\d{2}$/.test(String(volume.publishedDate || '')) ? volume.publishedDate : null),
       language: fallback.language || volume.language || null,
-      format: fallback.format || volume.printType || null,
+      format: fallback.format || volume.printType || openLibraryEdition?.physical_format || null,
       binding: fallback.binding || null,
       edition_statement: fallback.edition_statement || null,
       page_count: pageCount,
@@ -338,18 +353,19 @@ Deno.serve(async (request: Request) => {
     }
 
     const displayEditionAvailable = Boolean(editionId || autoReference || coreResult.data.reference_edition_id || loadedBook.current_edition_id);
-    const resolved = displayEditionAvailable && (!fallbackUsed || Boolean(synopsis));
-    const status = resolved ? 'resolved' : 'partial';
+    const resolved = displayEditionAvailable && Boolean(synopsis) && Boolean(coverUrl || loadedBook.cover_url)
+      && Boolean(pageCount || loadedBook.total_pages || /audio/i.test(candidateEdition.format || ''));
+    const status = originalMetadataStatus === 'manual' ? 'manual' : resolved ? 'resolved' : 'partial';
     const partialMessage = resolved ? null : 'Resolved from a discovered edition; some work-level metadata is still unavailable.';
     const bookPatch: any = {
       metadata_status: status,
-      metadata_confidence: top.score,
-      metadata_retry_after: resolved ? null : diagnostics.google_books.rate_limited ? (googleBackedOff ? coreResult.data.metadata_retry_after : googleRetryAfter(diagnostics)) : new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+      ...(originalMetadataStatus === 'manual' ? {} : { metadata_confidence: top.score,
+        metadata_source: fallbackUsed ? 'resolver_v8_edition_fallback' : 'resolver_v8',
+        metadata_last_updated: new Date().toISOString().slice(0, 10) }),
+      metadata_retry_after: resolved ? null : diagnostics.google_books.rate_limited ? diagnostics.google_books.retry_after_at : new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
       metadata_error: resolved ? null : diagnostics.google_books.rate_limited ? 'Google Books is rate limited; retry scheduled without changing edition identity.' : partialMessage,
-      metadata_source: fallbackUsed ? 'resolver_v8_edition_fallback' : 'resolver_v8',
-      metadata_last_updated: new Date().toISOString().slice(0, 10)
     };
-    if (resolved) bookPatch.metadata_resolved_at = new Date().toISOString();
+    if (resolved && originalMetadataStatus !== 'manual') bookPatch.metadata_resolved_at = new Date().toISOString();
     if (!coreResult.data.synopsis && synopsis) bookPatch.synopsis = synopsis;
     if (!coreResult.data.reference_edition_id && !loadedBook.current_edition_id && loadedBook.ownership_status === 'Not Owned' && autoReference) {
       bookPatch.reference_edition_id = autoReference.id;
@@ -387,7 +403,7 @@ Deno.serve(async (request: Request) => {
         const hasUsable = Boolean(loadedBook?.synopsis || loadedBook?.cover_url || loadedBook?.display_edition_id || loadedEditions.some(edition => isCredibleEdition(edition)));
         const preserveResolved = hasUsable && originalMetadataStatus === 'resolved';
         await admin.from('books').update({
-          metadata_status: preserveResolved ? 'resolved' : hasUsable ? 'partial' : 'failed',
+          metadata_status: originalMetadataStatus === 'manual' ? 'manual' : preserveResolved ? 'resolved' : hasUsable ? 'partial' : 'failed',
           metadata_error: preserveResolved ? null : (error as any)?.message || 'Content enrichment failed',
           metadata_retry_after: preserveResolved ? null : new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString()
         }).eq('id', bookId);

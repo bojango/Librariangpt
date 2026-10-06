@@ -38,18 +38,20 @@ test('hardening migration records safe diagnostics and schedules eight twice dai
   assert.doesNotMatch(sql, /(?:eyJ|sb_secret_)/);
 });
 
-test('refresh function uses direct mappings, discovery fallback, upsert, and all-books metadata', async () => {
+test('refresh function uses persisted mappings, guarded discovery, upsert, and Library membership', async () => {
   const source = await readFile(new URL('../../supabase/functions/goodreads-rating-refresh/index.ts', import.meta.url), 'utf8');
-  assert.match(source, /identity\s*\?\s*await directRefresh/);
-  assert.match(source, /:\s*await discover/);
+  assert.match(source, /await discover\(admin, book, existing, editions, metadataCandidatesResult\.data \|\| \[\], identity\)/);
+  assert.match(source, /resolveGoodreadsCandidate/);
+  assert.match(source, /stateResult\.data\?\.provider_book_id/);
+  assert.match(source, /status: 'not_in_library'/);
   assert.match(source, /upsert\(payload, \{ onConflict: 'book_id,provider' \}\)/);
   assert.match(source, /from\('books'\)/);
   assert.doesNotMatch(source, /from\('v_library'\)/);
   assert.match(source, /GOODREADS_SCHEDULER_TOKEN/);
   assert.match(source, /x-goodreads-scheduler-token/);
-  assert.match(source, /searchIdentity\?\.providerBookId === identity\.providerBookId/);
-  assert.match(source, /extractGoodreadsCandidateUrls/);
-  assert.match(source, /candidateLimitForQuery/);
+  const shared = await readFile(new URL('../../supabase/functions/_shared/goodreads.js', import.meta.url), 'utf8');
+  assert.match(shared, /extractGoodreadsCandidateUrls/);
+  assert.match(shared, /candidateLimitForQuery/);
   assert.match(source, /Goodreads search response was not ready/);
   assert.match(source, /enrichMissingIdentity/);
   assert.match(source, /if \(bookResult\.error\)[\s\S]*?status: 'retry_scheduled'/);
