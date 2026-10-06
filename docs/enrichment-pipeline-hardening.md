@@ -80,7 +80,7 @@ protected fields; deliberate owner corrections may be necessary.
    `book-metadata-enrichment-every-five-minutes` and
    `goodreads-rating-refresh-twice-daily`; allow active claims to finish. Avoid
    foreground enrichment calls during this brief function rollout.
-3. Apply **20261006183351_harden_library_enrichment.sql** transactionally. It adds
+3. Apply **20261006200850_harden_library_enrichment.sql** transactionally. It adds
    deferred support, provider circuit storage, mapping columns, health/queue RPCs,
    an idempotent backfill, and `library-enrichment-reconciliation-twice-daily`.
    It does not change either existing worker schedule or rewrite book data.
