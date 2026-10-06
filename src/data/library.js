@@ -40,12 +40,28 @@ export function clearRequestDedupe() {
   requests.clear();
 }
 
+export async function loadReadingTimeSessions({ bookId = null } = {}, client = supabase) {
+  const sessions = [];
+  const pageSize = 1000;
+  // Supabase caps select responses; page through every completed reading session.
+  for (let offset = 0; ; offset += pageSize) {
+    let query = client.from('reading_time_sessions')
+      .select('id,book_id,started_at,ended_at,session_kind')
+      .eq('session_kind', 'reading').not('ended_at', 'is', null)
+      .order('id').range(offset, offset + pageSize - 1);
+    if (bookId) query = query.eq('book_id', bookId);
+    const rows = unwrap(await query);
+    sessions.push(...rows);
+    if (rows.length < pageSize) return sessions;
+  }
+}
+
 export function loadLibrarySnapshot() {
   return dedupe('library-snapshot', async () => {
     // Coalesce meaningful database changes into one refresh before reading the queue.
     // Preserve the cached queue if the planner is temporarily unavailable.
     await optional(supabase.rpc('refresh_up_next', { p_reason: 'library_snapshot', p_force: false }), null);
-    const [books, recommendations, upNext, aiRecommendations, chapters, profile, tasteProfile, readingHistory] = await Promise.all([
+    const [books, recommendations, upNext, aiRecommendations, chapters, profile, tasteProfile, readingHistory, readingTimeSessions] = await Promise.all([
       supabase.from('v_library').select('*').order('title'),
       optional(supabase.from('recommendations').select('book_id,recommendation_strength,match_score_10,recommendation_status,why_recommended,frontend_featured,frontend_shelf,user_interest,prediction_accuracy_5,outcome,date_recommended').order('match_score_10', { ascending: false, nullsFirst: false })),
       optional(supabase.from('v_up_next').select('*').order('position')),
@@ -53,7 +69,8 @@ export function loadLibrarySnapshot() {
       optional(supabase.from('v_library_chapters').select('*').eq('overall_status', 'Currently Reading')),
       optional(supabase.from('reader_profiles').select('display_name,handle,short_bio,avatar_path,updated_at').maybeSingle(), null),
       optional(supabase.from('taste_profile').select('dimension,preference,direction,strength,confidence,evidence_count,last_updated').order('last_updated', { ascending: false, nullsFirst: false })),
-      optional(supabase.from('reading_sessions').select('id,book_id,edition_id,session_type,completed_at,started_at,user_rating_5,format_read,created_at').eq('status', 'Completed').order('completed_at', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }))
+      optional(supabase.from('reading_sessions').select('id,book_id,edition_id,session_type,completed_at,started_at,user_rating_5,format_read,created_at').eq('status', 'Completed').order('completed_at', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false })),
+      optional(loadReadingTimeSessions(), null)
     ]);
     const avatarUrl = await signedAvatarUrl(profile?.avatar_path);
     return {
@@ -64,7 +81,8 @@ export function loadLibrarySnapshot() {
       chapters,
       profile: profile ? { ...profile, avatarUrl } : null,
       tasteProfile,
-      readingHistory
+      readingHistory,
+      readingTimeSessions
     };
   });
 }
@@ -106,7 +124,7 @@ export async function updateReaderProfile(values, client = supabase) {
 
 export function loadBookDetail(bookId) {
   return dedupe(`book:${bookId}`, async () => {
-    const [book, ratings, recommendation, quotes, editions, enrichment, refreshState, latestReadingNote, accolades] = await Promise.all([
+    const [book, ratings, recommendation, quotes, editions, enrichment, refreshState, latestReadingNote, accolades, readingTimeSessions] = await Promise.all([
       supabase.from('v_library').select('*').eq('id', bookId).single(),
       optional(supabase.from('public_ratings').select('provider,rating_5,rating_count,review_count,source_url,is_primary,fetched_at').eq('book_id', bookId).order('is_primary', { ascending: false }).order('fetched_at', { ascending: false })),
       optional(supabase.from('recommendations').select('why_recommended,match_score_10,outcome,recommendation_strength,date_recommended').eq('book_id', bookId).order('date_recommended', { ascending: false }).limit(1).maybeSingle(), null),
@@ -115,9 +133,10 @@ export function loadBookDetail(bookId) {
       optional(supabase.from('books').select('editions_status,editions_last_refreshed_at,editions_error,metadata_status,metadata_retry_after').eq('id', bookId).single(), {}),
       optional(supabase.from('rating_refresh_state').select('last_attempted_at,last_success_at,next_retry_at,failure_count').eq('book_id', bookId).eq('provider', 'Goodreads').maybeSingle(), null),
       optional(supabase.from('v_latest_reading_card_notes').select('book_id,session_id,note_text,page,progress_percent,chapter_number,chapter_title,source,generated_at').eq('book_id', bookId).maybeSingle(), null)
-      ,optional(supabase.from('book_accolades').select('id,book_id,accolade_id,year,category,result,source_url,source_name,verified,sort_order,accolade:accolades(id,name,short_name,type,logo_url,logo_alt,official_url,logo_source_url,logo_source_name)').eq('book_id', bookId).eq('verified', true).order('sort_order', { ascending: true, nullsFirst: false }).order('year', { ascending: false, nullsFirst: false }))
+      ,optional(supabase.from('book_accolades').select('id,book_id,accolade_id,year,category,result,source_url,source_name,verified,sort_order,accolade:accolades(id,name,short_name,type,logo_url,logo_alt,official_url,logo_source_url,logo_source_name)').eq('book_id', bookId).eq('verified', true).order('sort_order', { ascending: true, nullsFirst: false }).order('year', { ascending: false, nullsFirst: false })),
+      optional(loadReadingTimeSessions({ bookId }), null)
     ]);
-    return { book: unwrap(book, null), ratings, recommendation, quotes, editions, enrichment, refreshState, latestReadingNote, accolades };
+    return { book: unwrap(book, null), ratings, recommendation, quotes, editions, enrichment, refreshState, latestReadingNote, accolades, readingTimeSessions };
   });
 }
 

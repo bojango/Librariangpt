@@ -1,5 +1,6 @@
 import { chrome } from '../ui/chrome.js';
 import { uiCopyHtml } from '../ui/copy.js';
+import { durationCompact, profileReadingTime } from '../utils/reading-time.js';
 
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 
@@ -51,6 +52,14 @@ function statRows(state) {
     ['AVERAGE RATING', ratings.length ? (ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length).toFixed(1) : '—']
   ];
   if (totalPages) values.push(['KNOWN PAGES READ', totalPages.toLocaleString('en-GB')]);
+  const time = profileReadingTime(state.readingTimeSessions);
+  const timeValue = seconds => state.readingTimeSessions == null ? '—' : durationCompact(seconds);
+  values.push(
+    ['READING TIME THIS YEAR', timeValue(time.yearSeconds)],
+    ['TOTAL READING TIME', timeValue(time.totalSeconds)],
+    ['AVG READING DAY', timeValue(time.averageDaySeconds)],
+    ['AVG SESSION', timeValue(time.averageSessionSeconds)]
+  );
   return values.map(([label, value]) => `<div class="profile-stat-row"><span>${label}</span><strong>${value}</strong></div>`).join('');
 }
 

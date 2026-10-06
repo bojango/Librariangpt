@@ -16,7 +16,8 @@ export function snapshotFingerprint(value = {}) {
     value.chapters || [],
     value.profile || null,
     value.tasteProfile || [],
-    value.readingHistory || []
+    value.readingHistory || [],
+    value.readingTimeSessions ?? null
   ]);
 }
 

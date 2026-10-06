@@ -900,7 +900,7 @@ async function init() {
       disposeSessionDisplay?.(); disposeSessionDisplay = null;
       libraryLoaded = false;
       sessionBootstrapUser = null;
-      store.update({ books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], profile: null, tasteProfile: [], readingHistory: [], detail: null });
+      store.update({ books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], profile: null, tasteProfile: [], readingHistory: [], readingTimeSessions: null, detail: null });
       paint(authView(store.value.authMode));
       return;
     }

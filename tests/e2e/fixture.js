@@ -40,7 +40,7 @@ function detailFor(book) {
     { id: 'award-3', accolade_id: 'award-booker', year: 2022, result: 'Shortlisted', verified: true, source_url: 'https://example.test/booker', sort_order: 3, accolade: { id: 'award-booker', name: 'Booker Prize', short_name: 'B', type: 'Prize' } },
     { id: 'award-4', accolade_id: 'award-nyt', year: 2021, result: 'Bestseller', verified: true, source_url: 'https://example.test/nyt', sort_order: 4, accolade: { id: 'award-nyt', name: 'New York Times Bestseller', short_name: 'NYT', type: 'Bestseller' } }
   ] : [];
-  return { book, ratings, recommendation: null, quotes: [{ id: 'q1', page_start: 12, quote_text: 'A saved passage.', note: 'Fixture note' }], editions: [], enrichment: {}, refreshState: null, latestReadingNote: book.id === 'current-1' ? { book_id: 'current-1', note_text: 'You have moved quickly through this section.' } : null, accolades };
+  return { book, readingTimeSessions: state.readingTimeSessions == null ? state.readingTimeSessions : state.readingTimeSessions.filter(session => session.book_id === book.id), ratings, recommendation: null, quotes: [{ id: 'q1', page_start: 12, quote_text: 'A saved passage.', note: 'Fixture note' }], editions: [], enrichment: {}, refreshState: null, latestReadingNote: book.id === 'current-1' ? { book_id: 'current-1', note_text: 'You have moved quickly through this section.' } : null, accolades };
 }
 
 function paint(html, { reuseCovers = false, preserveScroll = null } = {}) {
