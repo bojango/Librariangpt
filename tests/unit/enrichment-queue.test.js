@@ -62,17 +62,19 @@ test('metadata updates retain provider retry deadlines without reviving terminal
   assert.match(sql, /when public\.book_enrichment_jobs\.status = 'failed'\s+then 'failed'/i);
 });
 
-test('retry backoff increases, honours later provider deadlines, and becomes terminal', () => {
+test('retry backoff increases, honours provider deadlines, and defers weekly without abandonment', () => {
   const now = Date.parse('2026-09-25T12:00:00.000Z');
   const first = enrichmentRetryPlan(1, null, now);
   const second = enrichmentRetryPlan(2, null, now);
   const providerLimited = enrichmentRetryPlan(1, '2026-09-26T12:00:00.000Z', now);
-  const terminal = enrichmentRetryPlan(ENRICHMENT_MAX_ATTEMPTS, null, now);
+  const deferred = enrichmentRetryPlan(ENRICHMENT_MAX_ATTEMPTS, null, now);
 
-  assert.equal(first.terminal, false);
+  assert.equal(first.deferred, false);
   assert.equal(Date.parse(second.availableAt) - now, 12 * 60 * 60 * 1000);
   assert.equal(Date.parse(providerLimited.availableAt), Date.parse('2026-09-26T12:00:00.000Z'));
-  assert.equal(terminal.terminal, true);
+  assert.equal(deferred.deferred, true);
+  assert.equal(Date.parse(deferred.availableAt) - now, 7 * 24 * 60 * 60 * 1000);
+  assert.equal(Date.parse(enrichmentRetryPlan(500, null, now).availableAt) - now, 7 * 24 * 60 * 60 * 1000);
 });
 
 test('scheduler batches require a configured matching token, while per-book service calls do not', () => {
@@ -97,9 +99,9 @@ test('Reading Room and scheduled inserts converge on the same orchestrator', asy
   assert.match(worker, /\['edition-options', 'goodreads-rating-refresh', 'content-enrichment'\]/);
   assert.match(worker, /metadata_retry_after/);
   assert.match(worker, /requiresSchedulerToken: !bookId|serviceKey, !bookId/);
-  assert.match(worker, /status: complete \? 'completed' : terminal \? 'failed' : 'retry'/);
+  assert.match(worker, /status: complete \? 'completed' : deferred \? 'deferred' : 'retry'/);
   assert.match(worker, /enrichmentRetryPlan\(job\.attempt_count/);
-  assert.match(worker, /status: retry\.terminal \? 'failed' : 'retry'/);
+  assert.match(worker, /status: retry\.deferred \? 'deferred' : 'retry'/);
   assert.match(worker, /status: 'not_in_library'/);
   assert.match(content, /serviceCaller[\s\S]*apiKey === serviceKey/);
   assert.match(editions, /serviceCaller[\s\S]*apiKey === serviceKey/);

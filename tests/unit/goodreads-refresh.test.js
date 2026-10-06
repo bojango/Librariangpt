@@ -139,7 +139,7 @@ test('refresh state resets on success, backs off on failure, and leaves cached r
 
 test('server due logic skips fresh ratings and premature retries', () => {
   const now = Date.parse('2026-09-12T12:00:00Z');
-  assert.equal(shouldRefreshGoodreads({ rating: { fetched_at: '2026-09-10T00:00:00Z' }, now }), false);
+  assert.equal(shouldRefreshGoodreads({ rating: { provider_book_id: '123', rating_5: 4, rating_count: 100, fetched_at: '2026-09-10T00:00:00Z' }, now }), false);
   assert.equal(shouldRefreshGoodreads({ rating: { fetched_at: '2026-09-01T00:00:00Z' }, now }), true);
   assert.equal(shouldRefreshGoodreads({ refreshState: { next_retry_at: '2026-09-13T00:00:00Z' }, now }), false);
 });

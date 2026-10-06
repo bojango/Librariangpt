@@ -141,7 +141,9 @@ export function buildEditionEnrichmentPatch(existing, candidate, fetchedAt) {
     'edition_statement', 'page_count'
   ];
   for (const field of identityFields) {
-    if (!existing?.identity_locked && !existing?.[field] && candidate?.[field] != null) patch[field] = candidate[field];
+    if (!existing?.identity_locked && !existing?.exact_copy_verified
+      && !(field === 'page_count' && existing?.page_count_verified)
+      && !existing?.[field] && candidate?.[field] != null) patch[field] = candidate[field];
   }
   if (!existing?.metadata_source && candidate?.metadata_source) patch.metadata_source = candidate.metadata_source;
   if (!existing?.metadata_match_confidence && candidate?.metadata_match_confidence) patch.metadata_match_confidence = candidate.metadata_match_confidence;

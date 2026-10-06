@@ -7,6 +7,7 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
+const RETRY_MS = 6 * 60 * 60 * 1000;
 type Caller = { service: boolean; userId?: string; authorization: string };
 
 async function authorise(request: Request, url: string, anonKey: string, serviceKey: string, requiresSchedulerToken: boolean): Promise<Caller | null> {
@@ -40,12 +41,12 @@ async function recordEvent(admin: any, userId: string | null, bookId: string, ev
 }
 
 async function finishJob(admin: any, job: any, state: any, results: any[]) {
-  const complete = ['resolved', 'manual'].includes(state?.metadata_status);
+  const complete = state?.metadata_complete === true;
   const retry = enrichmentRetryPlan(job.attempt_count, state?.metadata_retry_after);
-  const terminal = !complete && retry.terminal;
+  const deferred = !complete && retry.deferred;
   const error = state?.metadata_error || 'Metadata enrichment remains partial.';
   const patch: any = {
-    status: complete ? 'completed' : terminal ? 'failed' : 'retry',
+    status: complete ? 'completed' : deferred ? 'deferred' : 'retry',
     locked_at: null,
     completed_at: complete ? new Date().toISOString() : null,
     available_at: complete ? new Date().toISOString() : retry.availableAt,
@@ -54,7 +55,9 @@ async function finishJob(admin: any, job: any, state: any, results: any[]) {
       metadata_status: state?.metadata_status || null,
       editions_status: state?.editions_status || null,
       attempt_count: job.attempt_count,
-      terminal,
+      metadata_complete: complete,
+      goodreads_complete: state?.goodreads_complete === true,
+      deferred,
       results
     }
   };
@@ -67,10 +70,10 @@ async function failJob(admin: any, job: any, error: unknown) {
   const retry = enrichmentRetryPlan(job.attempt_count, state.data?.metadata_retry_after);
   const message = (error as any)?.message || String(error);
   const update = await admin.from('book_enrichment_jobs').update({
-    status: retry.terminal ? 'failed' : 'retry', locked_at: null, completed_at: null,
+    status: retry.deferred ? 'deferred' : 'retry', locked_at: null, completed_at: null,
     available_at: retry.availableAt,
     last_error: message,
-    last_result: { failed_at: new Date().toISOString(), attempt_count: job.attempt_count, terminal: retry.terminal, error: message }
+    last_result: { failed_at: new Date().toISOString(), attempt_count: job.attempt_count, deferred: retry.deferred, error: message }
   }).eq('id', job.job_id);
   if (update.error) console.error('Could not persist enrichment queue failure', update.error);
 }
@@ -78,7 +81,7 @@ async function failJob(admin: any, job: any, error: unknown) {
 async function enrichBook(admin: any, url: string, anonKey: string, serviceKey: string, caller: Caller, job: any, force: boolean) {
   const bookId = String(job.book_id);
   const source = caller.service ? 'scheduler' : 'frontend';
-  const exists = await admin.from('books').select('id,editions_status').eq('id', bookId).maybeSingle();
+  const exists = await admin.from('books').select('id,editions_status,metadata_status').eq('id', bookId).maybeSingle();
   if (exists.error) throw exists.error;
   if (!exists.data) throw new Error('Book not found');
 
@@ -90,13 +93,15 @@ async function enrichBook(admin: any, url: string, anonKey: string, serviceKey: 
     return;
   }
 
-  const initialPatch: any = { metadata_status: 'resolving', metadata_error: null };
+  const initialPatch: any = exists.data.metadata_status === 'manual' ? {} : { metadata_status: 'resolving', metadata_error: null };
   if (exists.data.editions_status !== 'ready') {
     initialPatch.editions_status = 'refreshing';
     initialPatch.editions_error = null;
   }
-  const initialState = await admin.from('books').update(initialPatch).eq('id', bookId);
-  if (initialState.error) throw initialState.error;
+  if (Object.keys(initialPatch).length) {
+    const initialState = await admin.from('books').update(initialPatch).eq('id', bookId);
+    if (initialState.error) throw initialState.error;
+  }
 
   const userId = await libraryUserId(admin, bookId, caller.userId);
   await recordEvent(admin, userId, bookId, 'background_enrichment_started', source, {
@@ -119,12 +124,20 @@ async function enrichBook(admin: any, url: string, anonKey: string, serviceKey: 
   };
 
   const results: any[] = [];
-  results.push(await call('edition-options', { book_id: bookId, force }));
+  results.push(await call('edition-options', { book_id: bookId, force, enrichment: true }));
   results.push(await call('goodreads-rating-refresh', { book_id: bookId, force: false }));
   const goodreadsResult = results[1]?.data?.results?.[0];
   const goodreadsSeeded = Boolean(goodreadsResult?.identity_seeded || goodreadsResult?.rating?.identity_seeded);
-  if (goodreadsSeeded) results.push(await call('edition-options', { book_id: bookId, force: true }));
-  results.push(await call('content-enrichment', { book_id: bookId, force }));
+  if (goodreadsSeeded) results.push(await call('edition-options', {
+    book_id: bookId, force: true, enrichment: true,
+    skip_google_title_search: Number(results[0]?.data?.provider_diagnostics?.google_books?.attempted || 0) > 0
+  }));
+  results.push(await call('content-enrichment', {
+    book_id: bookId, force,
+    discovery_completed: results.some(result => result.slug === 'edition-options' && result.ok),
+    google_attempted: results.filter(result => result.slug === 'edition-options')
+      .reduce((count, result) => count + Number(result.data?.provider_diagnostics?.google_books?.attempted || 0), 0)
+  }));
 
   const [stateResult, libraryResult, editionsResult] = await Promise.all([
     admin.from('books').select('metadata_status,metadata_retry_after,metadata_error,editions_status').eq('id', bookId).single(),
@@ -153,7 +166,9 @@ async function enrichBook(admin: any, url: string, anonKey: string, serviceKey: 
     Object.assign(state, finalState.data);
   }
 
-  await finishJob(admin, job, state, results);
+  const health = await admin.from('v_library_enrichment_health').select('metadata_complete,goodreads_complete').eq('book_id', bookId).single();
+  if (health.error) throw health.error;
+  await finishJob(admin, job, { ...state, ...health.data }, results);
   await recordEvent(admin, userId, bookId, 'background_enrichment_finished', source, {
     finished_at: new Date().toISOString(), queue_job_id: job.job_id, results
   });

@@ -61,11 +61,11 @@ test('rate-limited Google plans are serial, back off, and preserve ready edition
     readFile(new URL('../../supabase/functions/edition-options/index.ts', import.meta.url), 'utf8'),
     readFile(new URL('../../supabase/functions/book-background-enrich/index.ts', import.meta.url), 'utf8')
   ]);
-  assert.match(content, /for \(const query of queries\)/);
+  assert.match(content, /for \(const query of storedVolume\?\.volumeInfo \? \[\] : stageQueries\)/);
   assert.match(content, /if \(diagnostics\.google_books\.rate_limited\) break/);
-  assert.match(content, /metadata_retry_after[\s\S]*googleRetryAfter/);
+  assert.match(content, /metadata_retry_after[\s\S]*diagnostics\.google_books\.retry_after_at/);
   assert.match(content, /!coreResult\.data\.cover_locked && !coreResult\.data\.cover_url_preferred/);
-  assert.match(editions, /if \(diagnostics\.google_books\.rate_limited \|\| googleCount > 0\) break/);
+  assert.match(editions, /if \(diagnostics\.google_books\.rate_limited \|\| googleCount > 0 \|\| !response\) break/);
   assert.match(background, /exists\.data\.editions_status !== 'ready'/);
 });
 

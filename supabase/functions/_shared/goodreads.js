@@ -100,7 +100,8 @@ export function authorSimilarity(target, candidates = []) {
   if (wanted.normalized === primary.normalized) return 1;
   if (wanted.surname !== primary.surname) return 0;
   if (wanted.first === primary.first) return 0.99;
-  if (wanted.first?.[0] && wanted.first[0] === primary.first?.[0]) return 0.96;
+  if ((wanted.first.length === 1 || primary.first.length === 1)
+    && wanted.first?.[0] && wanted.first[0] === primary.first?.[0]) return 0.96;
   return 0.75;
 }
 
@@ -110,18 +111,22 @@ function jsonLdNodes(value) {
   return [value, ...jsonLdNodes(value['@graph'])];
 }
 
-export function parseGoodreadsJsonLd(html) {
+export function parseGoodreadsJsonLd(html, { requireRating = true } = {}) {
+  if (!requireRating) {
+    const rated = parseGoodreadsJsonLd(html);
+    if (rated) return rated;
+  }
   const blocks = [...String(html || '').matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
   for (const [, raw] of blocks) {
     try {
       for (const node of jsonLdNodes(JSON.parse(raw.trim()))) {
-        if (!node?.aggregateRating) continue;
-        const rating = Number(node.aggregateRating.ratingValue);
-        const ratingCount = Number(node.aggregateRating.ratingCount);
-        const reviewValue = node.aggregateRating.reviewCount;
+        if (!node?.aggregateRating && (requireRating || !node?.name || !node?.author)) continue;
+        const rating = node.aggregateRating ? Number(node.aggregateRating.ratingValue) : null;
+        const ratingCount = node.aggregateRating ? Number(node.aggregateRating.ratingCount) : null;
+        const reviewValue = node.aggregateRating?.reviewCount;
         const reviewCount = reviewValue == null || reviewValue === '' ? null : Number(reviewValue);
-        if (!Number.isFinite(rating) || rating < 0 || rating > 5) continue;
-        if (!Number.isSafeInteger(ratingCount) || ratingCount < 1) continue;
+        if (node.aggregateRating && (!Number.isFinite(rating) || rating < 0 || rating > 5)) continue;
+        if (node.aggregateRating && (!Number.isSafeInteger(ratingCount) || ratingCount < 1)) continue;
         if (reviewCount != null && (!Number.isSafeInteger(reviewCount) || reviewCount < 0)) continue;
         const authors = (Array.isArray(node.author) ? node.author : [node.author])
           .map(author => cleanText(typeof author === 'string' ? author : author?.name)).filter(Boolean);
@@ -144,6 +149,93 @@ export function parseGoodreadsJsonLd(html) {
     }
   }
   return null;
+}
+
+// Only take IDs from explicit provider identity fields/links. They are discovery
+// hints; the fetched Goodreads page must still pass the canonical match guard.
+export function goodreadsProviderIdentities(editions = [], candidates = []) {
+  const identities = [];
+  const add = value => {
+    const identity = goodreadsBookIdentity(value);
+    if (identity && !identities.some(row => row.providerBookId === identity.providerBookId)) identities.push(identity);
+  };
+  for (const row of editions) {
+    const payload = row.metadata_payload || {};
+    for (const value of payload.open_library?.identifiers?.goodreads || []) add(value);
+    for (const value of payload.open_library_work?.identifiers?.goodreads || []) add(value);
+    add(payload.goodreads?.provider_book_id);
+    add(payload.goodreads?.source_url);
+  }
+  for (const row of candidates) {
+    if (!(row.selected === true || Number(row.score) >= .98)) continue;
+    if (/^Goodreads$/i.test(row.provider || '')) add(row.provider_item_id);
+    if (/^(Goodreads|Open Library|Google Books)$/i.test(row.provider || '')) {
+      add(row.payload?.source_url);
+      for (const value of row.payload?.identifiers?.goodreads || []) add(value);
+      add(row.payload?.goodreads?.source_url);
+      add(row.payload?.goodreads?.provider_book_id);
+    }
+  }
+  return identities.slice(0, 3);
+}
+
+export async function resolveGoodreadsCandidate(book, { identity = null, providerIdentities = [], fetchPage }) {
+  const diagnostic = { canonical: { title: book.title, author: book.author || null }, attempts: [] };
+  if (!book.title || !book.author) {
+    diagnostic.attempts.push({ reason: 'missing_canonical_identity' });
+    return { result: null, diagnostic };
+  }
+  const visited = new Set();
+  let requests = 0;
+  const fetchSafe = async url => {
+    if (requests >= 8) return null;
+    requests += 1;
+    try { return await fetchPage(url); }
+    catch (error) {
+      diagnostic.attempts.push({ url, error: error.message, http_status: error.status ?? null });
+      return null;
+    }
+  };
+  const evaluate = async (hint, page = null) => {
+    if (!hint || visited.has(hint.providerBookId)) return null;
+    visited.add(hint.providerBookId);
+    page ||= await fetchSafe(hint.sourceUrl);
+    if (!page) return null;
+    const parsed = parseGoodreadsJsonLd(page.html, { requireRating: false });
+    const match = validateGoodreadsCandidate(book, parsed);
+    diagnostic.attempts.push({ provider_book_id: hint.providerBookId, ...match });
+    return match.matched ? { identity: hint, parsed, match, diagnostic } : null;
+  };
+  // Persisted identity never falls back to rediscovery on transient page errors.
+  if (identity) return { result: await evaluate(identity), diagnostic };
+  const isbns = [...new Set([book.isbn13, book.isbn10].map(cleanIsbn).filter(validIsbn))];
+  for (const isbn of isbns) {
+    const page = await fetchSafe(`https://www.goodreads.com/book/isbn/${isbn}`);
+    if (!page) continue;
+    for (const url of extractGoodreadsCandidateUrls(page.html, page.finalUrl).slice(0, ISBN_CANDIDATE_LIMIT)) {
+      const hint = goodreadsBookIdentity(url);
+      const direct = goodreadsBookIdentity(page.finalUrl)?.providerBookId === hint.providerBookId;
+      const result = await evaluate(hint, direct ? page : null);
+      if (result) return { result, diagnostic };
+    }
+  }
+  for (const hint of providerIdentities) {
+    const result = await evaluate(hint);
+    if (result) return { result, diagnostic };
+  }
+  // Search HTML is last resort. A title alone is never accepted.
+  const queries = goodreadsDiscoveryQueries(book).filter(query => isbns.includes(query) || Boolean(book.author));
+  for (const query of queries) {
+    const page = await fetchSafe(`https://www.goodreads.com/search?q=${encodeURIComponent(query)}`);
+    if (!page) continue;
+    for (const url of extractGoodreadsCandidateUrls(page.html, page.finalUrl).slice(0, candidateLimitForQuery(query))) {
+      const hint = goodreadsBookIdentity(url);
+      const direct = goodreadsBookIdentity(page.finalUrl)?.providerBookId === hint.providerBookId;
+      const result = await evaluate(hint, direct ? page : null);
+      if (result) return { result, diagnostic };
+    }
+  }
+  return { result: null, diagnostic };
 }
 
 export function validateGoodreadsCandidate(book, candidate) {
@@ -278,7 +370,10 @@ export function successStateUpdate(bookId, now = Date.now(), tier = 'WORK_CONFIR
 export function shouldRefreshGoodreads({ rating, refreshState, force = false, now = Date.now() }) {
   if (force) return true;
   const fetchedAt = rating?.fetched_at ? new Date(rating.fetched_at).getTime() : NaN;
-  if (Number.isFinite(fetchedAt) && now - fetchedAt < GOODREADS_TTL_MS) return false;
+  const usable = rating?.rating_5 != null && Number.isFinite(Number(rating.rating_5))
+    && Number(rating.rating_count) > 0
+    && (goodreadsBookIdentity(rating.provider_book_id) || goodreadsBookIdentity(rating.source_url));
+  if (usable && Number.isFinite(fetchedAt) && now - fetchedAt < GOODREADS_TTL_MS) return false;
   const nextRetry = refreshState?.next_retry_at ? new Date(refreshState.next_retry_at).getTime() : NaN;
   return !Number.isFinite(nextRetry) || nextRetry <= now;
 }

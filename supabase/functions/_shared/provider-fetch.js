@@ -1,8 +1,22 @@
 export function providerDiagnostics() {
   return {
-    google_books: { attempted: 0, successful: 0, zero_result_queries: 0, http_errors: [], timeouts: 0, fetch_errors: 0, malformed_json: 0, rate_limited: false, retry_after_seconds: null, retry_after_at: null, skipped_due_to_rate_limit: 0 },
+    google_books: { attempted: 0, successful: 0, zero_result_queries: 0, http_errors: [], timeouts: 0, fetch_errors: 0, malformed_json: 0, rate_limited: false, retry_after_seconds: null, retry_after_at: null, skipped_due_to_rate_limit: 0, reused_evidence: 0 },
     open_library: { attempted: 0, successful: 0, zero_result_queries: 0, http_errors: [], timeouts: 0, fetch_errors: 0, malformed_json: 0 }
   };
+}
+
+// Each stage reads the same provider circuit, independently of book completion.
+// The admin client is deliberately non-serializable and omitted from diagnostics.
+export async function loadProviderDiagnostics(admin) {
+  const diagnostics = providerDiagnostics();
+  Object.defineProperty(diagnostics, 'admin', { value: admin });
+  const state = await admin.from('enrichment_provider_state').select('retry_after').eq('provider', 'google_books').maybeSingle();
+  if (state.error) throw new Error(`Could not load provider backoff: ${state.error.message}`);
+  if (Date.parse(state.data?.retry_after || '') > Date.now()) {
+    diagnostics.google_books.rate_limited = true;
+    diagnostics.google_books.retry_after_at = state.data.retry_after;
+  }
+  return diagnostics;
 }
 
 export function providerForUrl(url) { return /googleapis\.com\/books/i.test(url) ? 'google_books' : 'open_library'; }
@@ -15,12 +29,22 @@ export function parseRetryAfter(value, now = Date.now()) {
 }
 export function googleRetryAfter(diagnostics, now = Date.now()) {
   const seconds = diagnostics?.google_books?.retry_after_seconds;
-  return new Date(now + ((Number.isFinite(seconds) ? seconds : 45 * 60) * 1000)).toISOString();
+  return new Date(now + (Math.max(60, Number.isFinite(seconds) ? seconds : 45 * 60) * 1000)).toISOString();
 }
 
 export async function fetchProviderJson(url, timeoutMs, diagnostics, { googleApiKey = '' } = {}) {
   const provider = providerForUrl(url);
   const detail = diagnostics?.[provider];
+  // Another invocation may trip the circuit while this stage is doing Open
+  // Library discovery. Check immediately before each Google network request.
+  if (provider === 'google_books' && !detail?.rate_limited && diagnostics?.admin) {
+    const state = await diagnostics.admin.from('enrichment_provider_state').select('retry_after').eq('provider', provider).maybeSingle();
+    if (state.error) { detail.fetch_errors += 1; console.error('Provider circuit lookup failed', state.error); return null; }
+    if (Date.parse(state.data?.retry_after || '') > Date.now()) {
+      detail.rate_limited = true;
+      detail.retry_after_at = state.data.retry_after;
+    }
+  }
   if (provider === 'google_books' && detail?.rate_limited) { detail.skipped_due_to_rate_limit += 1; return null; }
   if (detail) detail.attempted += 1;
   const controller = new AbortController();
@@ -36,6 +60,13 @@ export async function fetchProviderJson(url, timeoutMs, diagnostics, { googleApi
           detail.rate_limited = true;
           detail.retry_after_seconds = parseRetryAfter(response.headers.get('Retry-After'));
           detail.retry_after_at = googleRetryAfter(diagnostics);
+          if (diagnostics.admin) {
+            const saved = await diagnostics.admin.rpc('extend_enrichment_provider_backoff', {
+              p_provider: provider, p_retry_after: detail.retry_after_at,
+              p_diagnostic: { http_status: 429, retry_after_seconds: detail.retry_after_seconds }
+            });
+            if (saved.error) console.error('Could not persist provider backoff', saved.error);
+          }
         }
       }
       return null;
