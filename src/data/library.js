@@ -15,8 +15,12 @@ function dedupe(key, work) {
 }
 
 function unwrap(result, fallback = []) {
-  if (result.error) throw result.error;
-  return result.data ?? fallback;
+  // Some optional loaders already return their final array rather than a
+  // Supabase { data, error } response. Preserve those values instead of
+  // accidentally replacing successful reads with the fallback.
+  if (Array.isArray(result)) return result;
+  if (result?.error) throw result.error;
+  return result?.data ?? fallback;
 }
 
 async function optional(query, fallback = []) {
