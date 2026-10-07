@@ -66,7 +66,7 @@ function currentCard(book, state) {
 
 function currentReading(state) {
   const books = currentlyReadingBooks(state.books);
-  if (!books.length) return `<section class="hero"><div class="hero-copy"><p class="eyebrow">Reading terminal</p><h1>Nothing currently open.</h1><div class="hero-author">Your owned-unread shelf is sitting there, judging with remarkable restraint.</div><div class="hero-actions"><button class="btn btn-primary" data-route="library">Browse library</button></div></div></section>`;
+  if (!books.length) return `<section class="hero empty-reading-hero"><div class="hero-copy"><p class="eyebrow">Reading terminal</p><h1>Nothing currently open.</h1><div class="hero-author">Your owned-unread shelf is sitting there, judging with remarkable restraint.</div><div class="hero-actions"><button class="btn btn-primary" data-route="library">Browse library</button></div></div></section>`;
   const cards = books.map(book => currentCard(book, state)).join('');
   return `<div class="current-reading-carousel-v36" data-carousel><div class="current-reading-track-v36" aria-label="Currently reading books">${cards}</div><div class="current-reading-dots-v36"><div class="current-reading-dot-rail-v36">${books.map((book, index) => `<button class="current-reading-dot-v36" data-carousel-dot="${index}" aria-label="Show ${esc(book.title)}"></button>`).join('')}<span class="current-reading-indicator-v36" aria-hidden="true"></span></div></div></div>`;
 }
