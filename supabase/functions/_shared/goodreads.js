@@ -9,6 +9,32 @@ export function cleanText(value) {
   return String(value ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+function decodeHtmlEntities(value) {
+  const named = { amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: ' ' };
+  return String(value ?? '')
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)))
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&([a-z]+);/gi, (match, name) => named[name.toLowerCase()] ?? match);
+}
+
+export function parseGoodreadsDescription(html) {
+  const source = String(html || '');
+  const start = source.search(/data-testid=["']description["']/i);
+  if (start < 0) return null;
+  const tail = source.slice(start);
+  const nextSection = tail.search(/data-testid=["']genresList["']/i);
+  const section = nextSection > 0 ? tail.slice(0, nextSection) : tail.slice(0, 20000);
+  const formatted = section.match(/<span[^>]*class=["'][^"']*\bFormatted\b[^"']*["'][^>]*>([\s\S]*?)<\/span>/i)?.[1];
+  if (!formatted) return null;
+  const text = decodeHtmlEntities(formatted
+    .replace(/<br\s*\/?\s*>/gi, ' ')
+    .replace(/<\/(?:p|div|li|ul|ol|b|strong|i|em|h[1-6])>/gi, ' ')
+    .replace(/<[^>]+>/g, ' '))
+    .replace(/\s+/g, ' ').trim();
+  if (text.length < 40) return null;
+  return text.length <= 3000 ? text : `${text.slice(0, 2997)}…`;
+}
+
 export function normalizeText(value) {
   return cleanText(value).toLowerCase()
     .replace(/[ł]/g, 'l').replace(/[ø]/g, 'o').replace(/[ß]/g, 'ss')
@@ -116,6 +142,7 @@ export function parseGoodreadsJsonLd(html, { requireRating = true } = {}) {
     const rated = parseGoodreadsJsonLd(html);
     if (rated) return rated;
   }
+  const pageDescription = parseGoodreadsDescription(html);
   const blocks = [...String(html || '').matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
   for (const [, raw] of blocks) {
     try {
@@ -141,7 +168,7 @@ export function parseGoodreadsJsonLd(html, { requireRating = true } = {}) {
           rating_count: ratingCount,
           review_count: reviewCount,
           image: /^https:\/\//i.test(String(image || '')) ? String(image) : null,
-          description: description || null
+          description: description || pageDescription || null
         };
       }
     } catch {
