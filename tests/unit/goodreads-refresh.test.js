@@ -12,6 +12,7 @@ import {
   goodreadsDiscoveryQueries,
   failureStateUpdate,
   normalizeBaseTitle,
+  parseGoodreadsDescription,
   parseGoodreadsJsonLd,
   processSequentially,
   selectDominantExactTitleIdentity,
@@ -40,6 +41,26 @@ test('parses Goodreads JSON-LD object, array, and @graph shapes', () => {
   ];
   for (const shape of shapes) assert.equal(parseGoodreadsJsonLd(`<script type="application/ld+json">${JSON.stringify(shape)}</script>`).rating_count, 500000);
   assert.equal(parseGoodreadsJsonLd('<script type="application/ld+json">{"name":"Bad","aggregateRating":{"ratingValue":9,"ratingCount":0}}</script>'), null);
+});
+
+test('visible Goodreads description fills metadata when JSON-LD omits the synopsis', () => {
+  const html = `
+    <script type="application/ld+json">${JSON.stringify({
+      name: 'Influx',
+      author: { name: 'Daniel Suarez' },
+      isbn: '9780525953180',
+      aggregateRating: { ratingValue: '3.94', ratingCount: '18412', reviewCount: '1480' }
+    })}</script>
+    <div data-testid="description" class="BookPageMetadataSection__description">
+      <div class="TruncatedContent"><div data-testid="contentContainer">
+        <span class="Formatted"><b>What if our civilization is more advanced than we know?</b>
+        A secret organization has suppressed decades of technological progress &amp; hidden it from the public.</span>
+      </div></div>
+    </div>
+    <div data-testid="genresList"></div>`;
+  const description = parseGoodreadsDescription(html);
+  assert.equal(description, 'What if our civilization is more advanced than we know? A secret organization has suppressed decades of technological progress & hidden it from the public.');
+  assert.equal(parseGoodreadsJsonLd(html).description, description);
 });
 
 test('ISBN confirmation remains highest confidence and unsafe identity rejects', () => {
