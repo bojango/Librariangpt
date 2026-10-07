@@ -85,7 +85,7 @@ h1, h2, h3, p { overflow-wrap: anywhere; }
 .progress-track { height: 7px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.09); }
 .progress-fill { height: 100%; width: var(--progress,0%); border-radius: inherit; background: var(--accent); }
 .hero-actions { display: flex; flex-wrap: wrap; gap: 9px; }
-.empty-reading-hero { grid-template-columns: minmax(0,1fr); min-height: 245px; }
+.hero.empty-reading-hero { grid-template-columns: minmax(0,1fr); min-height: 245px; }
 .empty-reading-hero .hero-copy { max-width: 620px; }
 .empty-reading-hero .hero-actions { margin-top: 22px; }
 
