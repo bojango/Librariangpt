@@ -29,7 +29,7 @@ export function parseRetryAfter(value, now = Date.now()) {
 }
 export function googleRetryAfter(diagnostics, now = Date.now()) {
   const seconds = diagnostics?.google_books?.retry_after_seconds;
-  return new Date(now + (Math.max(60, Number.isFinite(seconds) ? seconds : 45 * 60) * 1000)).toISOString();
+  return new Date(now + (Math.max(15 * 60, Number.isFinite(seconds) ? seconds : 45 * 60) * 1000)).toISOString();
 }
 
 export async function fetchProviderJson(url, timeoutMs, diagnostics, { googleApiKey = '' } = {}) {
