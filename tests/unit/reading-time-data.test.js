@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { loadReadingTimeSessions } from '../../src/data/library.js';
 
 function clientFor(results) {
@@ -39,4 +40,12 @@ test('all-book query handles empty data and rejects page failures instead of ret
   const error = new Error('unavailable');
   const failed = clientFor([{ data: Array(1000).fill({}) }, { error }]);
   await assert.rejects(loadReadingTimeSessions({}, failed.client), error);
+});
+
+
+test('library optional dataset handling preserves successful raw session arrays', async () => {
+  const source = await readFile(new URL('../../src/data/library.js', import.meta.url), 'utf8');
+  assert.match(source, /if \(Array\.isArray\(result\)\) return result/);
+  assert.match(source, /optional\(loadReadingTimeSessions\(\), null\)/);
+  assert.match(source, /optional\(loadReadingTimeSessions\(\{ bookId \}\), null\)/);
 });
