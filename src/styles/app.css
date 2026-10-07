@@ -2388,3 +2388,27 @@ html[data-theme="reading-room"] body .profile-tabs button.active {
 .session-book-option small { color: var(--muted); }
 .session-book-option[hidden] { display: none; }
 .reading-session-finish .text-action { min-height: 44px; display: inline-flex; align-items: center; }
+
+
+/* Empty current-reading state correction v113.
+   A later mobile hero rule uses !important for the normal cover + copy layout.
+   Override it explicitly for the no-book state so the copy can use the card width. */
+@media (max-width:700px) {
+  html[data-theme="reading-room"] .hero.empty-reading-hero {
+    grid-template-columns: minmax(0,1fr) !important;
+    gap: 0 !important;
+    min-height: 0 !important;
+    padding: 24px !important;
+  }
+  html[data-theme="reading-room"] .empty-reading-hero .hero-copy {
+    width: 100% !important;
+    max-width: none !important;
+  }
+  html[data-theme="reading-room"] .empty-reading-hero .hero-copy h1 {
+    max-width: 11ch;
+    overflow-wrap: normal;
+  }
+  html[data-theme="reading-room"] .empty-reading-hero .hero-author {
+    max-width: 26ch;
+  }
+}
