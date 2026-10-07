@@ -40,9 +40,15 @@ async function recordEvent(admin: any, userId: string | null, bookId: string, ev
   if (result.error) console.error(`Could not record ${eventType}`, result.error);
 }
 
+function isTransientRateLimit(state: any, results: any[] = []) {
+  if (/rate limit/i.test(String(state?.metadata_error || ''))) return true;
+  return results.some(result => result?.data?.provider_diagnostics?.google_books?.rate_limited === true);
+}
+
 async function finishJob(admin: any, job: any, state: any, results: any[]) {
   const complete = state?.metadata_complete === true;
-  const retry = enrichmentRetryPlan(job.attempt_count, state?.metadata_retry_after);
+  const transientRateLimit = !complete && isTransientRateLimit(state, results);
+  const retry = enrichmentRetryPlan(job.attempt_count, state?.metadata_retry_after, Date.now(), { transientRateLimit });
   const deferred = !complete && retry.deferred;
   const error = state?.metadata_error || 'Metadata enrichment remains partial.';
   const patch: any = {
@@ -67,8 +73,10 @@ async function finishJob(admin: any, job: any, state: any, results: any[]) {
 
 async function failJob(admin: any, job: any, error: unknown) {
   const state = await admin.from('books').select('metadata_retry_after').eq('id', job.book_id).maybeSingle();
-  const retry = enrichmentRetryPlan(job.attempt_count, state.data?.metadata_retry_after);
   const message = (error as any)?.message || String(error);
+  const retry = enrichmentRetryPlan(job.attempt_count, state.data?.metadata_retry_after, Date.now(), {
+    transientRateLimit: /rate limit/i.test(message)
+  });
   const update = await admin.from('book_enrichment_jobs').update({
     status: retry.deferred ? 'deferred' : 'retry', locked_at: null, completed_at: null,
     available_at: retry.availableAt,
