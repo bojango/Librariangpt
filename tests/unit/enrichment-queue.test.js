@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
   ENRICHMENT_MAX_ATTEMPTS,
+  ENRICHMENT_RATE_LIMIT_RETRY_MS,
   enrichmentRetryPlan,
   hasValidSchedulerCredentials
 } from '../../supabase/functions/_shared/enrichment-queue.js';
@@ -75,6 +76,10 @@ test('retry backoff increases, honours provider deadlines, and defers weekly wit
   assert.equal(deferred.deferred, true);
   assert.equal(Date.parse(deferred.availableAt) - now, 7 * 24 * 60 * 60 * 1000);
   assert.equal(Date.parse(enrichmentRetryPlan(500, null, now).availableAt) - now, 7 * 24 * 60 * 60 * 1000);
+
+  const rateLimited = enrichmentRetryPlan(ENRICHMENT_MAX_ATTEMPTS + 10, null, now, { transientRateLimit: true });
+  assert.equal(rateLimited.deferred, false);
+  assert.equal(Date.parse(rateLimited.availableAt) - now, ENRICHMENT_RATE_LIMIT_RETRY_MS);
 });
 
 test('scheduler batches require a configured matching token, while per-book service calls do not', () => {
