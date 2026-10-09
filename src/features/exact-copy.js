@@ -73,7 +73,7 @@ function openPhotoEditor(book,file){
    const canvas=await rectifyCover(img,pts,cleaned);
    const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('Could not create cover image')),'image/jpeg',.93));
    const dataUrl=await blobToDataUrl(blob);const base64=dataUrl.split(',')[1];
-   const editionId=book.display_edition_id||book.current_edition_id||book.reference_edition_id;if(!editionId)throw new Error('Choose an edition before uploading a cover.');
+   const editionId=book.display_edition_id||book.current_edition_id||book.reference_edition_id||null;
    btn.textContent='Uploading…';
    const {data,error}=await supabase.functions.invoke('upload-cover-photo',{body:{book_id:book.id,edition_id:editionId,image_base64:base64,mime_type:'image/jpeg',width:canvas.width,height:canvas.height,processing:'perspective corrected + cropped'}});
    if(error)throw error;if(data?.error)throw new Error(data.error);
@@ -87,7 +87,7 @@ function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
 function solveLinear(A,b){const n=b.length,M=A.map((row,i)=>[...row,b[i]]);for(let c=0;c<n;c++){let pivot=c;for(let r=c+1;r<n;r++)if(Math.abs(M[r][c])>Math.abs(M[pivot][c]))pivot=r;if(Math.abs(M[pivot][c])<1e-10)throw new Error('Cover corners are too distorted.');[M[c],M[pivot]]=[M[pivot],M[c]];const d=M[c][c];for(let j=c;j<=n;j++)M[c][j]/=d;for(let r=0;r<n;r++){if(r===c)continue;const f=M[r][c];for(let j=c;j<=n;j++)M[r][j]-=f*M[c][j];}}return M.map(row=>row[n]);}
 function homography(dest,src){const A=[],b=[];for(let i=0;i<4;i++){const u=dest[i].x,v=dest[i].y,x=src[i].x,y=src[i].y;A.push([u,v,1,0,0,0,-x*u,-x*v]);b.push(x);A.push([0,0,0,u,v,1,-y*u,-y*v]);b.push(y);}return solveLinear(A,b);}
 async function rectifyCover(img,points,cleanup=true){
- if(!img.complete)await new Promise((res,rej)=>{img.onload=res;img.onerror=rej;});
+ await img.decode().catch(()=>{throw new Error('Choose a valid image your browser can open.');});
  const maxSource=2200,rawW=img.naturalWidth,rawH=img.naturalHeight,scale=Math.min(1,maxSource/Math.max(rawW,rawH));
  const sw=Math.max(1,Math.round(rawW*scale)),sh=Math.max(1,Math.round(rawH*scale));
  const source=document.createElement('canvas');source.width=sw;source.height=sh;const sctx=source.getContext('2d',{willReadFrequently:true});sctx.drawImage(img,0,0,sw,sh);

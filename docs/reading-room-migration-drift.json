@@ -1,0 +1,82 @@
+{
+  "live_not_in_repository": [
+    {
+      "version": "20260910112523",
+      "name": "add_reading_checkin_read_functions"
+    },
+    {
+      "version": "20260911160150",
+      "name": "add_related_book_wishlist_action"
+    },
+    {
+      "version": "20260913172226",
+      "name": "add_reading_card_notes_and_chapter_orchestration"
+    },
+    {
+      "version": "20260913172432",
+      "name": "index_reading_card_note_foreign_keys"
+    },
+    {
+      "version": "20260913180732",
+      "name": "add_reading_checkin_bridge_rpcs"
+    },
+    {
+      "version": "20260914080907",
+      "name": "add_reading_system_events_and_retry_chapter_maps"
+    },
+    {
+      "version": "20260916053516",
+      "name": "add_recent_completion_to_reading_checkin_snapshot"
+    },
+    {
+      "version": "20260916053612",
+      "name": "add_reading_checkin_event_bridge"
+    },
+    {
+      "version": "20260918200641",
+      "name": "add_book_accolades"
+    },
+    {
+      "version": "20260919093203",
+      "name": "add_private_reader_profiles"
+    },
+    {
+      "version": "20260919150558",
+      "name": "add_reader_ui_preferences"
+    },
+    {
+      "version": "20260921125650",
+      "name": "add_reading_checkin_run_audit"
+    },
+    {
+      "version": "20260921125801",
+      "name": "lock_down_reading_checkin_audit_rpcs"
+    },
+    {
+      "version": "20260923125455",
+      "name": "combine_reading_checkin_audit_and_snapshot"
+    },
+    {
+      "version": "20260923125554",
+      "name": "lock_down_reading_checkin_combined_rpc"
+    },
+    {
+      "version": "20260925070434",
+      "name": "add_metadata_enrichment_queue"
+    }
+  ],
+  "repository_not_in_live": [
+    "20260911155000_add_related_book_wishlist_action.sql",
+    "20260912120000_replenish_up_next_reserve.sql",
+    "20260912202941_add_goodreads_rating_refresh.sql",
+    "20260913171316_add_reading_card_notes_and_chapter_orchestration.sql",
+    "20260913172416_index_reading_card_note_foreign_keys.sql",
+    "20260913180154_add_reading_checkin_bridge_rpcs.sql",
+    "20260914075939_add_reading_system_events_and_retry_chapter_maps.sql",
+    "20260918110000_add_book_accolades.sql",
+    "20260919120000_add_private_reader_profiles.sql",
+    "20260919143000_add_reader_ui_preferences.sql",
+    "20260923145729_add_metadata_enrichment_queue.sql",
+    "20261009184736_reading_room_stability.sql"
+  ]
+}

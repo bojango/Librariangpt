@@ -1,0 +1,210 @@
+[
+  {
+    "slug": "book-metadata",
+    "version": 6,
+    "files": [
+      {
+        "file": "supabase/functions/book-metadata/index.ts",
+        "matches_main": false
+      }
+    ]
+  },
+  {
+    "slug": "cover-refresh",
+    "version": 7,
+    "files": [
+      {
+        "file": "supabase/functions/cover-refresh/index.ts",
+        "matches_main": true
+      }
+    ]
+  },
+  {
+    "slug": "content-enrichment",
+    "version": 18,
+    "files": [
+      {
+        "file": "supabase/functions/content-enrichment/index.ts",
+        "matches_main": true
+      },
+      {
+        "file": "supabase/functions/_shared/edition-ranking.js",
+        "matches_main": true
+      },
+      {
+        "file": "supabase/functions/_shared/provider-fetch.js",
+        "matches_main": true
+      }
+    ]
+  },
+  {
+    "slug": "cover-options",
+    "version": 7,
+    "files": [
+      {
+        "file": "supabase/functions/cover-options/index.ts",
+        "matches_main": true
+      }
+    ]
+  },
+  {
+    "slug": "select-cover",
+    "version": 6,
+    "files": [
+      {
+        "file": "supabase/functions/select-cover/index.ts",
+        "matches_main": true
+      }
+    ]
+  },
+  {
+    "slug": "chapter-map",
+    "version": 8,
+    "files": [
+      {
+        "file": "supabase/functions/chapter-map/index.ts",
+        "matches_main": true
+      },
+      {
+        "file": "supabase/functions/chapter-map/core.js",
+        "matches_main": true
+      }
+    ]
+  },
+  {
+    "slug": "edition-options",
+    "version": 16,
+    "files": [
+      {
+        "file": "supabase/functions/edition-options/index.ts",
+        "matches_main": true
+      },
+      {
+        "file": "supabase/functions/_shared/edition-ranking.js",
+        "matches_main": true
+      },
+      {
+        "file": "supabase/functions/_shared/provider-fetch.js",
+        "matches_main": true
+      }
+    ]
+  },
+  {
+    "slug": "upload-cover-photo",
+    "version": 6,
+    "files": [
+      {
+        "file": "supabase/functions/upload-cover-photo/index.ts",
+        "matches_main": true
+      }
+    ]
+  },
+  {
+    "slug": "book-search",
+    "version": 12,
+    "files": [
+      {
+        "file": "supabase/functions/book-search/index.ts",
+        "matches_main": true
+      }
+    ]
+  },
+  {
+    "slug": "book-background-enrich",
+    "version": 12,
+    "files": [
+      {
+        "file": "supabase/functions/book-background-enrich/index.ts",
+        "matches_main": true
+      },
+      {
+        "file": "supabase/functions/_shared/enrichment-queue.js",
+        "matches_main": true
+      }
+    ]
+  },
+  {
+    "slug": "book-search-fallback",
+    "version": 5,
+    "files": [
+      {
+        "file": "supabase/functions/book-search-fallback/index.ts",
+        "matches_main": true
+      }
+    ]
+  },
+  {
+    "slug": "related-books",
+    "version": 5,
+    "files": [
+      {
+        "file": "supabase/functions/related-books/index.ts",
+        "matches_main": true
+      }
+    ]
+  },
+  {
+    "slug": "reading-checkin-bridge",
+    "version": 8,
+    "files": [
+      {
+        "file": "supabase/functions/reading-checkin-bridge/index.ts",
+        "matches_main": true
+      },
+      {
+        "file": "supabase/functions/reading-checkin-bridge/core.js",
+        "matches_main": true
+      }
+    ]
+  },
+  {
+    "slug": "goodreads-rating-refresh",
+    "version": 17,
+    "files": [
+      {
+        "file": "supabase/functions/goodreads-rating-refresh/index.ts",
+        "matches_main": true
+      },
+      {
+        "file": "supabase/functions/_shared/goodreads.js",
+        "matches_main": true
+      },
+      {
+        "file": "supabase/functions/_shared/provider-fetch.js",
+        "matches_main": true
+      }
+    ]
+  },
+  {
+    "slug": "nfc-reading-session",
+    "version": 2,
+    "files": [
+      {
+        "file": "supabase/functions/nfc-reading-session/index.ts",
+        "matches_main": true
+      },
+      {
+        "file": "supabase/functions/nfc-reading-session/core.js",
+        "matches_main": true
+      }
+    ]
+  },
+  {
+    "slug": "nfc-open-book",
+    "version": 1,
+    "files": [
+      {
+        "file": "supabase/functions/nfc-open-book/index.ts",
+        "matches_main": true
+      },
+      {
+        "file": "supabase/functions/nfc-open-book/core.js",
+        "matches_main": true
+      },
+      {
+        "file": "supabase/functions/nfc-reading-session/core.js",
+        "matches_main": true
+      }
+    ]
+  }
+]

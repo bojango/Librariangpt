@@ -6,7 +6,7 @@ export function cleanIsbn(value) {
 
 export function isValidIsbn(value) {
   const isbn = cleanIsbn(value);
-  if (/^\d{13}$/.test(isbn)) {
+  if (/^97[89]\d{10}$/.test(isbn)) {
     const sum = isbn.slice(0, 12).split('').reduce((total, digit, index) => total + Number(digit) * (index % 2 ? 3 : 1), 0);
     return (10 - sum % 10) % 10 === Number(isbn[12]);
   }
@@ -28,9 +28,19 @@ function canonicalIsbn13(edition) {
   return `${stem}${(10 - sum % 10) % 10}`;
 }
 
+// Providers sometimes aggregate different printings under one record. Never
+// treat unrelated ISBN-10 and ISBN-13 values as aliases of the same copy.
+export function coherentIsbns(edition) {
+  const isbn13 = cleanIsbn(edition?.isbn13).length === 13 && isValidIsbn(edition?.isbn13) ? cleanIsbn(edition.isbn13) : null;
+  let isbn10 = cleanIsbn(edition?.isbn10).length === 10 && isValidIsbn(edition?.isbn10) ? cleanIsbn(edition.isbn10) : null;
+  if (isbn13 && isbn10 && canonicalIsbn13({isbn10}) !== isbn13) isbn10 = null;
+  return {isbn13, isbn10};
+}
+
 export function sameEdition(left, right) {
   const leftCanonical = canonicalIsbn13(left);
   const rightCanonical = canonicalIsbn13(right);
+  if (leftCanonical && rightCanonical && leftCanonical !== rightCanonical) return false;
   return Boolean(
     (leftCanonical && rightCanonical && leftCanonical === rightCanonical) ||
     (left?.isbn13 && right?.isbn13 && cleanIsbn(left.isbn13) === cleanIsbn(right.isbn13)) ||
@@ -42,7 +52,9 @@ export function sameEdition(left, right) {
 
 export function mergeEditionCandidates(candidates) {
   const merged = [];
-  for (const candidate of candidates) {
+  for (const raw of candidates) {
+    const candidate = { ...raw, ...coherentIsbns(raw) };
+    if (candidate.page_count != null && (!Number.isInteger(candidate.page_count) || candidate.page_count < 1 || candidate.page_count > 10000)) candidate.page_count = null;
     const match = merged.find(existing => sameEdition(existing, candidate));
     if (!match) {
       merged.push({ ...candidate });
@@ -141,6 +153,9 @@ export function buildEditionEnrichmentPatch(existing, candidate, fetchedAt) {
     'edition_statement', 'page_count'
   ];
   for (const field of identityFields) {
+    if (field === 'page_count' && (!Number.isInteger(candidate?.page_count) || candidate.page_count < 1 || candidate.page_count > 10000)) continue;
+    if (field === 'isbn13' && existing?.isbn10 && canonicalIsbn13({isbn10:existing.isbn10}) !== cleanIsbn(candidate?.isbn13)) continue;
+    if (field === 'isbn10' && existing?.isbn13 && canonicalIsbn13({isbn10:candidate?.isbn10}) !== cleanIsbn(existing.isbn13)) continue;
     if (!existing?.identity_locked && !existing?.exact_copy_verified
       && !(field === 'page_count' && existing?.page_count_verified)
       && !existing?.[field] && candidate?.[field] != null) patch[field] = candidate[field];

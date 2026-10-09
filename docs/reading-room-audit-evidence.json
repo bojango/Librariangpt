@@ -1,0 +1,454 @@
+{
+  "timestamp": "2026-10-09",
+  "project": "fbbpovieqfsjunmqtxvf",
+  "integrity": [
+    {
+      "issue": "cross_book_current_edition",
+      "n": 0
+    },
+    {
+      "issue": "cross_book_reference",
+      "n": 0
+    },
+    {
+      "issue": "cross_book_session_edition",
+      "n": 0
+    },
+    {
+      "issue": "invalid_library_pages",
+      "n": 0
+    },
+    {
+      "issue": "invalid_session_pages",
+      "n": 0
+    },
+    {
+      "issue": "invalid_progress",
+      "n": 0
+    },
+    {
+      "issue": "progress_session_mismatch",
+      "n": 0
+    },
+    {
+      "issue": "feedback_session_mismatch",
+      "n": 0
+    },
+    {
+      "issue": "notes_session_mismatch",
+      "n": 0
+    },
+    {
+      "issue": "invalid_dates",
+      "n": 0
+    },
+    {
+      "issue": "invalid_nfc_dates",
+      "n": 0
+    },
+    {
+      "issue": "nfc_reading_mismatch",
+      "n": 0
+    },
+    {
+      "issue": "nfc_duplicate_open",
+      "n": 0
+    },
+    {
+      "issue": "duplicate_editions_isbn",
+      "n": 0
+    },
+    {
+      "issue": "duplicate_library",
+      "n": 0
+    }
+  ],
+  "relationships": [
+    {
+      "issue": "cross_book_cover_candidate",
+      "n": 0
+    },
+    {
+      "issue": "cross_book_quote_edition",
+      "n": 0
+    },
+    {
+      "issue": "quote_session_mismatch",
+      "n": 0
+    },
+    {
+      "issue": "diagnostic_owner_mismatch",
+      "n": 0
+    },
+    {
+      "issue": "nfc_invalid_pages",
+      "n": 0
+    },
+    {
+      "issue": "isbn13_invalid_shape",
+      "n": 0
+    },
+    {
+      "issue": "isbn13_invalid_checksum",
+      "n": 0
+    },
+    {
+      "issue": "invalid_edition_pages",
+      "n": 1
+    },
+    {
+      "issue": "duplicate_active_recommendations",
+      "n": 0
+    },
+    {
+      "issue": "owned_wishlist",
+      "n": 0
+    },
+    {
+      "issue": "completed_without_date",
+      "n": 0
+    },
+    {
+      "issue": "duplicate_title_author",
+      "n": 0
+    },
+    {
+      "issue": "missing_stored_cover_object",
+      "n": 0
+    }
+  ],
+  "foreign_keys": [
+    {
+      "issue": "book_authors_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "book_authors_author_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "book_series_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "book_series_series_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "editions_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "library_entries_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "library_entries_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "library_entries_current_edition_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "reading_sessions_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "reading_sessions_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "reading_sessions_edition_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "progress_logs_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "progress_logs_session_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "progress_logs_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "recommendations_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "recommendations_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "reading_feedback_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "reading_feedback_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "reading_feedback_session_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "taste_profile_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "taste_evidence_taste_profile_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "taste_evidence_feedback_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "taste_evidence_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "book_external_ids_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "library_events_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "library_events_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "library_events_session_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "books_reference_edition_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "public_ratings_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "book_cover_candidates_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "book_cover_candidates_edition_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "edition_chapters_edition_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "book_metadata_candidates_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "up_next_queue_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "up_next_queue_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "book_quotes_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "book_quotes_edition_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "book_quotes_session_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "diagnostic_sessions_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "diagnostic_events_session_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "diagnostic_events_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "reading_card_notes_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "reading_card_notes_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "reading_card_notes_session_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "reading_card_notes_progress_log_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "rating_refresh_state_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "book_accolades_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "book_accolades_accolade_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "reader_profiles_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "reader_ui_preferences_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "book_enrichment_jobs_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "next_read_intents_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "next_read_intents_source_session_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "next_read_intents_source_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "next_read_transitions_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "next_read_transitions_session_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "up_next_planner_state_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "up_next_refreshes_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "up_next_exclusions_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "up_next_exclusions_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "nfc_bookmarks_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "nfc_bookmarks_pinned_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "reading_time_sessions_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "reading_time_sessions_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "reading_time_sessions_edition_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "reading_time_sessions_reading_session_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "reading_time_sessions_bookmark_id_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "nfc_bookmarks_active_book_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "nfc_pending_starts_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "nfc_pending_starts_bookmark_id_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "app_navigation_requests_user_id_fkey",
+      "n": 0
+    },
+    {
+      "issue": "app_navigation_requests_book_id_fkey",
+      "n": 0
+    }
+  ],
+  "yeti": [
+    {
+      "id": "069021b6-d85f-4383-95be-e0c1e2e86294",
+      "title": "Yeti: An Abominable History",
+      "subtitle": null,
+      "editions_status": "failed",
+      "editions_error": "No editions could be discovered from Open Library or Google Books.",
+      "metadata_status": "partial",
+      "metadata_error": "Google Books is rate limited; credible edition identity was preserved.",
+      "cover_locked": false,
+      "edition_count": 0
+    }
+  ],
+  "buckets": [
+    {
+      "id": "book-covers",
+      "public": true,
+      "file_size_limit": 5242880,
+      "allowed_mime_types": [
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+      ]
+    },
+    {
+      "id": "award-logos",
+      "public": true,
+      "file_size_limit": 1048576,
+      "allowed_mime_types": [
+        "image/png",
+        "image/webp"
+      ]
+    },
+    {
+      "id": "reader-avatars",
+      "public": false,
+      "file_size_limit": 5242880,
+      "allowed_mime_types": [
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+      ]
+    }
+  ]
+}

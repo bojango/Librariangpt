@@ -5,7 +5,7 @@ import { installMotionController } from '../../src/ui/motion.js';
 
 function target(properties = {}) {
   const events = new EventTarget();
-  return Object.assign(properties, { addEventListener: events.addEventListener.bind(events), removeEventListener: events.removeEventListener.bind(events), dispatchEvent: events.dispatchEvent.bind(events) });
+  return Object.assign(properties, { addEventListener: events.addEventListener.bind(events), removeEventListener: events.removeEventListener.bind(events), dispatchEvent(event) { Object.defineProperty(event, 'target', { value: properties, configurable: true }); return events.dispatchEvent(event); } });
 }
 
 function classList() {
@@ -141,4 +141,29 @@ test('book detail hydration does not replay a route entrance', async () => {
   assert.match(app, /transition: transition && !paintedLoading/);
   assert.match(app, /lockScrollAnchor: true/);
   assert.match(app, /route-scroll-lock/);
+});
+
+test('missing transitionend falls back once, ignores unrelated transitions and cleans gesture state', async () => {
+  const h=createHarness({standalone:true});let calls=0;
+  const c=installMotionController({getRoute:()=>({name:'book'}),goBack:()=>calls++,...h});
+  h.doc.dispatchEvent(touchEvent('touchstart',[{clientX:10,clientY:100}]));
+  h.doc.dispatchEvent(touchEvent('touchmove',[{clientX:80,clientY:102}]));
+  h.doc.dispatchEvent(touchEvent('touchend',[]));
+  const unrelated=new Event('transitionend');Object.defineProperty(unrelated,'propertyName',{value:'opacity'});h.main.dispatchEvent(unrelated);
+  await new Promise(resolve=>setTimeout(resolve,380));
+  assert.equal(calls,1);assert.equal(h.mainClasses.contains('swipe-settling'),false);c.destroy();
+});
+
+test('navigation, cancellation, multi-touch and destruction cancel stale swipe callbacks', async () => {
+  for(const interruption of ['suspend','hashchange','touchcancel','transitioncancel','multi','destroy']) {
+    const h=createHarness({standalone:true});let calls=0;
+    const c=installMotionController({getRoute:()=>({name:'book'}),goBack:()=>calls++,...h});
+    h.doc.dispatchEvent(touchEvent('touchstart',[{clientX:10,clientY:100}]));
+    h.doc.dispatchEvent(touchEvent('touchmove',[{clientX:80,clientY:102}]));
+    if(interruption==='multi')h.doc.dispatchEvent(touchEvent('touchmove',[{clientX:80,clientY:102},{clientX:90,clientY:102}]));
+    else { h.doc.dispatchEvent(touchEvent('touchend',[]));
+      if(interruption==='suspend')c.suspend();else if(interruption==='destroy')c.destroy();else (interruption==='hashchange'?h.win:interruption==='transitioncancel'?h.main:h.doc).dispatchEvent(new Event(interruption)); }
+    assert.equal(h.mainClasses.contains('swipe-tracking'),false);assert.equal(h.mainClasses.contains('swipe-settling'),false);
+    await new Promise(resolve=>setTimeout(resolve,360));assert.equal(calls,0);c.destroy();
+  }
 });

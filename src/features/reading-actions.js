@@ -136,26 +136,31 @@ async function selectCover(book, candidateId, button) {
 }
 
 async function saveCustomCover(event, book) {
-  event.preventDefault(); const button = event.currentTarget.querySelector('[type="submit"]'); button.disabled = true;
+  event.preventDefault(); const form = event.currentTarget; const button = form.querySelector('[type="submit"]'); button.disabled = true; button.textContent = 'Saving…';
   try {
-    const file = event.currentTarget.file.files?.[0];
-    if (file) return uploadCover(book, file, button);
-    const url = event.currentTarget.url.value.trim();
+    const file = form.elements.file.files?.[0];
+    if (file) return await uploadCover(book, file, button);
+    const url = form.elements.url.value.trim();
     if (!url) throw new Error('Choose an image or enter an image URL.');
+    if (!/^https?:\/\//i.test(url)) throw new Error('Use an HTTP or HTTPS image URL.');
+    const image = new Image(); image.src = url;
+    await image.decode().catch(() => { throw new Error('The URL did not load a valid image.'); });
     const row = await addManualCover({ book_id: book.id, edition_id: book.display_edition_id || null, provider: 'Manual URL', source_label: 'Custom URL', source_url: url, exact_edition: book.ownership_status === 'Owned' });
     await selectCover(book, row.id, button);
-  } catch (error) { toast(error.message || 'Could not save cover', true); button.disabled = false; }
+  } catch (error) { toast(error.message || 'Could not save cover', true); }
+  finally { button.disabled = false; button.textContent = 'Save cover'; }
 }
 
 async function uploadCover(book, file, button) {
   const image = new Image(); const url = URL.createObjectURL(file);
   try {
-    image.src = url; await image.decode(); const max = 2000; const scale = Math.min(1, max / Math.max(image.naturalWidth, image.naturalHeight));
+    button.textContent = 'Processing…';
+    image.src = url; await image.decode().catch(() => { throw new Error('Choose a valid image your browser can open.'); }); const max = 2000; const scale = Math.min(1, max / Math.max(image.naturalWidth, image.naturalHeight));
     const canvas = document.createElement('canvas'); canvas.width = Math.round(image.naturalWidth * scale); canvas.height = Math.round(image.naturalHeight * scale);
     const context = canvas.getContext('2d'); context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height); context.drawImage(image, 0, 0, canvas.width, canvas.height);
     const dataUrl = canvas.toDataURL('image/jpeg', .91); const editionId = book.display_edition_id || book.current_edition_id || book.reference_edition_id;
-    if (!editionId) throw new Error('Choose an edition before uploading a cover.');
-    await invoke('upload-cover-photo', { book_id: book.id, edition_id: editionId, image_base64: dataUrl.split(',')[1], mime_type: 'image/jpeg', width: canvas.width, height: canvas.height, processing: 'Manual image upload' });
+    button.textContent = 'Uploading…';
+    await invoke('upload-cover-photo', { book_id: book.id, edition_id: editionId || null, image_base64: dataUrl.split(',')[1], mime_type: 'image/jpeg', width: canvas.width, height: canvas.height, processing: 'Manual image upload' });
     closeModal(); toast('Cover image uploaded and saved.'); refresh();
   } finally { URL.revokeObjectURL(url); button.disabled = false; }
 }

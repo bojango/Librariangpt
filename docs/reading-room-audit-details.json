@@ -1,0 +1,186 @@
+{
+  "additional_checks": {
+    "job_statuses": {
+      "retry": 9,
+      "completed": 20
+    },
+    "legacy_bridge": {
+      "signature": "record_reading_checkin_bridge(uuid,uuid,text,integer,integer,text)",
+      "definition": "CREATE OR REPLACE FUNCTION public.record_reading_checkin_bridge(p_book_id uuid, p_session_id uuid, p_checkin_kind text, p_current_page integer DEFAULT NULL::integer, p_total_pages integer DEFAULT NULL::integer, p_reason text DEFAULT NULL::text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO ''\nAS $function$\ndeclare\n  v_owner_id uuid;\n  v_event_id bigint;\n  v_progress numeric;\nbegin\n  select s.owner_user_id into v_owner_id\n  from private.app_state s\n  where s.singleton = true;\n\n  if v_owner_id is null then\n    raise exception 'Reading bridge owner is not configured';\n  end if;\n\n  if p_checkin_kind is null or btrim(p_checkin_kind) = '' then\n    raise exception 'checkin kind is required';\n  end if;\n\n  if not exists (\n    select 1 from public.library_entries le\n    where le.user_id = v_owner_id and le.book_id = p_book_id\n  ) then\n    raise exception 'Book does not belong to configured reading owner';\n  end if;\n\n  if p_session_id is not null and not exists (\n    select 1 from public.reading_sessions rs\n    where rs.id = p_session_id and rs.user_id = v_owner_id and rs.book_id = p_book_id\n  ) then\n    raise exception 'Session does not belong to configured reading owner/book';\n  end if;\n\n  if p_checkin_kind = 'final_review' and exists (\n    select 1 from public.library_events e\n    where e.user_id = v_owner_id\n      and e.book_id = p_book_id\n      and (p_session_id is null or e.session_id = p_session_id or e.session_id is null)\n      and e.event_type = 'reading_checkin'\n      and e.payload->>'checkin_kind' = 'final_review'\n  ) then\n    return jsonb_build_object('saved', false, 'reason', 'duplicate_final_review_prompt');\n  end if;\n\n  if p_checkin_kind <> 'final_review' and p_current_page is not null and exists (\n    select 1 from public.library_events e\n    where e.user_id = v_owner_id\n      and e.book_id = p_book_id\n      and (p_session_id is null or e.session_id = p_session_id or e.session_id is null)\n      and e.event_type = 'reading_checkin'\n      and e.payload->>'checkin_kind' = p_checkin_kind\n      and (e.payload->>'current_page') ~ '^[0-9]+$'\n      and (e.payload->>'current_page')::integer = p_current_page\n  ) then\n    return jsonb_build_object('saved', false, 'reason', 'duplicate_page_checkin');\n  end if;\n\n  if p_current_page is not null and p_total_pages is not null and p_total_pages > 0 then\n    v_progress := round(100.0 * p_current_page::numeric / p_total_pages::numeric, 1);\n  end if;\n\n  insert into public.library_events(user_id, book_id, session_id, event_type, source, payload)\n  values (\n    v_owner_id,\n    p_book_id,\n    p_session_id,\n    'reading_checkin',\n    'chatgpt',\n    jsonb_strip_nulls(jsonb_build_object(\n      'checkin_kind', p_checkin_kind,\n      'current_page', p_current_page,\n      'total_pages', p_total_pages,\n      'current_percentage', v_progress,\n      'reason', p_reason\n    ))\n  )\n  returning id into v_event_id;\n\n  return jsonb_build_object('saved', true, 'event_id', v_event_id);\nend;\n$function$\n",
+      "anon_execute": true,
+      "security_definer": true,
+      "authenticated_execute": true
+    },
+    "stale_editions": [
+      {
+        "title": "Stuff Matters",
+        "last_refreshed_at": null
+      },
+      {
+        "title": "The Seven Deaths of Evelyn Hardcastle",
+        "last_refreshed_at": null
+      },
+      {
+        "title": "The Martian",
+        "last_refreshed_at": null
+      },
+      {
+        "title": "The Unfinished Harauld Hughes",
+        "last_refreshed_at": null
+      },
+      {
+        "title": "Sand",
+        "last_refreshed_at": null
+      },
+      {
+        "title": "Solaris",
+        "last_refreshed_at": null
+      },
+      {
+        "title": "The Lost City of Z",
+        "last_refreshed_at": null
+      },
+      {
+        "title": "Sphere",
+        "last_refreshed_at": "2026-09-08T06:45:44.975+00:00"
+      },
+      {
+        "title": "Delta-v",
+        "last_refreshed_at": null
+      }
+    ],
+    "upnext_ineligible": 0,
+    "overdue_queued_jobs": 0,
+    "implausible_editions": [
+      {
+        "pages": 12549,
+        "title": "Jurassic Park",
+        "isbn13": "9787551123181",
+        "edition_id": "40edad7f-a953-475b-8955-c7aa36038c4e",
+        "metadata_source": "edition_browser_open_library"
+      }
+    ],
+    "nfc_negative_duration": 0,
+    "stale_processing_jobs": 0,
+    "upnext_duplicate_book": 0,
+    "multiple_selected_cover": 0,
+    "nfc_long_duration_review": 0,
+    "book_locked_without_cover": 0,
+    "nfc_submitted_without_end": 0,
+    "uploaded_edition_unlocked": 0,
+    "upnext_duplicate_position": 0,
+    "nfc_page_regression_review": 0
+  },
+  "isbn_identity_conflicts": [
+    {
+      "title": "Ready Player One",
+      "id": "ecc382b7-b2cc-410a-ba09-bcd11ccc924b",
+      "isbn10": "060640757X",
+      "isbn13": "9780307887436",
+      "identity_locked": false,
+      "exact_copy_verified": false,
+      "metadata_source": "resolver_v19",
+      "provider_isbns": null
+    },
+    {
+      "title": "Children of Time",
+      "id": "3f74c319-3c49-496b-b8eb-766405b37c31",
+      "isbn10": "1447273281",
+      "isbn13": "9780316452496",
+      "identity_locked": false,
+      "exact_copy_verified": false,
+      "metadata_source": "resolver_v19",
+      "provider_isbns": null
+    },
+    {
+      "title": "Islands of Abandonment",
+      "id": "49bf8d05-ad6c-45a6-81bb-a71fd29007f2",
+      "isbn10": "0008329761",
+      "isbn13": "9780008329785",
+      "identity_locked": false,
+      "exact_copy_verified": false,
+      "metadata_source": "resolver_v19",
+      "provider_isbns": null
+    },
+    {
+      "title": "Jurassic Park",
+      "id": "d22f9534-f04b-4b9d-b1b5-eee4133cc742",
+      "isbn10": "0099887002",
+      "isbn13": "9780099895107",
+      "identity_locked": false,
+      "exact_copy_verified": false,
+      "metadata_source": "edition_browser_open_library",
+      "provider_isbns": null
+    },
+    {
+      "title": "Into the Wild",
+      "id": "07eee9aa-0a7d-4a9c-9e39-e8ad6a8b1842",
+      "isbn10": "033038970X",
+      "isbn13": "9781447203698",
+      "identity_locked": false,
+      "exact_copy_verified": false,
+      "metadata_source": "edition_browser_open_library",
+      "provider_isbns": null
+    },
+    {
+      "title": "The Lost City of the Monkey God",
+      "id": "db8cb86c-1439-4683-ae02-245dca29ac69",
+      "isbn10": "1786694999",
+      "isbn13": "9781786695017",
+      "identity_locked": false,
+      "exact_copy_verified": false,
+      "metadata_source": "edition_browser_v6_ol",
+      "provider_isbns": null
+    },
+    {
+      "title": "Timeline",
+      "id": "25dab179-d28a-40ea-a6ca-43cd53fb7f61",
+      "isbn10": "140709453X",
+      "isbn13": "9780375404351",
+      "identity_locked": false,
+      "exact_copy_verified": false,
+      "metadata_source": "Open Library discovery",
+      "provider_isbns": null
+    },
+    {
+      "title": "Solaris",
+      "id": "41ca92c4-c988-4bb0-80f5-2b1d41703838",
+      "isbn10": "0156837501",
+      "isbn13": "9780156027601",
+      "identity_locked": false,
+      "exact_copy_verified": false,
+      "metadata_source": "edition_browser_v6_ol",
+      "provider_isbns": null
+    },
+    {
+      "title": "Underland",
+      "id": "518428ea-65c4-46e3-b68d-fd468a55576f",
+      "isbn10": "0141030577",
+      "isbn13": "9780241146422",
+      "identity_locked": false,
+      "exact_copy_verified": false,
+      "metadata_source": "resolver_v19",
+      "provider_isbns": null
+    },
+    {
+      "title": "The Last Season",
+      "id": "abd291ad-f3e9-4bc0-abd4-f17ea5e5fb10",
+      "isbn10": "0061479772",
+      "isbn13": "9780061479793",
+      "identity_locked": false,
+      "exact_copy_verified": false,
+      "metadata_source": "resolver_v19",
+      "provider_isbns": null
+    },
+    {
+      "title": "Atlas of Vanishing Places",
+      "id": "c6c53126-5297-4444-9e4e-c4d427d9d70f",
+      "isbn10": "0711281165",
+      "isbn13": "9780711281158",
+      "identity_locked": false,
+      "exact_copy_verified": false,
+      "metadata_source": "Open Library discovery",
+      "provider_isbns": null
+    }
+  ]
+}
