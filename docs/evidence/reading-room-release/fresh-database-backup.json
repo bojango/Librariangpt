@@ -1,0 +1,14 @@
+{
+  "roles_include_passwords": false,
+  "database_file": "reading-room-production-20261009T211830Z.dump",
+  "backup_location": "Private user backup directory outside repository",
+  "sha256": "EC06CE84B54F04B008FC898C8407A05BE05C5B81947B5E2368EBE663FBCFAA13",
+  "roles_file": "reading-room-roles-20261009T211830Z.sql",
+  "table_data_entries": 84,
+  "archive_decode": "passed",
+  "bytes": 2725585,
+  "tls": "verify-full",
+  "hosted_restore": "not performed; controlled production release authorised",
+  "storage_bytes": "Not included; existing media objects preserved",
+  "created_at": "2026-10-09T21:18:54.9711143Z"
+}

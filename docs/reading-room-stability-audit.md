@@ -1,3 +1,5 @@
+Production continuation: the security and stability migrations and four Edge Functions are deployed and verified. See the [current release runbook](reading-room-release-runbook.md) for updated hosted integration evidence and frontend status. The sections below preserve the original audit snapshot.
+
 # Reading Room stability audit — 9 October 2026
 
 Changes are prepared on `fix/reading-room-stability-audit`, based on main `3cbabc1`. Existing feature branches, including NFC and reading check-in work, were preserved. The initial audit below was read-only. **Release update:** the separately approved security permission hotfix was deployed and verified as migration `20261009202447`; no production reading rows or storage objects were changed. The wider stability migration/application release remains pending staging and production approval. See the [release continuation and recovery procedure](reading-room-release-runbook.md) and [migration reconciliation](reading-room-migration-reconciliation.json) for current status.

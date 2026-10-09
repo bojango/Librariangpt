@@ -19,12 +19,12 @@
   "tool": "pg_dump / pg_restore 17.11 from official EDB PostgreSQL Windows binary archive",
   "tls": "verify-full with the Supabase dashboard-linked prod-ca-2021.crt",
   "paths": {
-    "database": "output/reading-room-production-20261009.dump",
-    "roles": "output/reading-room-production-roles-20261009.sql"
+    "database": "Private user backup directory outside repository/reading-room-production-20261009.dump",
+    "roles": "Private user backup directory outside repository/reading-room-production-roles-20261009.sql"
   },
   "roles_include_passwords": false,
   "archive_decode": "passed",
-  "hosted_restore": "not yet executed",
+  "hosted_restore": "Not performed; controlled production deployment subsequently authorised",
   "storage_bytes": "Database stores storage metadata only; media objects were not downloaded or deleted.",
   "private_files_committed": false
 }

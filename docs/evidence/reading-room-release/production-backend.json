@@ -1,0 +1,587 @@
+{
+  "migration": {
+    "rpcs": [
+      {
+        "anon": false,
+        "definer": false,
+        "service": true,
+        "signature": "add_manual_edition(uuid,text,text,integer,text,integer,text,text,text)",
+        "authenticated": true
+      },
+      {
+        "anon": false,
+        "definer": false,
+        "service": true,
+        "signature": "claim_edition_discovery(uuid)",
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "definer": true,
+        "service": true,
+        "signature": "record_reading_checkin_bridge(uuid,uuid,text,integer,integer,text)",
+        "authenticated": false
+      },
+      {
+        "anon": false,
+        "definer": false,
+        "service": true,
+        "signature": "save_cover_selection(uuid,uuid,uuid,text,text,text,boolean,boolean,integer,integer)",
+        "authenticated": false
+      },
+      {
+        "anon": true,
+        "definer": false,
+        "service": true,
+        "signature": "verify_owned_edition(uuid,uuid,text)",
+        "authenticated": true
+      }
+    ],
+    "history": [
+      {
+        "name": "secure_reading_checkin_bridge",
+        "version": "20261009202447"
+      },
+      {
+        "name": "reading_room_stability",
+        "version": "20261009212029"
+      }
+    ],
+    "rls_disabled": null,
+    "view_columns": 69,
+    "view_options": [
+      "security_invoker=true"
+    ],
+    "cover_trigger": {
+      "enabled": "O",
+      "definition": "CREATE TRIGGER books_protect_cover BEFORE UPDATE ON public.books FOR EACH ROW EXECUTE FUNCTION private.protect_book_cover()"
+    },
+    "quote_indexes": [
+      {
+        "name": "book_quotes_book_idx",
+        "valid": true,
+        "definition": "CREATE INDEX book_quotes_book_idx ON public.book_quotes USING btree (book_id)"
+      },
+      {
+        "name": "book_quotes_edition_idx",
+        "valid": true,
+        "definition": "CREATE INDEX book_quotes_edition_idx ON public.book_quotes USING btree (edition_id)"
+      }
+    ],
+    "security_body": "5f41baef80645072f955cee90ab7dbdc"
+  },
+  "approved_sql_sha256": "8bde336edaada2d6e9940e3465e90cb3f7b271e88a8bce1744647252553bca5a",
+  "rolled_back_live_rpc_probe": "passed",
+  "genuine_data_fingerprints": [
+    {
+      "table_name": "library_entries",
+      "n": 71,
+      "fingerprint": "3972e97885ab6856d52d618a353f5871"
+    },
+    {
+      "table_name": "reading_sessions",
+      "n": 12,
+      "fingerprint": "6f718e2bcb20d77e683cf06f61ae3997"
+    },
+    {
+      "table_name": "progress_logs",
+      "n": 58,
+      "fingerprint": "5ebc86f936db0523f3321364e69d5248"
+    },
+    {
+      "table_name": "reading_time_sessions",
+      "n": 22,
+      "fingerprint": "34debbd1a3e469e2405739059937e4dd"
+    },
+    {
+      "table_name": "reading_feedback",
+      "n": 95,
+      "fingerprint": "dbcc7c409b30b4319a9cbfb0f527c748"
+    },
+    {
+      "table_name": "reading_card_notes",
+      "n": 38,
+      "fingerprint": "7152ac47c2630186cb69fba83ac434a2"
+    },
+    {
+      "table_name": "recommendations",
+      "n": 111,
+      "fingerprint": "e4fd1a173c28f820bb6cc5257f9a523f"
+    },
+    {
+      "table_name": "public_ratings",
+      "n": 144,
+      "fingerprint": "2965a6a9f87c2efc5d0b9b44fce012ca"
+    },
+    {
+      "table_name": "library_events",
+      "n": 1014,
+      "fingerprint": "0728cb24e654053219fbde046df13a2b"
+    },
+    {
+      "table_name": "nfc_bookmarks",
+      "n": 1,
+      "fingerprint": "68de718c7ad32b98e9fa86219f6096a7"
+    },
+    {
+      "table_name": "nfc_pending_starts",
+      "n": 0,
+      "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    {
+      "table_name": "editions",
+      "n": 1010,
+      "fingerprint": "07978679c42fa26db4a3d70c62703de7"
+    }
+  ],
+  "health": [
+    [
+      {
+        "issue": "cross_book_current_edition",
+        "n": 0
+      },
+      {
+        "issue": "cross_book_reference",
+        "n": 0
+      },
+      {
+        "issue": "cross_book_session_edition",
+        "n": 0
+      },
+      {
+        "issue": "invalid_library_pages",
+        "n": 0
+      },
+      {
+        "issue": "invalid_session_pages",
+        "n": 0
+      },
+      {
+        "issue": "invalid_progress",
+        "n": 0
+      },
+      {
+        "issue": "progress_session_mismatch",
+        "n": 0
+      },
+      {
+        "issue": "feedback_session_mismatch",
+        "n": 0
+      },
+      {
+        "issue": "notes_session_mismatch",
+        "n": 0
+      },
+      {
+        "issue": "invalid_dates",
+        "n": 0
+      },
+      {
+        "issue": "invalid_nfc_dates",
+        "n": 0
+      },
+      {
+        "issue": "nfc_reading_mismatch",
+        "n": 0
+      },
+      {
+        "issue": "nfc_duplicate_open",
+        "n": 0
+      },
+      {
+        "issue": "duplicate_editions_isbn",
+        "n": 0
+      },
+      {
+        "issue": "duplicate_library",
+        "n": 0
+      }
+    ],
+    [
+      {
+        "issue": "cross_book_cover_candidate",
+        "n": 0
+      },
+      {
+        "issue": "cross_book_quote_edition",
+        "n": 0
+      },
+      {
+        "issue": "quote_session_mismatch",
+        "n": 0
+      },
+      {
+        "issue": "diagnostic_owner_mismatch",
+        "n": 0
+      },
+      {
+        "issue": "nfc_invalid_pages",
+        "n": 0
+      },
+      {
+        "issue": "isbn13_invalid_shape",
+        "n": 0
+      },
+      {
+        "issue": "isbn13_invalid_checksum",
+        "n": 0
+      },
+      {
+        "issue": "invalid_edition_pages",
+        "n": 1
+      },
+      {
+        "issue": "duplicate_active_recommendations",
+        "n": 0
+      },
+      {
+        "issue": "owned_wishlist",
+        "n": 0
+      },
+      {
+        "issue": "completed_without_date",
+        "n": 0
+      },
+      {
+        "issue": "duplicate_title_author",
+        "n": 0
+      },
+      {
+        "issue": "missing_stored_cover_object",
+        "n": 0
+      }
+    ],
+    [
+      {
+        "issue": "book_authors_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_authors_author_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_series_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_series_series_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "editions_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "library_entries_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "library_entries_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "library_entries_current_edition_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_sessions_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_sessions_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_sessions_edition_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "progress_logs_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "progress_logs_session_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "progress_logs_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "recommendations_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "recommendations_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_feedback_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_feedback_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_feedback_session_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "taste_profile_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "taste_evidence_taste_profile_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "taste_evidence_feedback_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "taste_evidence_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_external_ids_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "library_events_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "library_events_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "library_events_session_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "books_reference_edition_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "public_ratings_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_cover_candidates_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_cover_candidates_edition_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "edition_chapters_edition_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_metadata_candidates_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "up_next_queue_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "up_next_queue_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_quotes_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_quotes_edition_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_quotes_session_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "diagnostic_sessions_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "diagnostic_events_session_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "diagnostic_events_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_card_notes_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_card_notes_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_card_notes_session_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_card_notes_progress_log_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "rating_refresh_state_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_accolades_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_accolades_accolade_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reader_profiles_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reader_ui_preferences_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_enrichment_jobs_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "next_read_intents_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "next_read_intents_source_session_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "next_read_intents_source_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "next_read_transitions_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "next_read_transitions_session_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "up_next_planner_state_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "up_next_refreshes_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "up_next_exclusions_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "up_next_exclusions_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "nfc_bookmarks_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "nfc_bookmarks_pinned_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_time_sessions_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_time_sessions_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_time_sessions_edition_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_time_sessions_reading_session_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_time_sessions_bookmark_id_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "nfc_bookmarks_active_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "nfc_pending_starts_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "nfc_pending_starts_bookmark_id_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "app_navigation_requests_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "app_navigation_requests_book_id_fkey",
+        "n": 0
+      }
+    ]
+  ],
+  "functions": {
+    "upload-cover-photo": {
+      "version": 7,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "ezbr_sha256": "deae9a03ed6678f411cc79e0f86aaea107945261a6dd7a65d87446a132a666bf",
+      "source_match": true
+    },
+    "select-cover": {
+      "version": 7,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "ezbr_sha256": "5914a1f4ee05bb1eb771595fcf505cf8461ad3e5fbe7bd5f443dbc7796d60dcb",
+      "source_match": true
+    },
+    "edition-options": {
+      "version": 17,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "ezbr_sha256": "71d7d33dd10680a97b3b5cfc1035d4f549ebe21eee93714ea9510a740c7c08a2",
+      "source_match": true
+    },
+    "content-enrichment": {
+      "version": 19,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "ezbr_sha256": "e064304c6081b5247f8cb2b36cd7382271b710a86394a5a1c83eb64178d0807e",
+      "source_match": true
+    }
+  },
+  "tests": {
+    "build": "passed",
+    "unit_integration": 310,
+    "runtime_modules": 56,
+    "playwright_pass": 177,
+    "playwright_skip": 1
+  },
+  "limitations": [
+    "No staging, as explicitly authorised; full logical archive decode passed, hosted restore not performed.",
+    "Authenticated existing browser is signed out; login requested.",
+    "Physical iPhone standalone behaviour remains to be tested."
+  ]
+}

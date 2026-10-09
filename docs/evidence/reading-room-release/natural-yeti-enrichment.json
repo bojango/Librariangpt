@@ -1,0 +1,57 @@
+{
+  "verified_at": "2026-10-09T21:36:39.929Z",
+  "source": "Existing production scheduler; no agent request against the genuine book",
+  "yeti": [
+    {
+      "id": "069021b6-d85f-4383-95be-e0c1e2e86294",
+      "title": "Yeti: An Abominable History",
+      "editions_status": "ready",
+      "editions_error": null,
+      "editions": [
+        {
+          "year": 2018,
+          "pages": null,
+          "isbn10": null,
+          "isbn13": "9780008279516",
+          "publisher": "HarperCollins Publishers Limited",
+          "open_library_edition_id": "OL36742266M"
+        },
+        {
+          "year": 2018,
+          "pages": 320,
+          "isbn10": null,
+          "isbn13": "9780008279493",
+          "publisher": "HarperCollins Publishers Limited",
+          "open_library_edition_id": "OL35826056M"
+        },
+        {
+          "year": 2019,
+          "pages": 320,
+          "isbn10": null,
+          "isbn13": "9780008279523",
+          "publisher": "HarperCollins Publishers Limited",
+          "open_library_edition_id": "OL28704098M"
+        }
+      ]
+    }
+  ],
+  "historical_data_fingerprints": [
+    {
+      "table_name": "editions",
+      "n": 1010,
+      "fingerprint": "07978679c42fa26db4a3d70c62703de7"
+    },
+    {
+      "table_name": "public_ratings",
+      "n": 144,
+      "fingerprint": "2965a6a9f87c2efc5d0b9b44fce012ca"
+    },
+    {
+      "table_name": "library_events",
+      "n": 1014,
+      "fingerprint": "0728cb24e654053219fbde046df13a2b"
+    }
+  ],
+  "other_9_fingerprints": "Unchanged",
+  "historical_isbn_mismatches": 11
+}

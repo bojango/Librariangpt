@@ -90,7 +90,11 @@
   },
   "stability": {
     "repository": "20261009184736_reading_room_stability.sql",
-    "applied": false,
-    "preflight": "All three new RPCs, cover trigger and quote indexes are absent; live v_library matches guarded cover expression. verify_owned_edition matches baseline. Actual live view used in passing isolated PostgreSQL regression."
+    "applied": true,
+    "preflight": "All three new RPCs, cover trigger and quote indexes are absent; live v_library matches guarded cover expression. verify_owned_edition matches baseline. Actual live view used in passing isolated PostgreSQL regression.",
+    "production_version": "20261009212029",
+    "approved_sql_sha256": "8bde336edaada2d6e9940e3465e90cb3f7b271e88a8bce1744647252553bca5a",
+    "reconciliation": "Original reviewed filename retained; mapped to generated production version. No historical migrations replayed or history rewritten.",
+    "postconditions": "Three RPCs, cover trigger, indexes and library view verified; security hotfix preserved; genuine data fingerprints unchanged."
   }
 }
