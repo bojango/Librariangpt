@@ -6,7 +6,10 @@ import { enrichmentDb } from '../helpers/enrichment-db.js';
 test('stability migration executes cover transactions, lock protection and manual-edition validation in PostgreSQL',async t=>{
  const db=await enrichmentDb();t.after(()=>db.close());
  await db.exec(`create function public.record_reading_checkin_bridge(uuid,uuid,text,integer,integer,text) returns jsonb language sql security definer as $$ select '{}'::jsonb $$;grant execute on function public.record_reading_checkin_bridge(uuid,uuid,text,integer,integer,text) to authenticated;`);
- for(const file of ['20260908061803_add_browse_and_switch_editions.sql','20260909181552_book_quotes_and_passages.sql','20260908071456_verified_copy_page_count_and_cover_lock.sql','20261009184736_reading_room_stability.sql'])await db.exec(await readFile(`supabase/migrations/${file}`,'utf8'));
+ for(const file of ['20260908061803_add_browse_and_switch_editions.sql','20260909181552_book_quotes_and_passages.sql','20260908071456_verified_copy_page_count_and_cover_lock.sql','20261009202447_secure_reading_checkin_bridge.sql'])await db.exec(await readFile(`supabase/migrations/${file}`,'utf8'));
+ await db.exec(await readFile('tests/fixtures/v-library-production.sql','utf8'));
+ await db.exec(await readFile('supabase/migrations/20261009184736_reading_room_stability.sql','utf8'));
+ assert.match((await db.query("select pg_get_viewdef('public.v_library'::regclass,true) definition")).rows[0].definition,/lower\(x.provider\).*goodreads/);
  const uid='10000000-0000-0000-0000-000000000001';
  await db.exec(`create or replace function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;insert into auth.users values('${uid}');update private.app_state set owner_user_id='${uid}';select set_config('request.jwt.claim.sub','${uid}',false);grant usage on schema auth,private to authenticated;grant execute on function private.is_owner() to authenticated;`);
  const book=(await db.query("insert into books(title) values('Yeti: An Abominable History') returning id")).rows[0].id;
@@ -35,6 +38,12 @@ test('stability migration executes cover transactions, lock protection and manua
  await assert.rejects(db.query('select save_cover_selection($1,$2,$3,$4,$5,$6,true,true)',[uid,book,uid,'https://covers.example/bad.jpg','Uploaded image','Bad']),/Edition does not belong/);
  assert.equal((await db.query('select cover_url from v_library where id=$1',[book])).rows[0].cover_url,'https://covers.example/two.jpg');
  assert.equal((await db.query("select has_function_privilege('anon','public.record_reading_checkin_bridge(uuid,uuid,text,integer,integer,text)','execute') allowed")).rows[0].allowed,false);
+ const switched=(await db.query("insert into editions(book_id,isbn13,cover_url,cover_source,cover_verified,page_count) values($1,'9780008279516','https://edition.example/verified.jpg','Open Library',true,320) returning id",[book])).rows[0].id;
+ await db.query('select verify_owned_edition($1,$2)',[book,switched]);
+ const selected=(await db.query('select cover_url,cover_source,cover_verified,current_edition_id from v_library where id=$1',[book])).rows[0];
+ assert.equal(selected.cover_url,'https://edition.example/verified.jpg');assert.equal(selected.cover_source,'Open Library');assert.equal(selected.cover_verified,true);assert.equal(selected.current_edition_id,switched);
+ await db.query("update books set cover_url_preferred='https://automatic.example/other.jpg',cover_locked=false where id=$1",[book]);
+ assert.equal((await db.query('select cover_url from v_library where id=$1',[book])).rows[0].cover_url,'https://edition.example/verified.jpg');
  await db.exec("set role authenticated;select set_config('request.jwt.claim.sub','10000000-0000-0000-0000-000000000002',false)");await assert.rejects(manual(args),/Not authorized/);await db.exec('reset role');
  await db.exec("set role anon");await assert.rejects(manual(args),/permission denied/);await db.exec('reset role');
 });

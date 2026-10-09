@@ -1,6 +1,6 @@
 # Reading Room stability audit — 9 October 2026
 
-Changes are prepared on `fix/reading-room-stability-audit`, based on main `3cbabc1`. Existing feature branches, including NFC and reading check-in work, were preserved. No production rows, storage objects, schema, permissions, functions or migration history were changed. This report describes verified repository fixes and a read-only production audit; production still needs an approved migration and deployment.
+Changes are prepared on `fix/reading-room-stability-audit`, based on main `3cbabc1`. Existing feature branches, including NFC and reading check-in work, were preserved. The initial audit below was read-only. **Release update:** the separately approved security permission hotfix was deployed and verified as migration `20261009202447`; no production reading rows or storage objects were changed. The wider stability migration/application release remains pending staging and production approval. See the [release continuation and recovery procedure](reading-room-release-runbook.md) and [migration reconciliation](reading-room-migration-reconciliation.json) for current status.
 
 ## Original bugs and fixes
 
@@ -20,7 +20,7 @@ Supporting evidence: [SQL queries](reading-room-audit-queries.sql), [integrity c
 
 | Priority | Evidence and impact | Proposed action / current state |
 | --- | --- | --- |
-| **P1 — unauthorized check-in writes** | Live `record_reading_checkin_bridge(uuid,uuid,text,integer,integer,text)` is SECURITY DEFINER, executable by anonymous and authenticated callers. Its body writes library events for the configured owner without checking caller identity. Definition and privilege checks are saved in the evidence. It was not invoked during testing. | Revoke PUBLIC/anon/authenticated execution and retain service-role execution. Prepared in the migration, conditional on the legacy function existing. **Production remains exposed until approved application.** Verify the authenticated Edge bridge still calls it as service role. |
+| **P1 — unauthorized check-in writes (remediated)** | The initial audit found `record_reading_checkin_bridge(uuid,uuid,text,integer,integer,text)` SECURITY DEFINER with PUBLIC/authenticated execution and configured-owner event writes. | Separately approved migration **20261009202447** revoked PUBLIC/anon/authenticated execution, retaining service_role/postgres. Actual production denial probes return 42501. The deployed Edge bridge uses two different service-only RPCs; its snapshot still executes. Legitimate writes and deduplication pass isolated PostgreSQL tests. No production test events were written. See the release evidence. |
 | **P2 — incompatible edition identity** | 11 editions have ISBN-10 and ISBN-13 values for different printings. None is identity-locked or exact-copy verified. Examples include Ready Player One, Children of Time and Jurassic Park; full affected IDs and values are in the evidence. | New enrichment avoids introducing conflicting aliases. Review each historical record against its physical copy or an authoritative catalogue; propose individual repairs for approval. Do not infer which ISBN is correct from checksum alone. |
 | **P2 — implausible edition pages** | Jurassic Park edition `40edad7f-a953-475b-8955-c7aa36038c4e`, ISBN 9787551123181, has 12,549 pages from old Open Library enrichment. | New provider values are bounded. Historical value needs source verification and approved correction, including any affected progress calculation. No history was adjusted. |
 | **P2 — stale edition searches** | Nine `refreshing` books have null/old refresh timestamps: Stuff Matters, The Seven Deaths of Evelyn Hardcastle, The Martian, The Unfinished Harauld Hughes, Sand, Solaris, The Lost City of Z, Sphere and Delta-v. | UI recovery and timestamped discovery claims are prepared. Retry individually after deployment; do not bulk-reset status or generate excess provider calls. |
@@ -47,14 +47,14 @@ The manual browser regression uses the 2018 hardcover ISBN **9780008279493**, Wi
 
 Review [20261009184736_reading_room_stability.sql](../supabase/migrations/20261009184736_reading_room_stability.sql) in a dedicated Supabase test project before any production application. It contains:
 
-- Conditional revocation of the unsafe legacy check-in RPC.
+- Conditional revocation of the unsafe legacy check-in RPC was extracted to the separately deployed security migration `20261009202447`.
 - Service-only transactional cover selection and a book-cover lock trigger.
 - Library-view cover precedence/lock projection, preserving security-invoker settings and existing rating selection.
 - Service-only edition-discovery claim.
 - Authenticated, owner-checked manual edition creation with evidence and serialized ISBN alias checks.
 - The two book-quote FK indexes.
 
-The view rewrite intentionally aborts if its expected existing cover expression differs. PGlite executes the actual migration against repository schemas; that is useful SQL validation, not a live Supabase staging deployment. No production migration, function deployment, bulk update or data repair occurred. Deploy the migration before the handlers/frontend that depend on its RPCs. Changed handlers: upload-cover-photo, select-cover, edition-options and content-enrichment; shared edition utilities are bundled into their dependent functions.
+The view rewrite intentionally aborts if its expected existing cover expression differs. PGlite executes the actual migration, now also against the captured production view; that is useful SQL validation, not a hosted Supabase staging deployment. Only the separately approved security permission migration has been applied in production. The stability migration, Edge deployments, bulk updates and historical data repairs remain unapplied. Deploy the stability migration before the handlers/frontend that depend on its RPCs. Changed handlers: upload-cover-photo, select-cover, edition-options and content-enrichment; shared edition utilities are bundled into their dependent functions.
 
 ## Verification and browser evidence
 

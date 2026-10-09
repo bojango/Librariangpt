@@ -1,0 +1,30 @@
+{
+  "created_at": "2026-10-09T20:37:26.6371538Z",
+  "bytes": 2725323,
+  "sha256": "6090D4CCA530429D4E45E9A5451CACB1189C412FFF1367349A5CFC11FB3C940F",
+  "roles_bytes": 6329,
+  "decoded_sql_bytes": 20172124,
+  "table_data_entries": 84,
+  "required_tables": [
+    "auth users supabase_auth_admin",
+    "private app_state postgres",
+    "public library_entries postgres",
+    "public progress_logs postgres",
+    "public reading_feedback postgres",
+    "public reading_sessions postgres",
+    "public recommendations postgres",
+    "storage objects supabase_storage_admin"
+  ],
+  "project": "fbbpovieqfsjunmqtxvf",
+  "tool": "pg_dump / pg_restore 17.11 from official EDB PostgreSQL Windows binary archive",
+  "tls": "verify-full with the Supabase dashboard-linked prod-ca-2021.crt",
+  "paths": {
+    "database": "output/reading-room-production-20261009.dump",
+    "roles": "output/reading-room-production-roles-20261009.sql"
+  },
+  "roles_include_passwords": false,
+  "archive_decode": "passed",
+  "hosted_restore": "not yet executed",
+  "storage_bytes": "Database stores storage metadata only; media objects were not downloaded or deleted.",
+  "private_files_committed": false
+}

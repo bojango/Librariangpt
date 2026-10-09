@@ -1,11 +1,5 @@
 -- Review and apply to a dedicated test DB first. No production data repair.
--- This legacy RPC exists in production but is absent from some clean checkouts.
-do $$ begin
- if to_regprocedure('public.record_reading_checkin_bridge(uuid,uuid,text,integer,integer,text)') is not null then
-  revoke execute on function public.record_reading_checkin_bridge(uuid,uuid,text,integer,integer,text) from public,anon,authenticated;
-  grant execute on function public.record_reading_checkin_bridge(uuid,uuid,text,integer,integer,text) to service_role;
- end if;
-end $$;
+-- Apply 20261009202447_secure_reading_checkin_bridge.sql separately first.
 create or replace function public.save_cover_selection(
  p_user_id uuid,p_book_id uuid,p_edition_id uuid,p_url text,p_provider text,p_label text,
  p_uploaded boolean,p_lock boolean,p_width integer default null,p_height integer default null
@@ -35,6 +29,26 @@ begin
  return new;
 end $$;
 create trigger books_protect_cover before update on public.books for each row execute function private.protect_book_cover();
+
+create or replace function public.verify_owned_edition(p_book_id uuid,p_edition_id uuid,p_source text default 'frontend') returns jsonb
+language plpgsql set search_path=''
+as $$
+declare v_uid uuid := (select auth.uid()); v_pages integer; v_cover text; v_cover_source text; v_cover_verified boolean; v_status text;
+begin
+ if not private.is_owner() then raise exception 'Not authorized'; end if;
+ select e.page_count,e.cover_url,e.cover_source,e.cover_verified into v_pages,v_cover,v_cover_source,v_cover_verified from public.editions e where e.id=p_edition_id and e.book_id=p_book_id;
+ if not found then raise exception 'Edition does not belong to this book'; end if;
+ select le.overall_status into v_status from public.library_entries le where le.user_id=v_uid and le.book_id=p_book_id;
+ if not found then raise exception 'Book not found in library'; end if;
+ update public.editions set preferred_copy=false,updated_at=now() where book_id=p_book_id and id<>p_edition_id and preferred_copy=true;
+ update public.editions set owned=true,preferred_copy=true,is_reference=false,exact_copy_verified=true,exact_copy_verified_at=now(),exact_copy_verification_source=p_source,identity_locked=true,cover_locked=true,updated_at=now() where id=p_edition_id;
+ -- Explicit verification is a user cover selection, so it may replace a locked cover.
+ perform set_config('reading_room.manual_cover','on',true);
+ update public.books set cover_url_preferred=v_cover,cover_source=v_cover_source,cover_verified=v_cover_verified,cover_locked=true,updated_at=now() where id=p_book_id;
+ update public.library_entries set ownership_status='Owned',overall_status=case when overall_status in ('Recommended','Wishlist') then 'Owned - Unread' else overall_status end,current_edition_id=p_edition_id,total_pages=coalesce(v_pages,total_pages),updated_at=now() where user_id=v_uid and book_id=p_book_id;
+ insert into public.library_events(user_id,book_id,event_type,source,payload) values(v_uid,p_book_id,'exact_copy_verified',p_source,jsonb_build_object('edition_id',p_edition_id,'page_count',v_pages,'page_count_verified',(select page_count_verified from public.editions where id=p_edition_id)));
+ return jsonb_build_object('saved',true,'book_id',p_book_id,'edition_id',p_edition_id,'page_count',v_pages,'exact_copy_verified',true);
+end;$$;
 
 -- Preserve column ordering and the existing rating-provider selection.
 do $$ declare v text; begin
