@@ -4,3 +4,4 @@ playwright-report/
 debug.log
 supabase/.temp/
 *.log
+output/

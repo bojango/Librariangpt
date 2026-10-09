@@ -3,6 +3,7 @@ import {
   buildEditionEnrichmentPatch,
   chooseReferenceEdition,
   cleanIsbn,
+  coherentIsbns,
   isCredibleEdition,
   isValidIsbn,
   sameEdition,
@@ -293,9 +294,9 @@ Deno.serve(async (request: Request) => {
         : null;
     const goodreadsCoverUrl = /^https:\/\//i.test(String(goodreadsFallback?.cover_url || '')) ? goodreadsFallback.cover_url : null;
     const coverUrl = fallback.cover_url || googleCover(volume) || openLibraryCoverUrl || goodreadsCoverUrl || null;
-    const pageCount = Number(fallback.page_count || volume.pageCount || openLibraryPageCount(openLibraryEdition?.number_of_pages, openLibraryEdition?.pagination) || 0) || null;
-    const isbn13 = top.isbn13 || fallback.isbn13 || null;
-    const isbn10 = top.isbn10 || fallback.isbn10 || null;
+    const rawPages = Number(fallback.page_count || volume.pageCount || openLibraryPageCount(openLibraryEdition?.number_of_pages, openLibraryEdition?.pagination) || 0);
+    const pageCount = Number.isInteger(rawPages) && rawPages > 0 && rawPages <= 10000 ? rawPages : null;
+    const {isbn13, isbn10} = coherentIsbns({isbn13: top.isbn13 || fallback.isbn13, isbn10: top.isbn10 || fallback.isbn10});
     const candidateEdition = {
       isbn13, isbn10,
       publisher: fallback.publisher || volume.publisher || (typeof openLibraryEdition?.publishers?.[0] === 'string'

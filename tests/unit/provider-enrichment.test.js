@@ -41,7 +41,7 @@ test('a Google 429 trips the per-run circuit and honours Retry-After', async () 
     assert.equal(diagnostics.google_books.rate_limited, true);
     assert.equal(diagnostics.google_books.skipped_due_to_rate_limit, 1);
     assert.equal(diagnostics.google_books.retry_after_seconds, 120);
-    assert.match(googleRetryAfter(diagnostics, Date.UTC(2026, 0, 1)), /^2026-01-01T00:02:00/);
+    assert.match(googleRetryAfter(diagnostics, Date.UTC(2026, 0, 1)), /^2026-01-01T00:15:00/);
     assert.match(googleRetryAfter(providerDiagnostics(), Date.UTC(2026, 0, 1)), /^2026-01-01T00:45:00/);
     assert.equal(parseRetryAfter('not-a-date'), null);
   } finally { globalThis.fetch = originalFetch; }

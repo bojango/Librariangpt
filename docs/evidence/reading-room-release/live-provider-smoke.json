@@ -1,0 +1,93 @@
+{
+  "started_at": "2026-10-09T21:34:24.507Z",
+  "isolation": "Dedicated disposable Auth user and book; genuine owner data untouched",
+  "book_cover": {
+    "storage_and_rpc": "passed",
+    "fresh_read": "passed",
+    "locked": true
+  },
+  "discovery": {
+    "http_status": 200,
+    "status": "ready",
+    "count": 3,
+    "source_counts": {
+      "open_library": 3,
+      "google_books": 0,
+      "candidates": 3
+    },
+    "provider_diagnostics": {
+      "google_books": {
+        "attempted": 0,
+        "successful": 0,
+        "zero_result_queries": 0,
+        "http_errors": [],
+        "timeouts": 0,
+        "fetch_errors": 0,
+        "malformed_json": 0,
+        "rate_limited": true,
+        "retry_after_seconds": null,
+        "retry_after_at": "2026-10-09T21:48:16.204+00:00",
+        "skipped_due_to_rate_limit": 1,
+        "reused_evidence": 0
+      },
+      "open_library": {
+        "attempted": 3,
+        "successful": 3,
+        "zero_result_queries": 0,
+        "http_errors": [],
+        "timeouts": 0,
+        "fetch_errors": 0,
+        "malformed_json": 0
+      }
+    },
+    "editions": [
+      {
+        "isbn13": "9780008279523",
+        "isbn10": null,
+        "publisher": "HarperCollins Publishers Limited",
+        "year": 2019,
+        "pages": 320,
+        "open_library_edition_id": "OL28704098M",
+        "metadata_source": "edition_browser_v7_ol"
+      },
+      {
+        "isbn13": "9780008279493",
+        "isbn10": null,
+        "publisher": "HarperCollins Publishers Limited",
+        "year": 2018,
+        "pages": 320,
+        "open_library_edition_id": "OL35826056M",
+        "metadata_source": "edition_browser_v7_ol"
+      },
+      {
+        "isbn13": "9780008279516",
+        "isbn10": null,
+        "publisher": "HarperCollins Publishers Limited",
+        "year": 2018,
+        "pages": null,
+        "open_library_edition_id": "OL36742266M",
+        "metadata_source": "edition_browser_v7_ol"
+      }
+    ]
+  },
+  "repeat": {
+    "http_status": 200,
+    "cached": true,
+    "retry_after_seconds": 60,
+    "count": 3
+  },
+  "edition_cover": {
+    "storage_and_rpc": "passed",
+    "replacement": "passed",
+    "fresh_read": "passed",
+    "enrichment_overwrite_blocked": true,
+    "selected_candidates": 1
+  },
+  "content": {
+    "http_status": 200,
+    "ok": true,
+    "status": "partial"
+  },
+  "cleanup": "Disposable book and Auth user removed; no reading sessions or progress written",
+  "ended_at": "2026-10-09T21:34:32.037Z"
+}

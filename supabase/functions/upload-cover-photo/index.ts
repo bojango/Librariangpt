@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { MAX_COVER_BYTES, validateCoverBytes } from '../_shared/cover-image.js';
 
 const CORS={
  'Access-Control-Allow-Origin':'*',
@@ -25,21 +26,21 @@ Deno.serve(async(req:Request)=>{
   const bookId=String(body?.book_id||''),editionId=String(body?.edition_id||''),mime=String(body?.mime_type||'image/jpeg').toLowerCase();
   const base64=String(body?.image_base64||'').replace(/^data:[^;]+;base64,/,''),processing=String(body?.processing||'Uploaded image');
   const width=Number(body?.width||0)||null,height=Number(body?.height||0)||null;
-  if(!bookId||!editionId||!base64)return json({error:'book_id, edition_id and image are required'},400);
+  if(!bookId||!base64)return json({error:'book_id and image are required'},400);
   if(!['image/jpeg','image/png','image/webp'].includes(mime))return json({error:'Unsupported image type'},400);
-  const ed=await admin.from('editions').select('id,book_id,owned').eq('id',editionId).eq('book_id',bookId).single();if(ed.error||!ed.data)return json({error:'Edition not found'},404);
-  const bytes=decodeBase64(base64);if(bytes.byteLength>6*1024*1024)return json({error:'Processed cover is too large'},413);
+  const entry=await admin.from('library_entries').select('book_id').eq('book_id',bookId).eq('user_id',ud.data.user.id).single();if(entry.error||!entry.data)return json({error:'Book not found in your library'},404);
+  let ed:any=null;
+  if(editionId){ed=await admin.from('editions').select('id,book_id,owned').eq('id',editionId).eq('book_id',bookId).single();if(ed.error||!ed.data)return json({error:'Edition not found'},404);}
+  if(base64.length>Math.ceil(MAX_COVER_BYTES/3)*4)return json({error:'Processed cover is too large (maximum 5 MB)'},413);
+  let bytes:Uint8Array;
+  try{bytes=decodeBase64(base64);validateCoverBytes(bytes,mime);}catch{return json({error:'Invalid image or image exceeds 5 MB'},422);}
   const ext=mime==='image/png'?'png':mime==='image/webp'?'webp':'jpg';
-  const path=`${bookId}/${editionId}-user-cover.${ext}`;
+  const path=`${bookId}/${editionId||'book'}-${crypto.randomUUID()}.${ext}`;
   const up=await admin.storage.from('book-covers').upload(path,bytes,{contentType:mime,cacheControl:'31536000',upsert:true});if(up.error)throw up.error;
   const publicUrl=admin.storage.from('book-covers').getPublicUrl(path).data.publicUrl+`?v=${Date.now()}`;
-  const exactEdition=Boolean(ed.data.owned);
-  await admin.from('book_cover_candidates').update({selected:false,updated_at:new Date().toISOString()}).eq('book_id',bookId);
-  await admin.from('book_cover_candidates').insert({book_id:bookId,edition_id:editionId,provider:'Uploaded image',source_label:processing,source_url:publicUrl,exact_edition:exactEdition,selected:true,width,height});
-  const now=new Date().toISOString();
-  const ue=await admin.from('editions').update({cover_url:publicUrl,cover_source:`Uploaded image · ${processing}`,cover_verified:true,cover_locked:true,cover_uploaded_by_user:true,updated_at:now}).eq('id',editionId);if(ue.error)throw ue.error;
-  await admin.from('books').update({cover_url_preferred:publicUrl,cover_source:'Uploaded image',cover_verified:true,cover_locked:true,updated_at:now}).eq('id',bookId);
-  await admin.from('library_events').insert({user_id:ud.data.user.id,book_id:bookId,event_type:'cover_image_uploaded',source:'frontend',payload:{edition_id:editionId,exact_edition:exactEdition,width,height,processing}});
+  const exactEdition=Boolean(ed?.data?.owned);
+  const saved=await admin.rpc('save_cover_selection',{p_user_id:ud.data.user.id,p_book_id:bookId,p_edition_id:editionId||null,p_url:publicUrl,p_provider:'Uploaded image',p_label:processing,p_uploaded:true,p_lock:true,p_width:width,p_height:height});
+  if(saved.error){await admin.storage.from('book-covers').remove([path]);throw saved.error;}
   return json({ok:true,book_id:bookId,edition_id:editionId,cover_url:publicUrl,exact_edition:exactEdition,width,height});
  }catch(e){console.error(e);return json({error:e?.message||'Could not save cover image'},500)}
 });

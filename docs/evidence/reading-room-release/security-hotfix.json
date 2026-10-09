@@ -1,0 +1,40 @@
+{
+  "production_project": "fbbpovieqfsjunmqtxvf",
+  "applied_migration": "20261009202447_secure_reading_checkin_bridge",
+  "approved_by_user": true,
+  "original_function_md5": "5f41baef80645072f955cee90ab7dbdc",
+  "post_function_md5": "5f41baef80645072f955cee90ab7dbdc",
+  "post_acl": "{postgres=X/postgres,service_role=X/postgres}",
+  "anon": {
+    "execute": false,
+    "actual_call_sqlstate": "42501"
+  },
+  "authenticated": {
+    "execute": false,
+    "actual_call_sqlstate": "42501"
+  },
+  "service_role": {
+    "execute": true,
+    "reading_checkin_bridge_snapshot_actual_execution": "passed"
+  },
+  "postgres": {
+    "execute": true,
+    "observed_historical_legacy_calls": 64
+  },
+  "caller_review": {
+    "repository_callers": 0,
+    "database_routine_callers": 0,
+    "catalog_dependents": 0,
+    "cron_callers": 0,
+    "local_codex_automation_callers": 0,
+    "deployed_edge": "reading-checkin-bridge v8 calls reading_checkin_bridge_snapshot and save_reading_card_note_bridge; neither calls legacy function",
+    "external_chatgpt_automation_configuration": "Not directly inspected; observed SQL calls use postgres, whose rights were retained."
+  },
+  "production_test_writes": 0,
+  "backup": {
+    "dashboard_url": "https://supabase.com/dashboard/project/fbbpovieqfsjunmqtxvf/database/backups/scheduled",
+    "observed": "Free Plan does not include project backups.",
+    "recoverable_backup_confirmed": false,
+    "screenshot": "Browser screenshot capture timed out twice; no backup screenshot claimed."
+  }
+}

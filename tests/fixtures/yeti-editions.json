@@ -1,0 +1,74 @@
+{
+  "source": "https://openlibrary.org/works/OL21195450W/editions.json?limit=50",
+  "observed_at": "2026-10-09",
+  "entries": [
+    {
+      "isbn_13": [
+        "9780008279516"
+      ],
+      "languages": [
+        {
+          "key": "/languages/eng"
+        }
+      ],
+      "publish_date": "2018",
+      "publishers": [
+        "HarperCollins Publishers Limited"
+      ],
+      "title": "Yeti",
+      "subtitle": "An Abominable History",
+      "works": [
+        {
+          "key": "/works/OL21195450W"
+        }
+      ],
+      "key": "/books/OL36742266M"
+    },
+    {
+      "isbn_13": [
+        "9780008279493"
+      ],
+      "languages": [
+        {
+          "key": "/languages/eng"
+        }
+      ],
+      "pagination": "320",
+      "publish_date": "2018",
+      "publishers": [
+        "HarperCollins Publishers Limited"
+      ],
+      "title": "Yeti",
+      "subtitle": "An Abominable History",
+      "works": [
+        {
+          "key": "/works/OL21195450W"
+        }
+      ],
+      "key": "/books/OL35826056M"
+    },
+    {
+      "publishers": [
+        "HarperCollins Publishers Limited"
+      ],
+      "subtitle": "An Abominable History",
+      "title": "Yeti",
+      "number_of_pages": 320,
+      "isbn_13": [
+        "9780008279523"
+      ],
+      "languages": [
+        {
+          "key": "/languages/eng"
+        }
+      ],
+      "publish_date": "2019",
+      "key": "/books/OL28704098M",
+      "works": [
+        {
+          "key": "/works/OL21195450W"
+        }
+      ]
+    }
+  ]
+}

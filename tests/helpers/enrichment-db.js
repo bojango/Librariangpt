@@ -1,7 +1,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { readFile } from 'node:fs/promises';
 
-export const hardeningMigration = 'supabase/migrations/20261006183351_harden_library_enrichment.sql';
+export const hardeningMigration = 'supabase/migrations/20261006200850_harden_library_enrichment.sql';
 export async function enrichmentDb({ hardened = true } = {}) {
   const db = new PGlite();
   await db.exec(`

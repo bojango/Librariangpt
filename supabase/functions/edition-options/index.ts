@@ -39,10 +39,13 @@ function authorSimilarity(target: any, candidates: any[] = []) {
   if (!target) return .75;
   let best = 0;
   for (const candidate of candidates) {
+    const targetFirst = normalise(target).split(' ')[0];
+    const candidateFirst = normalise(candidate).split(' ')[0];
+    if (targetFirst && candidateFirst && targetFirst !== candidateFirst && targetFirst.length > 1 && candidateFirst.length > 1) continue;
     best = Math.max(best, similarity(target, candidate));
     const targetSurname = normalise(target).split(' ').at(-1);
     const candidateSurname = normalise(candidate).split(' ').at(-1);
-    if (targetSurname && targetSurname === candidateSurname) best = Math.max(best, .92);
+    if (targetSurname && targetSurname === candidateSurname && targetFirst?.[0] === candidateFirst?.[0]) best = Math.max(best, .92);
   }
   return best;
 }
@@ -138,15 +141,21 @@ Deno.serve(async (request: Request) => {
       && Date.now() - new Date(stateResult.data.editions_last_refreshed_at).getTime() < 30 * 86400000;
     const canUseCache = !force && fresh && existing.length > 3 && stateResult.data.editions_status !== 'refreshing';
 
+    const recentAttempt = Date.parse(stateResult.data.editions_last_refreshed_at || '');
+    if (Date.now() - recentAttempt < 60000) {
+      return json({ ok: true, cached: true, status: stateResult.data.editions_status, count: existing.length, editions: existing, message: stateResult.data.editions_error, retry_after_seconds: 60 });
+    }
     if (canUseCache && !shouldAutoSelectReference(book, existing)) {
       return json({ ok: true, cached: true, status: stateResult.data.editions_status, count: existing.length, work_id: workId, editions: existing });
     }
 
-    const refreshing = await admin.from('books').update({ editions_status: 'refreshing', editions_error: null }).eq('id', bookId);
-    if (refreshing.error) throw refreshing.error;
+    const lease = await admin.rpc('claim_edition_discovery', { p_book_id: bookId });
+    if (lease.error) throw lease.error;
+    if (!lease.data) return json({ ok: true, cached: true, status: 'refreshing', count: existing.length, editions: existing, retry_after_seconds: 60 });
 
     const title = book.title;
     const discoveryTitle = [book.title, book.subtitle].map(clean).filter(Boolean).join(': ');
+    const bareTitle = clean(title).split(/[:–—]/)[0].trim();
     const author = String(book.authors || '').split(',')[0].trim();
     let workSource: 'edition' | 'isbn' | 'search' | null = workId ? 'edition' : null;
 
@@ -162,20 +171,21 @@ Deno.serve(async (request: Request) => {
       if (author) searchUrl.searchParams.set('author', author);
       searchUrl.searchParams.set('limit', '10');
       searchUrl.searchParams.set('fields', 'key,title,author_name');
-      let search = await fetchProviderJson(searchUrl.toString(), 8000, diagnostics);
-      // Generic titles benefit from the subtitle, but preserve a bare-title fallback.
-      if (!search?.docs?.length && discoveryTitle && discoveryTitle !== title) {
-        searchUrl.searchParams.set('title', title);
-        search = await fetchProviderJson(searchUrl.toString(), 8000, diagnostics);
-      }
       let best: any = null;
       let bestScore = 0;
-      for (const result of Array.isArray(search?.docs) ? search.docs : []) {
-        const score = Math.max(similarity(title, result.title), similarity(discoveryTitle, result.title)) * .76 + authorSimilarity(author, result.author_name || []) * .24;
-        if (score > bestScore) {
-          best = result;
-          bestScore = score;
+      // Retry the bare title when the full-title results contain no credible
+      // title/author match, including unrelated non-empty provider results.
+      for (const queryTitle of [...new Set([discoveryTitle || title, bareTitle].filter(Boolean))]) {
+        searchUrl.searchParams.set('title', queryTitle);
+        const search = await fetchProviderJson(searchUrl.toString(), 8000, diagnostics);
+        for (const result of Array.isArray(search?.docs) ? search.docs : []) {
+          const titleScore = Math.max(similarity(title, result.title), similarity(discoveryTitle, result.title));
+          const authorScore = authorSimilarity(author, result.author_name || []);
+          if (titleScore < .72 || authorScore < .72) continue;
+          const score = titleScore * .76 + authorScore * .24;
+          if (score > bestScore) { best = result; bestScore = score; }
         }
+        if (best) break;
       }
       if (best && bestScore >= .7) {
         workId = workIdFromKey(best.key);
@@ -225,7 +235,7 @@ Deno.serve(async (request: Request) => {
 
     const googleQueries = [...new Set([
       ...(selectedIsbn && isValidIsbn(selectedIsbn) ? [`isbn:${selectedIsbn}`] : []),
-      ...(body?.skip_google_title_search === true ? [] : [`intitle:"${discoveryTitle || title}"${author ? ` inauthor:"${author}"` : ''}`])
+      ...(body?.skip_google_title_search === true ? [] : [discoveryTitle || title, bareTitle].map(value => `intitle:"${value}"${author ? ` inauthor:"${author}"` : ''}`))
     ])];
     let googleCount = 0;
     let googleResponded = false;
@@ -245,7 +255,7 @@ Deno.serve(async (request: Request) => {
         const authors = Array.isArray(volume.authors) ? volume.authors : [];
         const titleScore = Math.max(similarity(title, volume.title), similarity(discoveryTitle, volume.title), similarity(discoveryTitle, `${volume.title || ''}: ${volume.subtitle || ''}`));
         const authorScore = authorSimilarity(author, authors);
-        if (titleScore < .72 || authorScore < .4) continue;
+        if (titleScore < .72 || authorScore < .72) continue;
         const isbn13 = cleanIsbn(googleIsbn(volume, 'ISBN_13'));
         const isbn10 = cleanIsbn(googleIsbn(volume, 'ISBN_10'));
         if (!isValidIsbn(isbn13) && !isValidIsbn(isbn10)) continue;
@@ -305,8 +315,10 @@ Deno.serve(async (request: Request) => {
       }
     }
 
-    let status = existing.length > 1 ? 'ready' : existing.length ? 'partial' : 'failed';
+    const providerFailure = Object.values(diagnostics).some((detail: any) => detail.rate_limited || detail.timeouts || detail.fetch_errors || detail.malformed_json || detail.http_errors?.length);
+    let status = existing.length > 1 ? 'ready' : existing.length ? 'partial' : providerFailure ? 'failed' : 'partial';
     let error = status === 'failed' ? 'No editions could be discovered from Open Library or Google Books.' : status === 'partial' ? 'Only one credible edition is currently known.' : null;
+    if (!existing.length) error = providerFailure ? 'Edition providers are temporarily unavailable. Retry later or add a verified edition manually.' : 'No matching editions were found. You can add a verified edition manually.';
     if (!openLibraryResponded && !googleResponded && existing.length) {
       status = 'partial'; error = 'Edition providers were unavailable; existing editions were preserved.';
     } else if (writeErrors.length) {
