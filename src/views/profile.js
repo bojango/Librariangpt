@@ -4,21 +4,10 @@ import { durationCompact, profileReadingTime } from '../utils/reading-time.js';
 import { tasteIdentity } from '../features/taste-identity.js';
 import { feedTab } from '../features/activity-feed.js';
 import { readingDurationText } from '../ui/format.js';
+import { readerIdentity } from '../utils/reader-identity.js';
+import { lifetimePagesRead } from '../utils/reading-pages.js';
 
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
-
-function firstName(value) {
-  const cleaned = String(value || '').trim().replace(/[^\p{L}\p{N}' -]/gu, '');
-  return cleaned ? cleaned.split(/\s+/)[0] : '';
-}
-
-function readerIdentity(state) {
-  const metadata = state.session?.user?.user_metadata || {};
-  const displayName = state.profile?.display_name || metadata.full_name || metadata.name || metadata.display_name || metadata.user_name || '';
-  const name = firstName(displayName);
-  const handle = state.profile?.handle || (metadata.user_name ? `@${String(metadata.user_name).replace(/^@/, '')}` : 'PRIVATE READER');
-  return { displayName: displayName || 'Reader', name: name || 'The reader', handle };
-}
 
 function formatDate(value, fallback = 'Date not recorded') {
   if (!value) return fallback;
@@ -124,6 +113,6 @@ export function profileView(state) {
   const tabs = [['feed', 'Feed'], ['stats', uiCopyHtml('profile.stats')], ['taste', uiCopyHtml('profile.tasteProfile')], ['history', uiCopyHtml('profile.history')]];
   const content = tab === 'taste' ? tasteTab(state, identity) : tab === 'history' ? historyTab(state) : tab === 'stats' ? statsTab(state) : feedTab(state);
   const avatarLabel = state.profile?.avatar_path ? 'Change profile photo' : 'Upload profile photo';
-  const stats = [['Books Read', 'Read'], ['Currently Reading', 'Currently Reading'], ['Wishlist', 'Wishlist']];
-  return chrome(`<div class="profile-page"><header class="profile-page-title"><p class="eyebrow">Private reader profile</p><h1>${uiCopyHtml('profile.title')}</h1></header><section class="profile-card"><span class="profile-display-id">#0001</span><button class="profile-avatar" type="button" data-avatar-menu aria-label="${avatarLabel}">${profileImage(state.profile, identity)}</button><div class="profile-identity"><span class="profile-private">PRIVATE</span><h2><button type="button" class="profile-inline-identity" data-identity-edit aria-label="Edit username and identity">${escapeHtml(identity.handle)}</button></h2><p class="profile-genres">${escapeHtml(taste.genres.join(' / '))}</p></div><div class="profile-card-summary"><p id="profile-summary" class="profile-bio is-collapsed">${escapeHtml(taste.summary)}</p><button class="inline-expand" type="button" data-expand="profile-summary" aria-controls="profile-summary" aria-expanded="false">See more</button></div><div class="profile-card-stats">${stats.map(([label,status]) => `<div><strong>${state.books.filter(b => b.overall_status === status).length}</strong><span>${label}</span></div>`).join('')}</div></section><label class="sr-only" for="profile-avatar-input">${avatarLabel}</label><input class="sr-only" id="profile-avatar-input" type="file" data-avatar-input accept="image/jpeg,image/png,image/webp"><div class="profile-tabs" role="tablist" aria-label="Profile sections">${tabs.map(([key, label]) => `<button id="profile-tab-${key}" type="button" role="tab" data-profile-tab="${key}" aria-controls="profile-panel-${key}" aria-selected="${String(tab === key)}" tabindex="${tab === key ? '0' : '-1'}" class="${tab === key ? 'active' : ''}">${label}</button>`).join('')}</div>${content}</div>`, 'profile');
+  const stats = [['Books Read', state.books.filter(b => b.overall_status === 'Read').length], ['Pages Read', state.readingRecords == null ? '—' : lifetimePagesRead(state.readingRecords, state.books).toLocaleString('en-GB')], ['Wishlist', state.books.filter(b => b.overall_status === 'Wishlist').length]];
+  return chrome(`<div class="profile-page"><header class="profile-page-title"><p class="eyebrow">Private reader profile</p><h1>${uiCopyHtml('profile.title')}</h1></header><section class="profile-card"><span class="profile-display-id">#0001</span><button class="profile-avatar" type="button" data-avatar-menu aria-label="${avatarLabel}">${profileImage(state.profile, identity)}</button><div class="profile-identity"><span class="profile-private">PRIVATE</span><h2><button type="button" class="profile-inline-identity" data-identity-edit aria-label="Edit username and identity">${escapeHtml(identity.handle)}</button></h2><p class="profile-genres">${escapeHtml(taste.genres.join(' / '))}</p></div><div class="profile-card-summary"><p id="profile-summary" class="profile-bio is-collapsed">${escapeHtml(taste.summary)}</p><button class="inline-expand" type="button" data-expand="profile-summary" aria-controls="profile-summary" aria-expanded="false">See more</button></div><div class="profile-card-stats">${stats.map(([label,value]) => `<div><strong>${value}</strong><span>${label}</span></div>`).join('')}</div></section><label class="sr-only" for="profile-avatar-input">${avatarLabel}</label><input class="sr-only" id="profile-avatar-input" type="file" data-avatar-input accept="image/jpeg,image/png,image/webp"><div class="profile-tabs" role="tablist" aria-label="Profile sections">${tabs.map(([key, label]) => `<button id="profile-tab-${key}" type="button" role="tab" data-profile-tab="${key}" aria-controls="profile-panel-${key}" aria-selected="${String(tab === key)}" tabindex="${tab === key ? '0' : '-1'}" class="${tab === key ? 'active' : ''}">${label}</button>`).join('')}</div>${content}</div>`, 'profile');
 }

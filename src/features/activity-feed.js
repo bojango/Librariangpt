@@ -1,6 +1,12 @@
 import { escapeHtml } from '../utils/text.js';
+import { readerIdentity } from '../utils/reader-identity.js';
+import { quoteChapter } from '../utils/quote-location.js';
+import { durationCompact } from '../utils/reading-time.js';
 
-export const FEED_FILTERS = [['all','All'],['wishlist','Wishlist'],['started','Started'],['finished','Finished'],['bought','Bought'],['quotes','Quotes'],['librarian','Librarian']];
+export const FEED_FILTERS = [['all','All'],['wishlist','Wishlist'],['started','Started'],['finished','Finished'],['bought','Bought'],['quotes','Quotes'],['sessions','Sessions'],['librarian','Librarian']];
+export function sessionDuration(seconds) {
+  return Number.isFinite(Number(seconds)) && Number(seconds) > 0 ? Number(seconds) < 60 ? `${Math.floor(Number(seconds))}s` : durationCompact(Number(seconds)) : 'Duration not recorded';
+}
 export function activityTime(value, now = new Date()) {
   const date = new Date(value);
   if (!value || !Number.isFinite(date.getTime())) return { label: 'Date unavailable', exact: 'Date unavailable', relative: false };
@@ -23,6 +29,7 @@ export function activityText(event, name, title) {
     paused: `${name} paused ${title}.`, dnf: `${name} marked ${title} as DNF.`,
     progress: `${name} reached ${meta.percent}% of ${title}.`,
     quotes: `${name} saved a passage from ${title}.`,
+    sessions: `${name} finished a ${sessionDuration(meta.duration_seconds)} reading session of ${title}.`,
     taste: `Taste discovery · ${meta.dimension || 'Reading preferences'}\n${meta.preference || ''}\n${meta.direction || ''} · ${meta.confidence || ''} confidence`
   }[event.event_type] || 'Reading activity';
 }
@@ -30,19 +37,19 @@ export function activityText(event, name, title) {
 export function activityCard(event, state, now = new Date()) {
   const book = state.books.find(b => b.id === event.book_id);
   const librarian = ['librarian','taste'].includes(event.event_type);
-  const handle = state.profile?.handle || '@reader';
-  const name = state.profile?.display_name || handle;
+  const { handle } = readerIdentity(state);
   const title = book?.title || event.metadata?.book_title || 'a book';
   const time = activityTime(event.occurred_at, now);
   const meta = event.metadata || {};
-  const text = activityText(event, name, title);
+  const text = activityText(event, handle, title);
   const expandable = (value, quote = false) => {
     const id = `activity-${event.id}-${quote ? 'quote' : 'text'}`;
     return `<div id="${escapeHtml(id)}" class="feed-prose ${quote ? 'feed-quotation' : ''} ${value.length > 360 ? 'is-collapsed' : ''}">${escapeHtml(value)}</div>${value.length > 360 ? `<button type="button" class="inline-expand" data-expand="${escapeHtml(id)}" aria-controls="${escapeHtml(id)}" aria-expanded="false">See more</button>` : ''}`;
   };
   const pages = meta.page_start ? `p. ${meta.page_start}${meta.page_end && meta.page_end !== meta.page_start ? `–${meta.page_end}` : ''}` : meta.page ? `p. ${meta.page}` : '';
+  const sessionPages = event.event_type === 'sessions' && Number.isInteger(meta.pages_read) && meta.pages_read >= 0 ? `${meta.pages_read.toLocaleString('en-GB')} pages read` : '';
   const tags = [...new Set([...(event.hashtags || []), ['paused','dnf'].includes(event.event_type) ? 'progress' : event.event_type === 'taste' ? 'librarian' : event.event_type])];
-  return `<article class="activity-card${librarian ? ' activity-librarian' : ''}" data-activity-id="${escapeHtml(event.id)}"><header class="activity-meta"><span class="feed-avatar" aria-hidden="true">${librarian ? '✦' : state.profile?.avatarUrl ? `<img src="${escapeHtml(state.profile.avatarUrl)}" alt="">` : escapeHtml(handle.replace(/^@/,'').slice(0,1).toUpperCase())}</span><strong>${escapeHtml(librarian ? 'Librarian' : handle)}</strong><button type="button" class="activity-time" data-exact-time="${escapeHtml(time.exact)}" aria-label="${escapeHtml(time.exact)}" title="${escapeHtml(time.exact)}"><time datetime="${escapeHtml(event.occurred_at)}">${escapeHtml(time.label)}</time></button></header><div class="activity-body">${expandable(text)}${event.event_type === 'quotes' ? `<blockquote>${expandable(meta.quote_text || '', true)}</blockquote>${meta.note ? `<p class="feed-personal-note">${escapeHtml(meta.note)}</p>` : ''}` : ''}${book ? `<a class="activity-book" href="#/book/${encodeURIComponent(book.id)}" data-open-book="${escapeHtml(book.id)}">${book.cover_url ? `<img src="${escapeHtml(book.cover_url)}" alt="" loading="lazy">` : '<span class="feed-cover-placeholder" aria-hidden="true">▤</span>'}<span><strong>${escapeHtml(title)}</strong><span>${escapeHtml(book.authors || '')}</span><small>${escapeHtml([pages, meta.chapter ? `Chapter ${meta.chapter}` : '', meta.rating != null ? `${Number(meta.rating)}/5` : ''].filter(Boolean).join(' · '))}</small></span></a>` : ''}</div><footer class="activity-tags">${tags.map(tag => `<button type="button" data-feed-filter="${escapeHtml(tag)}" aria-label="Filter by ${escapeHtml(tag)}">#${escapeHtml(tag)}</button>`).join('')}</footer></article>`;
+  return `<article class="activity-card${librarian ? ' activity-librarian' : ''}" data-activity-id="${escapeHtml(event.id)}"><header class="activity-meta"><span class="feed-avatar" aria-hidden="true">${librarian ? '✦' : state.profile?.avatarUrl ? `<img src="${escapeHtml(state.profile.avatarUrl)}" alt="">` : escapeHtml(handle.replace(/^@/,'').slice(0,1).toUpperCase())}</span><strong>${escapeHtml(librarian ? 'Librarian' : handle)}</strong><button type="button" class="activity-time" data-exact-time="${escapeHtml(time.exact)}" aria-label="${escapeHtml(time.exact)}" title="${escapeHtml(time.exact)}"><time datetime="${escapeHtml(event.occurred_at)}">${escapeHtml(time.label)}</time></button></header><div class="activity-body">${expandable(text)}${event.event_type === 'quotes' ? `<blockquote>${expandable(meta.quote_text || '', true)}</blockquote>${meta.note ? `<p class="feed-personal-note">${escapeHtml(meta.note)}</p>` : ''}` : ''}${book ? `<a class="activity-book" href="#/book/${encodeURIComponent(book.id)}" data-open-book="${escapeHtml(book.id)}">${book.cover_url ? `<img src="${escapeHtml(book.cover_url)}" alt="" loading="lazy">` : '<span class="feed-cover-placeholder" aria-hidden="true">▤</span>'}<span><strong>${escapeHtml(title)}</strong><span>${escapeHtml(book.authors || '')}</span><small>${escapeHtml([sessionPages || pages, quoteChapter(meta.chapter), meta.rating != null ? `${Number(meta.rating)}/5` : ''].filter(Boolean).join(' · '))}</small></span></a>` : ''}</div><footer class="activity-tags">${tags.map(tag => `<button type="button" data-feed-filter="${escapeHtml(tag)}" aria-label="Filter by ${escapeHtml(tag)}">#${escapeHtml(tag)}</button>`).join('')}</footer></article>`;
 }
 
 export function feedTab(state) {

@@ -60,12 +60,22 @@ export async function loadReadingTimeSessions({ bookId = null } = {}, client = s
   }
 }
 
+export async function loadReadingRecords(client = supabase) {
+  const records = [];
+  for (let offset = 0; ; offset += 1000) {
+    const rows = unwrap(await client.from('reading_sessions')
+      .select('id,book_id,status,current_page,total_pages').order('id').range(offset, offset + 999));
+    records.push(...rows);
+    if (rows.length < 1000) return records;
+  }
+}
+
 export function loadLibrarySnapshot() {
   return dedupe('library-snapshot', async () => {
     // Coalesce meaningful database changes into one refresh before reading the queue.
     // Preserve the cached queue if the planner is temporarily unavailable.
     await optional(supabase.rpc('refresh_up_next', { p_reason: 'library_snapshot', p_force: false }), null);
-    const [books, recommendations, upNext, aiRecommendations, chapters, profile, tasteProfile, readingHistory, readingTimeSessions] = await Promise.all([
+    const [books, recommendations, upNext, aiRecommendations, chapters, profile, tasteProfile, readingHistory, readingTimeSessions, readingRecords] = await Promise.all([
       supabase.from('v_library').select('*').order('title'),
       optional(supabase.from('recommendations').select('book_id,recommendation_strength,match_score_10,recommendation_status,why_recommended,frontend_featured,frontend_shelf,user_interest,prediction_accuracy_5,outcome,date_recommended').order('match_score_10', { ascending: false, nullsFirst: false })),
       optional(supabase.from('v_up_next').select('*').order('position')),
@@ -74,7 +84,8 @@ export function loadLibrarySnapshot() {
       optional(supabase.from('reader_profiles').select('display_name,handle,short_bio,avatar_path,updated_at').maybeSingle(), null),
       optional(supabase.from('taste_profile').select('id,dimension,preference,direction,strength,confidence,evidence_count,last_updated,taste_evidence(id,book_id,relation,weight,book:books(id,title,primary_genre))').order('last_updated', { ascending: false, nullsFirst: false })),
       optional(supabase.from('reading_sessions').select('id,book_id,edition_id,session_type,completed_at,started_at,user_rating_5,format_read,created_at').eq('status', 'Completed').order('completed_at', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false })),
-      optional(loadReadingTimeSessions(), null)
+      optional(loadReadingTimeSessions(), null),
+      optional(loadReadingRecords(), null)
     ]);
     const avatarUrl = await signedAvatarUrl(profile?.avatar_path);
     return {
@@ -86,7 +97,8 @@ export function loadLibrarySnapshot() {
       profile: profile ? { ...profile, avatarUrl } : null,
       tasteProfile,
       readingHistory,
-      readingTimeSessions
+      readingTimeSessions,
+      readingRecords
     };
   });
 }

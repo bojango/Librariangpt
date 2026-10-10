@@ -1,12 +1,38 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { activityCard, activityTime, feedTab } from '../../src/features/activity-feed.js';
+import { activityCard, activityTime, feedTab, sessionDuration } from '../../src/features/activity-feed.js';
+import { quoteChapter } from '../../src/utils/quote-location.js';
 import { tasteIdentity } from '../../src/features/taste-identity.js';
 import { profileView } from '../../src/views/profile.js';
 import { loadActivity } from '../../src/data/activity.js';
 
 const book = { id: 'book', title: '<Gateway>', authors: 'Fred Pohl', primary_genre: 'Science Fiction', overall_status: 'Read', cover_url: '/cover.jpg' };
 const state = { books: [book], profile: { display_name: 'Calum', handle: '@calum' }, tasteProfile: [], readingHistory: [] };
+test('session cards show exact elapsed duration, reliable pages, book navigation and Sessions filter', () => {
+  assert.equal(sessionDuration(4320.75),'1h 12m');
+  assert.equal(sessionDuration(32.8),'32s');
+  assert.equal(sessionDuration(90),'1m');
+  assert.equal(sessionDuration(null),'Duration not recorded');
+  const event={id:'s',event_type:'sessions',book_id:'book',occurred_at:'2026-10-10T14:56:45Z',metadata:{duration_seconds:4320,pages_read:41},hashtags:['sessions']};
+  const html=activityCard(event,state);
+  assert.match(html,/@calum finished a 1h 12m reading session of &lt;Gateway&gt;\./);
+  assert.match(html,/41 pages read/);assert.match(html,/Fred Pohl/);assert.match(html,/data-open-book="book"/);
+  assert.equal((html.match(/#sessions/g)||[]).length,1);
+  assert.doesNotMatch(activityCard({...event,metadata:{duration_seconds:4320}},state),/pages read/);
+  assert.match(feedTab({...state,activityFeed:{events:[],filter:'sessions'}}),/aria-pressed="true" class="active">Sessions/);
+});
+test('quote chapters have one prefix without altering their stored value', () => {
+  for(const [input,expected] of [['6','Chapter 6'],['Chapter 6','Chapter 6'],['chapter Chapter 6','Chapter 6'],['Chapter X: Svalbard','Chapter X: Svalbard'],[null,'']]) assert.equal(quoteChapter(input),expected);
+  const event={id:'q',event_type:'quotes',book_id:'book',metadata:{chapter:'Chapter 6',quote_text:'Exact quote'}};
+  assert.match(activityCard(event,state),/Chapter 6/);assert.doesNotMatch(activityCard(event,state),/Chapter Chapter/);
+  assert.equal(event.metadata.chapter,'Chapter 6');
+});
+test('saved identity is shared by the headline, feed author and automatic prose', () => {
+  const changed={...state,profile:{handle:'Chosen Identity',display_name:'Different display name'}};
+  assert.match(profileView(changed),/>Chosen Identity<\/button>/);
+  const html=activityCard({id:'a',event_type:'started',book_id:'book'},changed);
+  assert.match(html,/>Chosen Identity<\/strong>/);assert.match(html,/Chosen Identity started reading/);assert.doesNotMatch(html,/Different display name/);
+});
 test('timestamp boundaries use elapsed hours and full local dates, including DST', () => {
   const now = new Date('2026-10-26T12:00:00Z');
   for (const [hours,label] of [[0,'now'],[0.5,'30m'],[2,'2h'],[23.99,'23h'],[24,'1d'],[47.99,'1d']]) {

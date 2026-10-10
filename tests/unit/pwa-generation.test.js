@@ -2,15 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-test('generation 117 document, worker and built app remain coherent with no generation-116 cache reference', async () => {
+test('generation 118 document, worker and built app remain coherent with no generation-117 cache reference', async () => {
   const [html, worker, built] = await Promise.all([
     readFile('index.html', 'utf8'),
     readFile('sw.js', 'utf8'),
     readFile('dist/app.js', 'utf8')
   ]);
-  assert.match(html, /reading-room-generation" content="117"/);
-  assert.match(html, /dist\/app\.js\?v=117/);
-  assert.match(worker, /const GENERATION = '117'/);
+  assert.match(html, /reading-room-generation" content="118"/);
+  assert.match(html, /dist\/app\.js\?v=118/);
+  assert.match(worker, /const GENERATION = '118'/);
   assert.match(worker, /reading-room-shell-v\$\{GENERATION\}/);
   assert.match(worker, /jetbrains-mono-regular\.ttf/);
   assert.match(worker, /jetbrains-mono-semibold\.ttf/);
@@ -18,7 +18,7 @@ test('generation 117 document, worker and built app remain coherent with no gene
   assert.match(worker, /ibm-plex-mono-regular\.woff2/);
   assert.match(worker, /space-mono-regular\.woff2/);
   assert.match(worker, /key\.startsWith\('reading-room-shell-'\) && key !== SHELL/);
-  assert.doesNotMatch(`${html}\n${worker}`, /(?:generation|shell|app\.js\?v=)[^\n]{0,20}116/i);
+  assert.doesNotMatch(`${html}\n${worker}`, /(?:generation|shell|app\.js\?v=)[^\n]{0,20}117/i);
   assert.match(built, /book-librarian-note/);
   assert.match(built, /nfc_app_destination/);
   assert.match(built, /Copy NFC book ID/);

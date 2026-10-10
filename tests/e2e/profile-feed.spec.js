@@ -43,7 +43,10 @@ async function isolatedProfile(page, { theme = 'reading-room', feedError = false
     }
     if(path.includes('/rest/v1/v_library')) return json(url.searchParams.has('id') ? [book,current].find(b=>url.searchParams.get('id')===`eq.${b.id}`) : [book,current,{...book,id:'wish',overall_status:'Wishlist'}]);
     if(path.includes('/rest/v1/taste_profile')) return json(signals);
-    if(path.includes('/rest/v1/reading_sessions')) return json(url.searchParams.get('status') ? [{id:'one',book_id:book.id,status:'Completed',started_at:'2026-01-01',completed_at:'2026-01-05',user_rating_5:3.8},{id:'two',book_id:book.id,status:'Completed',started_at:'2026-03-01',completed_at:'2026-03-03',user_rating_5:4}] : null);
+    if(path.includes('/rest/v1/reading_sessions')) {
+      const completed=[{id:'one',book_id:book.id,status:'Completed',total_pages:280,current_page:280,started_at:'2026-01-01',completed_at:'2026-01-05',user_rating_5:3.8},{id:'two',book_id:book.id,status:'Completed',total_pages:280,current_page:280,started_at:'2026-03-01',completed_at:'2026-03-03',user_rating_5:4}];
+      return json(url.searchParams.get('status') ? completed : url.searchParams.get('select')?.includes('current_page') ? [...completed,{id:'current',book_id:current.id,status:'Reading',total_pages:280,current_page:40}] : null);
+    }
     if(path.includes('/rest/v1/book_quotes')) {
       if(request.method()==='POST') {
         const payload=request.postDataJSON(); const found=quotes.find(q=>q.id===payload.id);
@@ -72,7 +75,8 @@ test('iPhone profile feed, timestamp, filters, pagination, all tabs and back nav
   await expect(page.locator('.activity-card')).toHaveCount(20);
   await expect(page.locator('.profile-inline-identity')).toHaveText('@calum');
   await expect(page.locator('.profile-genres')).toHaveText('Sci-Fi');
-  await expect(page.locator('.profile-card-stats strong')).toHaveText(['1','1','1']);
+  await expect(page.locator('.profile-card-stats strong')).toHaveText(['1','600','1']);
+  await expect(page.locator('.profile-card-stats span')).toHaveText(['Books Read','Pages Read','Wishlist']);
   await expect(page.locator('[data-profile-edit],.profile-avatar-action-icon,.terminal-profile-upload')).toHaveCount(0);
   await expect(page.locator('[data-expand="profile-summary"]')).toHaveAttribute('aria-expanded','false');
   await page.locator('[data-expand="profile-summary"]').click(); await expect(page.locator('[data-expand="profile-summary"]')).toHaveText('See less');
@@ -100,6 +104,7 @@ test('inline identity save/cancel, avatar replacement and menu NFC relocation', 
   await page.locator('[data-identity-edit]').click();await expect(page.locator('.profile-inline-form input[name="handle"]')).toBeFocused();
   await page.locator('.profile-inline-form input[name="handle"]').fill('@cancelled');await page.locator('.profile-inline-form input[name="handle"]').press('Escape');await expect(page.locator('[data-identity-edit]')).toHaveText('@calum');
   await page.locator('[data-identity-edit]').click();await page.locator('.profile-inline-form input[name="handle"]').fill('@new-reader');await page.locator('.profile-inline-form input[name="displayName"]').fill('New Reader');await page.locator('.profile-inline-form button[type="submit"]').click();await expect(page.locator('[data-identity-edit]')).toHaveText('@new-reader');expect(mock.profile().display_name).toBe('New Reader');
+  await expect(page.locator('.activity-meta strong').first()).toHaveText('@new-reader');await expect(page.locator('.feed-prose').first()).toContainText('@new-reader');
   await page.locator('[data-avatar-menu]').click();await page.locator('[data-avatar-change]').click();await page.locator('[data-avatar-input]').setInputFiles({name:'avatar.png',mimeType:'image/png',buffer:readFileSync('icons/icon-192.png')});await expect(page.locator('#toast')).toHaveText('Profile photo updated.');expect(mock.uploads).toBe(1);
   for(const tab of ['Feed','Stats','Taste Details','History']) {await page.getByRole('tab',{name:tab,exact:true}).click();await expect(page.locator('.profile-page')).not.toContainText('NFC Bookmark');}
   await page.locator('[data-menu]').click();await page.locator('.nfc-menu-section summary').click();await page.locator('[data-side-nfc]').click();await expect(page.getByRole('heading',{name:'NFC Bookmark',exact:true})).toBeVisible();expect(mock.errors).toEqual([]);
@@ -147,13 +152,14 @@ for (const theme of ['reading-room','terminal']) test(`profile polish aligns at 
     await page.setViewportSize({width,height:844});
     const layout=await page.locator('.profile-card').evaluate(card=>{
       const rect=selector=>card.querySelector(selector).getBoundingClientRect();
-      const photo=rect('.profile-avatar'),badge=rect('.profile-private'),genres=rect('.profile-genres'),bio=rect('.profile-bio');
+      const photo=rect('.profile-avatar'),badge=rect('.profile-private'),genres=rect('.profile-genres'),bio=rect('.profile-bio'),heading=rect('.profile-inline-identity');
       const stats=[...card.querySelectorAll('.profile-card-stats > div')].map(column=>{
         const c=column.getBoundingClientRect();return {width:c.width,center:c.x+c.width/2,children:[...column.children].map(x=>{const r=x.getBoundingClientRect();return {center:r.x+r.width/2,top:r.top};})};
       });
-      return {photoWidth:photo.width,topGap:badge.top-photo.top,bottomGap:genres.bottom-photo.bottom,clampHeight:bio.height,lineHeight:parseFloat(getComputedStyle(card.querySelector('.profile-bio')).lineHeight),stats,overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth};
+      return {photoWidth:photo.width,topGap:badge.top-photo.top,bottomGap:genres.bottom-photo.bottom,identityCenterGap:heading.top+heading.height/2-(badge.bottom+genres.top)/2,clampHeight:bio.height,lineHeight:parseFloat(getComputedStyle(card.querySelector('.profile-bio')).lineHeight),stats,overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth};
     });
     expect(layout.photoWidth).toBeGreaterThanOrEqual(100);expect(Math.abs(layout.topGap)).toBeLessThanOrEqual(1);expect(Math.abs(layout.bottomGap)).toBeLessThanOrEqual(1);
+    expect(Math.abs(layout.identityCenterGap)).toBeLessThanOrEqual(1);
     expect(layout.clampHeight).toBeLessThanOrEqual(layout.lineHeight*3+1);expect(layout.overflow).toBe(false);
     expect(Math.max(...layout.stats.map(x=>x.width))-Math.min(...layout.stats.map(x=>x.width))).toBeLessThan(1);
     for (const column of layout.stats) for (const child of column.children) expect(Math.abs(column.center-child.center)).toBeLessThan(1);
@@ -187,4 +193,29 @@ test('profile polish retains custom appearance colours and radii',async({page})=
   await isolatedProfile(page);
   const style=await page.locator('.profile-card').evaluate(x=>({background:getComputedStyle(x).backgroundColor,color:getComputedStyle(x).color,radius:getComputedStyle(x).borderTopLeftRadius}));
   expect(style).toEqual({background:'rgb(52, 55, 57)',color:'rgb(242, 232, 214)',radius:'20px'});
+});
+
+test('Sessions filter, duration, exact timestamp and book links work; filter row centres when it fits',async({page},info)=>{
+  const mock=await isolatedProfile(page);
+  mock.events.unshift({id:'70000000-0000-0000-0000-000000000001',event_type:'sessions',book_id:mock.events[0].book_id,occurred_at:new Date(Date.now()-30*60000).toISOString(),metadata:{duration_seconds:4320.75,pages_read:41},hashtags:['sessions']});
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('reading-room:refresh')));
+  await expect(page.locator('.activity-card').first()).toContainText('@calum finished a 1h 12m reading session of Thunderhead.');
+  await page.locator('.activity-tags [data-feed-filter="sessions"]').click();
+  await expect(page.locator('.activity-card')).toHaveCount(1);await expect(page.locator('.feed-filters [data-feed-filter="sessions"]')).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('.activity-book')).toContainText('41 pages read');await expect(page.locator('.activity-book')).toContainText('Frederik Pohl');
+  const stamp=page.locator('.activity-time');const exact=await stamp.getAttribute('data-exact-time');await expect(stamp).toHaveText('30m');await stamp.click();await expect(stamp).toHaveText(exact);
+  for(const width of [320,375,390,430,800]){
+    await page.setViewportSize({width,height:844});
+    const row=await page.locator('.feed-filters').evaluate(nav=>{
+      const n=nav.getBoundingClientRect(),buttons=[...nav.querySelectorAll('button')].map(x=>x.getBoundingClientRect());
+      return {fits:nav.scrollWidth<=nav.clientWidth+1,centerGap:(buttons[0].left+buttons.at(-1).right)/2-(n.left+n.right)/2,gaps:buttons.slice(1).map((r,i)=>r.left-buttons[i].right),overflow:getComputedStyle(nav).overflowX,pageOverflow:document.documentElement.scrollWidth>document.documentElement.clientWidth};
+    });
+    if(row.fits) expect(Math.abs(row.centerGap)).toBeLessThanOrEqual(1);
+    expect(Math.max(...row.gaps)-Math.min(...row.gaps)).toBeLessThanOrEqual(1);expect(row.overflow).toBe('auto');expect(row.pageOverflow).toBe(false);
+  }
+  await page.setViewportSize({width:390,height:844});await page.screenshot({path:info.outputPath('profile-sessions-iphone.png'),fullPage:true});
+  await page.locator('.activity-book').click();await expect(page.locator('.detail-header')).toBeVisible();await page.locator('[data-back]').click();await expect(page.locator('.activity-card')).toHaveCount(1);
+  mock.events.unshift({id:'70000000-0000-0000-0000-000000000002',event_type:'quotes',book_id:mock.events[0].book_id,occurred_at:new Date().toISOString(),metadata:{chapter:'Chapter 6',quote_text:'Exactly preserved.'},hashtags:['quotes']});
+  await page.locator('.feed-filters [data-feed-filter="quotes"]').click();await expect(page.locator('.activity-book small')).toHaveText('Chapter 6');
+  expect(mock.errors).toEqual([]);
 });

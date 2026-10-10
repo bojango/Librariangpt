@@ -17,6 +17,7 @@ export function createAppState() {
     profile: null,
     tasteProfile: [],
     readingHistory: [],
+    readingRecords: null,
     readingTimeSessions: null,
     profileTab: 'feed',
     activityFeed: { events: [], loading: false, loaded: false, filter: 'all', cursor: null, hasMore: false, error: null },

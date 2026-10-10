@@ -979,7 +979,7 @@ async function init() {
       libraryLoaded = false;
       sessionBootstrapUser = null;
       activityLoadVersion += 1;
-      store.update({ books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], profile: null, tasteProfile: [], readingHistory: [], readingTimeSessions: null, detail: null, profileTab: 'feed', activityFeed: { events: [], loading: false, loaded: false, filter: 'all', cursor: null, hasMore: false, error: null } });
+      store.update({ books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], profile: null, tasteProfile: [], readingHistory: [], readingRecords: null, readingTimeSessions: null, detail: null, profileTab: 'feed', activityFeed: { events: [], loading: false, loaded: false, filter: 'all', cursor: null, hasMore: false, error: null } });
       paint(authView(store.value.authMode));
       return;
     }

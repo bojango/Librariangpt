@@ -2426,7 +2426,7 @@ html:has(body) .profile-card .profile-avatar { position: relative; width: 100%; 
 html:has(body) .profile-card .profile-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 html:has(body) .profile-card .profile-identity { display: flex; flex-direction: column; min-height: var(--profile-photo-size); padding: 0; }
 html:has(body) .profile-card .profile-avatar-placeholder { color: #e9e3d5; }
-html:has(body) .profile-card .profile-identity h2 { margin: 9px 0 7px; font-size: clamp(24px,6vw,38px); color: inherit; }
+html:has(body) .profile-card .profile-identity h2 { display: flex; align-items: center; flex: 1; min-width: 0; margin: 0; padding-block: 6px; font-size: clamp(24px,6vw,38px); color: inherit; }
 html:has(body) .profile-card .profile-private { align-self: flex-start; display: inline-block; margin: 0; padding: 2px 5px; border: 1px solid #e9e3d533; color: inherit; background: transparent; font-size: 8px; letter-spacing: .08em; line-height: 1.4; }
 .profile-inline-identity { display: block; min-width: 0; max-width: 100%; padding: 0; text-align: left; border: 0; background: none; color: inherit; font: inherit; overflow-wrap: anywhere; cursor: text; }
 .profile-inline-identity:focus-visible { outline: 1px solid currentColor; outline-offset: 4px; }
@@ -2449,6 +2449,8 @@ html[data-theme="reading-room"] body .profile-page .profile-tabs button.active {
 .profile-inline-form button { border: 0; background: transparent; color: inherit; font: inherit; text-decoration: underline; min-height: 32px; margin-right: 12px; }
 .identity-error { margin: 0; font-size: 11px; }
 .feed-filters { display: flex; gap: 16px; overflow-x: auto; max-width: 100%; padding: 0 0 12px; scrollbar-width: none; }
+.feed-filters button:first-child { margin-inline-start: auto; }
+.feed-filters button:last-child { margin-inline-end: auto; }
 .feed-filters button { flex-shrink: 0; min-height: 36px; padding: 3px 0; border: 0; border-bottom: 1px solid transparent; background: transparent; color: var(--muted); font: inherit; font-size: 11px; cursor: pointer; }
 .feed-filters button.active { color: var(--text); border-bottom-color: currentColor; }
 .activity-feed { display: grid; gap: 12px; }

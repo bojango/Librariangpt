@@ -5,7 +5,7 @@ export async function loadActivity({ filter = 'all', cursor = null, limit = 20 }
     .order('occurred_at', { ascending: false }).order('id', { ascending: false });
   if (filter === 'librarian') query = query.in('event_type', ['librarian', 'taste']);
   else if (filter === 'progress') query = query.in('event_type', ['progress', 'paused', 'dnf']);
-  else if (['wishlist','started','finished','bought','quotes','rating'].includes(filter)) query = query.eq('event_type', filter);
+  else if (['wishlist','started','finished','bought','quotes','rating','sessions'].includes(filter)) query = query.eq('event_type', filter);
   else if (filter !== 'all') query = query.contains('hashtags', [filter]);
   if (cursor) {
     // Cursor values come from database rows; validate before using PostgREST syntax.
