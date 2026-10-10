@@ -96,8 +96,9 @@ function historyItem(event) {
   const cover = book.cover_url ? `<img src="${escapeHtml(book.cover_url)}" alt="">` : `<span aria-hidden="true">BOOK</span>`;
   const rating = event.user_rating_5 != null ? Number(event.user_rating_5) : NaN;
   const validDates = event.started_at && event.completion && new Date(event.completion) >= new Date(event.started_at);
-  const metadata = [`Started ${formatDate(event.started_at, 'not recorded')}`, `Finished ${formatDate(event.completion, 'not recorded')}`, validDates ? readingDurationText(event.started_at, event.completion) : 'Duration not recorded', Number.isFinite(rating) ? `${rating.toFixed(1)} / 5` : 'Unrated', book.primary_genre || 'Genre not recorded'].filter(Boolean);
-  return `<button class="profile-history-item" data-open-book="${escapeHtml(book.id)}" aria-label="Open ${escapeHtml(book.title)}"><span class="profile-history-cover">${cover}</span><span class="profile-history-copy"><strong>${escapeHtml(book.title)}</strong><span>${escapeHtml(book.authors || 'Author not recorded')}</span><small>${escapeHtml(metadata.join(' · '))}</small></span></button>`;
+  const dates = [`Started ${formatDate(event.started_at, 'not recorded')}`, `Finished ${formatDate(event.completion, 'not recorded')}`];
+  const details = [validDates ? readingDurationText(event.started_at, event.completion).replace(/^Read in /, '') : 'Duration not recorded', Number.isFinite(rating) ? `${rating.toFixed(1)}/5` : 'Unrated', book.primary_genre || 'Genre not recorded'];
+  return `<button class="profile-history-item" data-open-book="${escapeHtml(book.id)}" aria-label="Open ${escapeHtml(book.title)}"><span class="profile-history-cover">${cover}</span><span class="profile-history-copy"><strong>${escapeHtml(book.title)}</strong><span>${escapeHtml(book.authors || 'Author not recorded')}</span><small class="profile-history-dates">${escapeHtml(dates.join(' · '))}</small><small class="profile-history-details">${escapeHtml(details.join(' · '))}</small></span></button>`;
 }
 
 function historyTab(state) {

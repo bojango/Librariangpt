@@ -63,7 +63,7 @@ async function isolatedProfile(page, { theme = 'reading-room', feedError = false
   });
   await page.setViewportSize({width:390,height:844});
   await page.goto('/#/profile'); await expect(page.locator('.profile-card')).toBeVisible();
-  return {events,errors,quotes,get uploads(){return avatarUploads;},recover(){failFeed=false;},profile:()=>profile};
+  return {events,errors,quotes,signals,get uploads(){return avatarUploads;},recover(){failFeed=false;},profile:()=>profile};
 }
 
 test('iPhone profile feed, timestamp, filters, pagination, all tabs and back navigation', async ({page},info) => {
@@ -71,7 +71,7 @@ test('iPhone profile feed, timestamp, filters, pagination, all tabs and back nav
   await expect(page.getByRole('tab',{name:'Feed',exact:true})).toHaveAttribute('aria-selected','true');
   await expect(page.locator('.activity-card')).toHaveCount(20);
   await expect(page.locator('.profile-inline-identity')).toHaveText('@calum');
-  await expect(page.locator('.profile-genres')).toHaveText('Science Fiction');
+  await expect(page.locator('.profile-genres')).toHaveText('Sci-Fi');
   await expect(page.locator('.profile-card-stats strong')).toHaveText(['1','1','1']);
   await expect(page.locator('[data-profile-edit],.profile-avatar-action-icon,.terminal-profile-upload')).toHaveCount(0);
   await expect(page.locator('[data-expand="profile-summary"]')).toHaveAttribute('aria-expanded','false');
@@ -88,7 +88,7 @@ test('iPhone profile feed, timestamp, filters, pagination, all tabs and back nav
   await page.getByRole('tab',{name:'Stats',exact:true}).click();await expect(page.locator('.profile-stat-record')).toContainText('TOTAL READING TIME');await expect(page.locator('.profile-stat-row').last()).toContainText('1h');
   await page.getByRole('tab',{name:'Stats',exact:true}).press('ArrowRight');await expect(page.getByRole('tab',{name:'Taste Details'})).toBeFocused();
   await expect(page.locator('.taste-details-sections')).toContainText('Emerging Signals');await expect(page.locator('.taste-book-evidence')).toContainText('Gateway');
-  await page.getByRole('tab',{name:'History',exact:true}).click();await expect(page.locator('.history-year h3')).toHaveText('2026');await expect(page.locator('.profile-history-item')).toHaveCount(2);await expect(page.locator('.profile-history-list')).toContainText('Read in 4 days');
+  await page.getByRole('tab',{name:'History',exact:true}).click();await expect(page.locator('.history-year h3')).toHaveText('2026');await expect(page.locator('.profile-history-item')).toHaveCount(2);await expect(page.locator('.profile-history-list')).toContainText('4 days');
   await page.locator('.profile-history-item').first().click();await expect(page.locator('.detail-header')).toBeVisible();await page.locator('[data-back]').click();await expect(page.getByRole('tab',{name:'History',exact:true})).toHaveAttribute('aria-selected','true');
   await page.locator('[data-route="home"]').last().click();await page.locator('[data-route="profile"]').last().click();await expect(page.getByRole('tab',{name:'Feed',exact:true})).toHaveAttribute('aria-selected','true');
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth)).toBe(false);
@@ -131,4 +131,60 @@ test('new external activity refreshes, long multiline passages expand and long u
   const expand=page.locator('.activity-card').first().locator('[data-expand]');await expect(expand).toHaveAttribute('aria-expanded','false');await expand.click();await expect(expand).toHaveText('See less');await expect(page.locator('.feed-quotation')).toHaveText(passage);
   await page.locator('[data-identity-edit]').click();await page.locator('.profile-inline-form input[name="handle"]').fill('@'+'long_username'.repeat(6));await page.locator('.profile-inline-form button[type="submit"]').click();await expect(page.locator('.profile-inline-form')).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth)).toBe(false);
+});
+
+for (const theme of ['reading-room','terminal']) test(`profile polish aligns at iPhone widths in ${theme}`, async ({page},info) => {
+  const mock=await isolatedProfile(page,{theme});
+  const supportingBook=mock.signals[0].taste_evidence[0].book;
+  mock.signals[0].taste_evidence=['Hard Science Fiction / Techno-thriller','Science Fiction','Adventure Thriller','Travel / Nature','Historical Mystery'].map((genre,i)=>({book_id:`genre-${i}`,relation:'supports',book:{...supportingBook,id:`genre-${i}`,primary_genre:genre}}));
+  mock.signals.push({...mock.signals[0],id:'science',dimension:'Science / Technical',preference:'Strongly prefers science with clear explanations, especially when it supports the plot and gives the ideas enough room to make sense.'});
+  mock.signals.push({...mock.signals[0],id:'horror',dimension:'Horror',direction:'Negative',confidence:'Medium',preference:'Strong aversion to disturbing imagery. Psychological tension can work when it serves a compelling mystery.'});
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('reading-room:refresh')));
+  await expect(page.locator('.profile-genres')).toHaveText('Sci-Fi / Thriller / Adventure / Mystery / Nonfiction');
+  const collapsedText=await page.locator('#profile-summary').textContent();
+  expect(collapsedText).not.toMatch(/Strongly|…|\.\.\./);expect(collapsedText).toContain('enough room to make sense.');
+  for (const width of [320,375,390,430]) {
+    await page.setViewportSize({width,height:844});
+    const layout=await page.locator('.profile-card').evaluate(card=>{
+      const rect=selector=>card.querySelector(selector).getBoundingClientRect();
+      const photo=rect('.profile-avatar'),badge=rect('.profile-private'),genres=rect('.profile-genres'),bio=rect('.profile-bio');
+      const stats=[...card.querySelectorAll('.profile-card-stats > div')].map(column=>{
+        const c=column.getBoundingClientRect();return {width:c.width,center:c.x+c.width/2,children:[...column.children].map(x=>{const r=x.getBoundingClientRect();return {center:r.x+r.width/2,top:r.top};})};
+      });
+      return {photoWidth:photo.width,topGap:badge.top-photo.top,bottomGap:genres.bottom-photo.bottom,clampHeight:bio.height,lineHeight:parseFloat(getComputedStyle(card.querySelector('.profile-bio')).lineHeight),stats,overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth};
+    });
+    expect(layout.photoWidth).toBeGreaterThanOrEqual(100);expect(Math.abs(layout.topGap)).toBeLessThanOrEqual(1);expect(Math.abs(layout.bottomGap)).toBeLessThanOrEqual(1);
+    expect(layout.clampHeight).toBeLessThanOrEqual(layout.lineHeight*3+1);expect(layout.overflow).toBe(false);
+    expect(Math.max(...layout.stats.map(x=>x.width))-Math.min(...layout.stats.map(x=>x.width))).toBeLessThan(1);
+    for (const column of layout.stats) for (const child of column.children) expect(Math.abs(column.center-child.center)).toBeLessThan(1);
+    expect(Math.max(...layout.stats.map(x=>x.children[0].top))-Math.min(...layout.stats.map(x=>x.children[0].top))).toBeLessThan(1);
+    await page.screenshot({path:info.outputPath(`profile-polish-${theme}-${width}.png`)});
+  }
+  await page.locator('[data-expand="profile-summary"]').click();await expect(page.locator('#profile-summary')).not.toHaveClass(/is-collapsed/);await expect(page.locator('#profile-summary')).toHaveText(collapsedText);
+  await expect(page.locator('#profile-summary')).toContainText('psychological tension can work when it serves a compelling mystery.');
+  await expect.poll(()=>page.locator('#profile-summary').evaluate(x=>x.getAnimations().some(animation=>animation.playState==='running'))).toBe(false);
+  const expanded=await page.locator('#profile-summary').evaluate(x=>({height:x.clientHeight,contentHeight:x.scrollHeight}));
+  expect(expanded.contentHeight).toBeLessThanOrEqual(expanded.height+1);
+  await page.screenshot({path:info.outputPath(`profile-polish-${theme}-expanded.png`)});
+  await page.locator('[data-expand="profile-summary"]').click();await expect(page.locator('#profile-summary')).toHaveClass(/is-collapsed/);
+  await page.getByRole('tab',{name:'History',exact:true}).click();
+  await expect(page.locator('.profile-history-item')).toHaveCount(2);
+  await expect(page.locator('.profile-history-dates')).toHaveText(['Started 1 Mar 2026 · Finished 3 Mar 2026','Started 1 Jan 2026 · Finished 5 Jan 2026']);
+  await expect(page.locator('.profile-history-details')).toHaveText(['2 days · 4.0/5 · Science Fiction','4 days · 3.8/5 · Science Fiction']);
+  const metadata=await page.locator('.profile-history-copy small').evaluateAll(nodes=>nodes.map(x=>({whiteSpace:getComputedStyle(x).whiteSpace,overflow:getComputedStyle(x).overflow,clipped:x.scrollWidth>x.clientWidth+1})));
+  expect(metadata.every(x=>x.whiteSpace==='normal'&&x.overflow==='visible'&&!x.clipped)).toBe(true);
+  await page.setViewportSize({width:320,height:844});await page.screenshot({path:info.outputPath(`profile-polish-${theme}-history.png`)});
+  await page.getByRole('tab',{name:'Feed',exact:true}).click();
+  await page.locator('[data-identity-edit]').click();await page.locator('.profile-inline-form input[name="handle"]').fill('@'+'long_username'.repeat(6));await page.locator('.profile-inline-form button[type="submit"]').click();await expect(page.locator('.profile-inline-form')).toHaveCount(0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth>document.documentElement.clientWidth)).toBe(false);
+  const cardSpacing=await page.locator('.activity-card').first().evaluate(card=>({header:parseFloat(getComputedStyle(card.querySelector('.activity-meta')).paddingTop),body:parseFloat(getComputedStyle(card.querySelector('.activity-body')).paddingTop),tagHeight:card.querySelector('.activity-tags button').getBoundingClientRect().height,bookHeight:card.querySelector('.activity-book').getBoundingClientRect().height}));
+  expect(cardSpacing.header).toBe(10);expect(cardSpacing.body).toBe(12);expect(cardSpacing.tagHeight).toBeGreaterThanOrEqual(32);expect(cardSpacing.bookHeight).toBeGreaterThanOrEqual(44);
+  expect(mock.errors).toEqual([]);
+});
+
+test('profile polish retains custom appearance colours and radii',async({page})=>{
+  await page.addInitScript(()=>localStorage.setItem('reading-room-ui-preferences-v1',JSON.stringify({selectedTheme:'reading-room',appearanceOverrides:{'reading-room':{activeBg:'#343739',activeText:'#f2e8d6',cardRadius:20}}})));
+  await isolatedProfile(page);
+  const style=await page.locator('.profile-card').evaluate(x=>({background:getComputedStyle(x).backgroundColor,color:getComputedStyle(x).color,radius:getComputedStyle(x).borderTopLeftRadius}));
+  expect(style).toEqual({background:'rgb(52, 55, 57)',color:'rgb(242, 232, 214)',radius:'20px'});
 });

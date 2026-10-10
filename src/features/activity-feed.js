@@ -52,11 +52,21 @@ export function feedTab(state) {
 }
 
 // Shared event interactions are also used by browser fixtures.
+const disclosureAnimations = new WeakMap();
 export function handleFeedDisclosure(target) {
   const expand = target.closest('[data-expand]');
   if (expand) {
     const open = expand.getAttribute('aria-expanded') !== 'true';
-    document.getElementById(expand.dataset.expand)?.classList.toggle('is-collapsed', !open);
+    const content = document.getElementById(expand.dataset.expand);
+    const startHeight = content?.getBoundingClientRect?.().height;
+    if (content) disclosureAnimations.get(content)?.cancel();
+    content?.classList.toggle('is-collapsed', !open);
+    if (content?.animate && startHeight && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      disclosureAnimations.set(content, content.animate([
+        { height: `${startHeight}px`, overflow: 'hidden' },
+        { height: `${content.getBoundingClientRect().height}px`, overflow: 'hidden' }
+      ], { duration: 180, easing: 'ease-out' }));
+    }
     expand.setAttribute('aria-expanded', String(open)); expand.textContent = open ? 'See less' : 'See more';
     return true;
   }

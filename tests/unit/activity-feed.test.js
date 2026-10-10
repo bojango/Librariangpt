@@ -30,26 +30,26 @@ test('feed covers loading, empty, error and progressively loaded states', () => 
 });
 test('taste genres require reliable positive supporting book evidence, with no guessed or fixed genres', () => {
   const signal = {id:'taste',dimension:'Worldbuilding',preference:'Enjoys gradual discovery.',direction:'Positive',strength:'Strong',confidence:'High',evidence_count:3,taste_evidence:[{book_id:'book',relation:'supports',weight:1}]};
-  assert.deepEqual(tasteIdentity([signal],[book]).genres,['Science Fiction']);
+  assert.deepEqual(tasteIdentity([signal],[book]).genres,['Sci-Fi']);
   for (const patch of [{confidence:'Low'},{evidence_count:1},{direction:'Mixed'},{direction:'Negative'},{taste_evidence:[{book_id:'book',relation:'context'}]}]) assert.deepEqual(tasteIdentity([{...signal,...patch}],[book]).genres,[]);
   assert.deepEqual(tasteIdentity([signal],[{...book,primary_genre:'Mystery'}]).genres,['Mystery']);
-  assert.equal(tasteIdentity([signal],[book]).summary,'Enjoys gradual discovery.');
+  assert.equal(tasteIdentity([signal],[book]).summary,'I enjoy gradual discovery.');
 });
 test('compound recorded genres deduplicate individual labels and compact prose has clean punctuation', () => {
   const signal = { direction:'Positive',strength:'Strong',confidence:'High',evidence_count:3,preference:'Enjoys discovery. Keeps exploring.',taste_evidence:[{book_id:'book',relation:'supports'},{book_id:'two',relation:'supports'}] };
   const identity = tasteIdentity([signal],[{...book,primary_genre:'Science Fiction / Techno-thriller'},{...book,id:'two'}]);
-  assert.deepEqual(identity.genres,['Science Fiction','Techno-thriller']);
-  assert.equal(identity.summary,'Enjoys discovery.');
+  assert.deepEqual(identity.genres,['Sci-Fi','Thriller']);
+  assert.equal(identity.summary,'I enjoy discovery.');
   const long = tasteIdentity([{...signal,preference:'Enjoys '.repeat(40)}]);
-  assert.match(long.summary,/…$/); assert.doesNotMatch(long.summary,/…\./);
+  assert.match(long.summary,/Enjoys\.$/); assert.doesNotMatch(long.summary,/…/);
 });
 test('profile defaults to Feed, keeps summary sourced and history retains session-specific dates and rereads', () => {
   assert.match(profileView(state),/id="profile-tab-feed"[^>]*aria-selected="true"/);
-  assert.match(profileView({...state,profile:{...state.profile,short_bio:'Old generic bio'}}),/reading identity will take shape/);
+  assert.match(profileView({...state,profile:{...state.profile,short_bio:'Old generic bio'}}),/still discovering what works/);
   assert.doesNotMatch(profileView(state),/data-profile-edit|data-nfc-bookmarks|profile-avatar-action-icon/);
   const html = profileView({...state,profileTab:'history',readingHistory:[{id:'one',book_id:'book',started_at:'2026-01-01',completed_at:'2026-01-05',user_rating_5:3.8},{id:'two',book_id:'book',started_at:'2026-02-01',completed_at:'2026-02-03',user_rating_5:null}]});
   assert.equal((html.match(/class="profile-history-item"/g)||[]).length,2);
-  assert.match(html,/Read in 4 days/); assert.match(html,/Read in 2 days/); assert.match(html,/Unrated/); assert.match(html,/Science Fiction/);
+  assert.match(html,/4 days/); assert.match(html,/2 days/); assert.match(html,/Unrated/); assert.match(html,/Science Fiction/);
   assert.match(html,/id="profile-panel-history"[^>]*><section class="history-year"><h3>2026/);
 });
 test('activity repository uses stable keyset pagination and owner RLS without hiding query errors', async () => {
