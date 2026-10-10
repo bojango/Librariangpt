@@ -41,6 +41,7 @@ test('book reading time preserves the card order, styling, and two-column mobile
 
 test('profile reading time uses the existing rows and local calendar aggregates', async ({ page }, testInfo) => {
   await page.goto('/tests/e2e/fixture.html#/profile');
+  await page.getByRole('tab', { name: 'Stats', exact: true }).click();
   await seedTime(page);
   const rows = page.locator('.profile-stat-row');
   await expect(rows.locator('span')).toHaveText(['BOOKS READ', 'READ THIS YEAR', 'CURRENTLY READING', 'OWNED / UNREAD', 'WISHLIST', 'AVERAGE RATING', 'KNOWN PAGES READ', 'READING TIME THIS YEAR', 'TOTAL READING TIME', 'AVG READING DAY', 'AVG SESSION']);
@@ -67,6 +68,7 @@ test('empty and unavailable session data stay safe on both views', async ({ page
   await page.evaluate(() => window.fixtureRefresh({ readingTimeSessions: null }));
   await expect(page.locator('.reading-stats-grid > div').nth(4).locator('strong')).toHaveText('—');
   await page.locator('[data-route="profile"]').first().click();
+  await page.getByRole('tab', { name: 'Stats', exact: true }).click();
   await expect(page.locator('.profile-stat-row').last().locator('strong')).toHaveText('—');
   await page.evaluate(() => window.fixtureRefresh({ readingTimeSessions: [] }));
   await expect(page.locator('.profile-stat-row').last().locator('strong')).toHaveText('0m');

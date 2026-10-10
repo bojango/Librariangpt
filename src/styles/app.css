@@ -2412,3 +2412,101 @@ html[data-theme="reading-room"] body .profile-tabs button.active {
     max-width: 26ch;
   }
 }
+
+/* Private reading identity and editorial activity timeline. */
+html:has(body) .profile-page .profile-card {
+  --profile-photo-size: clamp(100px, 27vw, 112px);
+  position: relative; display: grid; grid-template-columns: var(--profile-photo-size) minmax(0,1fr);
+  align-items: stretch; column-gap: 16px; row-gap: 16px; padding: 20px;
+  background: var(--user-active-bg, #28292a) !important;
+  color: var(--user-active-text, #e9e3d5); box-shadow: none;
+}
+.profile-display-id { position: absolute; top: 12px; right: 14px; font-size: 10px; letter-spacing: .04em; opacity: .65; }
+html:has(body) .profile-card .profile-avatar { position: relative; width: 100%; max-width: none; min-height: var(--profile-photo-size); height: auto; aspect-ratio: auto; border-color: #e9e3d533; background: #e9e3d511; }
+html:has(body) .profile-card .profile-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+html:has(body) .profile-card .profile-identity { display: flex; flex-direction: column; min-height: var(--profile-photo-size); padding: 0; }
+html:has(body) .profile-card .profile-avatar-placeholder { color: #e9e3d5; }
+html:has(body) .profile-card .profile-identity-main { display: flex; flex-direction: column; justify-content: center; flex: 1; min-width: 0; padding-block: 4px; }
+html:has(body) .profile-card .profile-identity h2 { min-width: 0; margin: 0; padding: 0; font-size: clamp(24px,6vw,38px); color: inherit; }
+.profile-library-name { display: block; min-width: 0; max-width: 100%; padding: 4px 0; border: 0; background: transparent; color: inherit; font: 500 10px/1.45 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; letter-spacing: .065em; text-align: left; text-transform: uppercase; overflow-wrap: anywhere; cursor: text; }
+.profile-library-name:focus-visible { outline: 1px solid currentColor; outline-offset: 2px; }
+html:has(body) .profile-card .profile-library-name { font-family: Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important; }
+.profile-identity-main > [hidden] { display: none !important; }
+html:has(body) .profile-card .profile-private { align-self: flex-start; display: inline-block; margin: 0; padding: 2px 5px; border: 1px solid #e9e3d533; color: inherit; background: transparent; font-size: 8px; letter-spacing: .08em; line-height: 1.4; }
+.profile-inline-identity { display: block; min-width: 0; max-width: 100%; padding: 0; text-align: left; border: 0; background: none; color: inherit; font: inherit; overflow-wrap: anywhere; cursor: text; }
+.profile-inline-identity:focus-visible { outline: 1px solid currentColor; outline-offset: 4px; }
+.profile-genres { margin: auto 0 0; font-size: 11px; line-height: 1.55; opacity: .8; overflow-wrap: anywhere; }
+.profile-card-summary, .profile-card-stats { grid-column: 1/-1; min-width: 0; }
+html:has(body) .profile-card .profile-bio { margin: 0; color: inherit; font-size: 13px; line-height: 1.65; max-width: none; overflow-wrap: anywhere; white-space: pre-line; }
+.profile-bio.is-collapsed { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.inline-expand { border: 0; padding: 6px 0; min-height: 32px; background: none; color: inherit; font: inherit; font-size: 11px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.profile-card-stats { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; padding-top: 12px; border-top: 1px solid #e9e3d533; }
+.profile-card-stats > div { display: grid; grid-template-rows: auto 1fr; justify-items: center; text-align: center; align-content: start; gap: 4px; min-width: 0; }
+.profile-card-stats strong { font-size: 22px; line-height: 1.2; font-weight: 500; }
+.profile-card-stats span { font-size: 10px; opacity: .8; }
+html[data-theme] body .profile-page .profile-tabs { grid-template-columns: repeat(4,minmax(0,1fr)); gap: 0; padding: 0; border: 0 !important; border-radius: 0 !important; background: transparent !important; box-shadow: none !important; }
+html[data-theme] body .profile-page .profile-tabs button { position: relative; min-width: 0; min-height: 44px; padding: 6px 2px; border: 0 !important; border-bottom: 1px solid transparent !important; border-radius: 0 !important; background: transparent !important; color: var(--muted) !important; -webkit-text-fill-color: currentColor !important; font: 400 11px/1.4 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; letter-spacing: 0; text-transform: none; white-space: nowrap; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; transition: none !important; }
+html[data-theme] body .profile-page .profile-tabs button + button::before { content: ''; position: absolute; inset-inline-start: 0; top: 25%; height: 50%; border-inline-start: 1px solid var(--line); }
+html[data-theme] body .profile-page .profile-tabs button { font-family: Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif !important; }
+html[data-theme] body .profile-page .profile-tabs button.active { background: transparent !important; color: var(--text) !important; -webkit-text-fill-color: currentColor !important; font-weight: 600; border-bottom-color: currentColor !important; }
+.profile-inline-form { padding: 8px; outline: 1px solid #e9e3d577; border-radius: 6px; font: 12px/1.4 var(--font-body, sans-serif); }
+.profile-inline-form label { display: grid; gap: 3px; margin-bottom: 8px; }
+.profile-inline-form input { width: 100%; min-width: 0; border: 0; border-bottom: 1px solid #e9e3d544; border-radius: 0; padding: 5px 0; background: transparent; color: inherit; font: inherit; }
+.profile-inline-form button { border: 0; background: transparent; color: inherit; font: inherit; text-decoration: underline; min-height: 32px; margin-right: 12px; }
+.identity-error { margin: 0; font-size: 11px; }
+.feed-filters { display: flex; gap: 16px; overflow-x: auto; max-width: 100%; padding: 0 0 12px; scrollbar-width: none; }
+.feed-filters button:first-child { margin-inline-start: auto; }
+.feed-filters button:last-child { margin-inline-end: auto; }
+.feed-filters button { flex-shrink: 0; min-height: 36px; padding: 3px 0; border: 0; border-bottom: 1px solid transparent; background: transparent; color: var(--muted); font: inherit; font-size: 11px; cursor: pointer; }
+.feed-filters button.active { color: var(--text); border-bottom-color: currentColor; }
+.activity-feed { display: grid; gap: 12px; }
+.activity-card { min-width: 0; border: var(--user-border-width,1px) solid var(--line); border-radius: var(--user-card-radius,var(--radius)); background: var(--panel); overflow: hidden; }
+.activity-meta { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent); font-size: 11px; }
+.activity-meta strong { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.feed-avatar { display: grid; place-items: center; flex-shrink: 0; width: 25px; height: 25px; border-radius: 50%; background: var(--panel-2); overflow: hidden; }
+.feed-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.activity-librarian .feed-avatar { color: var(--accent-dark,var(--text)); }
+.activity-time { margin-left: auto; flex-shrink: 0; max-width: 58%; padding: 6px 0 6px 6px; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 10px; text-align: right; }
+.activity-body { padding: 12px 14px; }
+.feed-prose { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.65; }
+.feed-prose.is-collapsed { display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+.feed-prose, .profile-bio { animation: feed-reveal .18s ease-out; }
+.activity-body blockquote { margin: 14px 0 0; padding: 0 0 0 12px; border-left: 2px solid var(--line); }
+.feed-quotation { font-family: var(--font-heading,Georgia,serif); font-size: 15px; }
+.feed-personal-note { font-size: 12px; line-height: 1.6; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+.activity-book { display: flex; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent); color: var(--text); text-decoration: none; }
+.activity-book > img, .feed-cover-placeholder { width: 44px; height: 66px; object-fit: cover; flex-shrink: 0; border-radius: 3px; }
+.feed-cover-placeholder { display: grid; place-items: center; background: var(--panel-2); }
+.activity-book > span:not(.feed-cover-placeholder) { display: grid; align-content: start; min-width: 0; gap: 3px; font-size: 11px; overflow-wrap: anywhere; }
+.activity-book strong { font-size: 13px; font-weight: 500; }
+.activity-book small { color: var(--muted); font-size: 10px; }
+.activity-tags { display: flex; flex-wrap: wrap; gap: 12px; padding: 4px 14px; border-top: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
+.activity-tags button { min-height: 32px; padding: 3px 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 10px; cursor: pointer; }
+.activity-tags button:hover { color: var(--text); text-decoration: underline; }
+.feed-state { font-size: 12px; line-height: 1.6; color: var(--muted); }
+.feed-load-more { margin-top: 14px; }
+.taste-overview h2, .taste-details-sections h3 { font-size: 17px; font-weight: 500; }
+.taste-overview p, .taste-signal p { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.taste-details-sections > section { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+.taste-signal { padding: 12px 0; }
+.taste-signal h4 { margin: 0 0 6px; font-size: 12px; font-weight: 600; }
+.taste-signal p { margin: 0 0 6px; }
+.taste-signal small, .taste-updated { font-size: 10px; color: var(--muted); line-height: 1.6; }
+.taste-book-evidence { padding-left: 16px; font-size: 11px; line-height: 1.7; }
+.taste-book-evidence a { color: inherit; text-underline-offset: 3px; }
+html:has(body) .profile-history-copy :is(strong, span, small) { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+html:has(body) .profile-history-copy small { display: block; line-height: 1.55; }
+.nfc-menu-section summary { cursor: pointer; font-size: 13px; padding-block: 8px; }
+.nfc-menu-section p { color: var(--muted); font-size: 12px; line-height: 1.5; }
+html[data-theme="terminal"] .activity-card { border-radius: var(--terminal-control-radius); }
+html[data-theme="terminal"] .feed-quotation { font-family: var(--font-terminal); }
+html[data-theme="terminal"] .profile-card .profile-inline-identity { color: var(--terminal-active-text); }
+@keyframes feed-reveal { from { opacity: .8; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .feed-prose, .profile-bio { animation: none; } }
+@media (max-width: 380px) {
+  html:has(body) .profile-page .profile-card { column-gap: 12px; row-gap: 14px; padding: 16px; }
+  html[data-theme] body .profile-page .profile-tabs button { font-size: 10px; }
+}
+
+.profile-inline-identity[hidden] { display: none !important; }
+html:has(body) .profile-page .profile-card { box-shadow: none !important; }

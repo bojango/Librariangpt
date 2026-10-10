@@ -42,6 +42,9 @@ import { UI_COPY } from './ui/copy.js';
 import { escapeHtml } from './utils/text.js';
 import { installHeaderGreetingClock } from './ui/chrome.js';
 import { installStatusSurface, syncStatusSurface } from './ui/status-surface.js';
+import { loadActivity } from './data/activity.js';
+import { activityTime, feedTab, handleFeedDisclosure } from './features/activity-feed.js';
+import { editProfileIdentity } from './features/profile-identity-editor.js';
 
 const app = document.querySelector('#app');
 installHeaderGreetingClock();
@@ -62,6 +65,51 @@ let diagnosticDisposer = null;
 let serviceWorkerRegistration = null;
 let motionController = null;
 let skipNextRouteTransition = false;
+let activityLoadVersion = 0;
+
+function paintFeed() {
+  if (store.value.route.name !== 'profile' || store.value.profileTab !== 'feed') return;
+  const panel = app.querySelector('#profile-panel-feed');
+  if (!panel) return;
+  const focusFilter = panel.contains(document.activeElement) ? document.activeElement?.dataset.feedFilter : null;
+  const template = document.createElement('template');
+  template.innerHTML = feedTab(store.value);
+  panel.replaceWith(template.content);
+  if (focusFilter != null) [...app.querySelectorAll('.feed-filters [data-feed-filter]')].find(button => button.dataset.feedFilter === focusFilter)?.focus({ preventScroll: true });
+}
+
+async function refreshActivity({ more = false, filter = null, background = false } = {}) {
+  if (!store.value.session) return;
+  const feed = store.value.activityFeed;
+  if (more && feed.loading) return;
+  const version = ++activityLoadVersion;
+  const userId = store.value.session.user.id;
+  if (filter != null) Object.assign(feed, { filter, events: [], cursor: null, hasMore: false, loaded: false });
+  feed.loading = true; feed.error = null;
+  if (!background) paintFeed();
+  try {
+    const page = await loadActivity({ filter: feed.filter, cursor: more ? feed.cursor : null, limit: more ? 20 : Math.max(20, feed.events.length) });
+    if (version !== activityLoadVersion || store.value.session?.user?.id !== userId) return;
+    const events = more ? [...new Map([...feed.events, ...page.events].map(e => [e.id,e])).values()] : page.events;
+    const changed = JSON.stringify(feed.events) !== JSON.stringify(events) || !feed.loaded;
+    Object.assign(feed, { ...page, events, loaded: true, loading: false });
+    if (changed || !background) paintFeed();
+  } catch (error) {
+    if (version !== activityLoadVersion) return;
+    Object.assign(feed, { loading: false, error: error.message || 'Activity unavailable' });
+    paintFeed();
+  }
+}
+
+// Owner-scoped polling also captures changes made by ChatGPT/automation without
+// depending on optional Realtime publication configuration.
+window.setInterval(() => {
+  if (document.visibilityState !== 'visible' || store.value.route.name !== 'profile' || store.value.profileTab !== 'feed') return;
+  if (!store.value.activityFeed.loading) void refreshActivity({ background: true });
+  app.querySelectorAll('.activity-time time').forEach(time => {
+    if (!time.parentElement.dataset.timeRevealed) time.textContent = activityTime(time.dateTime).label;
+  });
+}, 30000);
 
 diagnostics.configure({
   context: () => ({ route: store.value.route, bookId: store.value.route.bookId || null }),
@@ -294,7 +342,10 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
   if (route.name === 'home') paint(homeView(store.value), options);
   else if (route.name === 'library' || route.name === 'wishlist') paint(libraryView(store.value, route.name), options);
   else if (route.name === 'recommendations') paint(recommendationsView(store.value), options);
-  else paint(profileView(store.value), options);
+  else {
+    paint(profileView(store.value), options);
+    if (store.value.profileTab === 'feed') void refreshActivity({ background: store.value.activityFeed.loaded });
+  }
   diagnostics.event('route_render_complete', { route: route.name, mode, render_generation: version });
 }
 
@@ -335,7 +386,10 @@ async function refresh({ quiet = false, scope = 'library', bookId = null } = {})
       await loadSnapshot();
       if (!sameRoute(store.value.route, routeAtStart)) { diagnostics.event('refresh_skipped', { reason: 'route_changed', scope }); return; }
       if (before !== snapshotFingerprint(store.value)) { diagnostics.event('snapshot_changed', { scope: 'library' }); await renderRoute(routeAtStart, { mode: 'refresh' }); }
-      else diagnostics.event('snapshot_unchanged', { scope: 'library' });
+      else {
+        diagnostics.event('snapshot_unchanged', { scope: 'library' });
+        if (routeAtStart.name === 'profile') void refreshActivity({ background: true });
+      }
     }
     diagnostics.event('refresh_complete', { scope, duration_ms: Math.round(performance.now() - started) });
     if (!quiet) toast('Library refreshed.');
@@ -462,6 +516,7 @@ function maybeEnrich(detail, renderVersion) {
 }
 
 function navigate(route) {
+  if (route.name === 'profile' && store.value.route.name !== 'profile') store.value.profileTab = 'feed';
   const restoreY = store.scrollFor(route.name);
   saveCurrentScroll();
   if (!sameRoute(store.value.route, route)) {
@@ -469,7 +524,7 @@ function navigate(route) {
     motionController?.suspend({ expand: true });
   }
   if (route.name === 'book') {
-    previousRoute = ['home', 'library', 'wishlist'].includes(store.value.route.name) ? store.value.route.name : previousRoute;
+    previousRoute = ['home', 'library', 'wishlist', 'profile'].includes(store.value.route.name) ? store.value.route.name : previousRoute;
     bookHasReturnRoute = store.value.route.name !== 'book';
   }
   diagnostics.event('route_navigation_requested', { from: store.value.route.name, from_book_id: store.value.route.bookId || null, to: route.name, to_book_id: route.bookId || null, source: 'app_navigation' });
@@ -517,6 +572,22 @@ function openProfileEditor() {
 app.addEventListener('click', async event => {
   const target = event.target instanceof Element ? event.target : null;
   if (!target) return;
+  if (handleFeedDisclosure(target)) return;
+  const feedFilter = target.closest('[data-feed-filter]');
+  if (feedFilter) { await refreshActivity({ filter: feedFilter.dataset.feedFilter }); return; }
+  if (target.closest('[data-feed-more]')) { await refreshActivity({ more: true }); return; }
+  if (target.closest('[data-feed-retry]')) { await refreshActivity(); return; }
+  const identityButton = target.closest('[data-identity-edit],[data-library-name-edit]');
+  if (identityButton) {
+    editProfileIdentity(identityButton, store.value.profile, store.value.session?.user?.user_metadata, async values => {
+      const saved = await updateReaderProfile(values);
+      store.value.profile = { ...store.value.profile, ...saved };
+      paint(profileView(store.value), { preserveScroll: window.scrollY, reuseCovers: true });
+      app.querySelector(identityButton.matches('[data-library-name-edit]') ? '[data-library-name-edit]' : '[data-identity-edit]')?.focus();
+      toast('Profile updated.');
+    });
+    return;
+  }
   const route = target.closest('[data-route]');
   if (route) { navigate({ name: route.dataset.route, bookId: null }); return; }
   const open = target.closest('[data-open-book]');
@@ -574,6 +645,7 @@ app.addEventListener('click', async event => {
     store.value.profileTab = profileTab.dataset.profileTab;
     paint(profileView(store.value), { preserveScroll: window.scrollY, reuseCovers: true });
     app.querySelector(`[data-profile-tab="${store.value.profileTab}"]`)?.focus();
+    if (store.value.profileTab === 'feed') void refreshActivity({ background: store.value.activityFeed.loaded });
     return;
   }
   if (target.closest('[data-signout]')) { supabase.auth.signOut(); return; }
@@ -792,7 +864,7 @@ function openMenu() {
   document.querySelector('.sidebar-backdrop')?.remove();
   const wrapper = document.createElement('div'); wrapper.className = 'sidebar-backdrop';
   const closeIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>';
-  wrapper.innerHTML = `<aside class="sidebar-panel" aria-label="Reading Room menu"><div class="sidebar-head"><h2>Reading Room</h2><button class="icon-btn" data-side-close aria-label="Close menu">${closeIcon}</button></div>${themeSelectorMarkup(savedTheme())}<section class="sidebar-section"><button class="btn btn-primary btn-full" data-open-appearance>Customise appearance</button></section><section class="sidebar-section"><h3>Library tools</h3><div class="sidebar-actions"><button class="btn" data-side-add>Add book</button><button class="btn" data-side-refresh>Refresh library data</button></div></section>${diagnosticsMenuMarkup(diagnostics)}<section class="sidebar-section"><div class="sidebar-actions"><button class="btn btn-danger" data-side-logout>Log out</button></div></section></aside>`;
+  wrapper.innerHTML = `<aside class="sidebar-panel" aria-label="Reading Room menu"><div class="sidebar-head"><h2>Reading Room</h2><button class="icon-btn" data-side-close aria-label="Close menu">${closeIcon}</button></div>${themeSelectorMarkup(savedTheme())}<section class="sidebar-section"><button class="btn btn-primary btn-full" data-open-appearance>Customise appearance</button></section><section class="sidebar-section"><h3>Library tools</h3><div class="sidebar-actions"><button class="btn" data-side-add>Add book</button><button class="btn" data-side-refresh>Refresh library data</button></div></section><details class="sidebar-section nfc-menu-section"><summary>NFC Bookmark</summary><p>Record reading time with your bookmark.</p><button class="btn btn-full" data-side-nfc>Configure bookmark</button></details>${diagnosticsMenuMarkup(diagnostics)}<section class="sidebar-section"><div class="sidebar-actions"><button class="btn btn-danger" data-side-logout>Log out</button></div></section></aside>`;
   document.body.append(wrapper);
   if (diagnostics.isEnabled()) diagnostics.listSessions().then(sessions => {
     const slot = wrapper.querySelector('[data-diag-history]');
@@ -811,6 +883,7 @@ function openMenu() {
     else if (event.target.closest('[data-open-appearance]')) { wrapper.remove(); openAppearanceEditor(); }
     else if (event.target.closest('[data-side-add]')) { wrapper.remove(); openAddBook(); }
     else if (event.target.closest('[data-side-refresh]')) { wrapper.remove(); refresh(); }
+    else if (event.target.closest('[data-side-nfc]')) { wrapper.remove(); await openNfcBookmarks(store.value.books); }
     else if (event.target.closest('[data-side-logout]')) supabase.auth.signOut();
     else if (event.target.closest('[data-diag-enable]')) {
       await diagnostics.enable(); startDiagnosticRuntime(); await diagnostics.setUserId(store.value.session?.user?.id);
@@ -894,13 +967,19 @@ async function init() {
     diagnostics.event('auth_state_change', { event_name: authEvent, previous_user_equals_new: previousUserId === nextUserId, had_user: Boolean(previousUserId), has_user: Boolean(nextUserId) });
     const enteringSession = !store.value.session && Boolean(nextSession);
     store.value.session = nextSession;
+    if (previousUserId && nextUserId && previousUserId !== nextUserId) {
+      activityLoadVersion += 1;
+      store.value.profileTab = 'feed';
+      store.value.activityFeed = { events: [], loading: false, loaded: false, filter: 'all', cursor: null, hasMore: false, error: null };
+    }
     if (diagnostics.isEnabled()) await diagnostics.setUserId(nextUserId);
     if (!nextSession) {
       store.beginRender();
       disposeSessionDisplay?.(); disposeSessionDisplay = null;
       libraryLoaded = false;
       sessionBootstrapUser = null;
-      store.update({ books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], profile: null, tasteProfile: [], readingHistory: [], readingTimeSessions: null, detail: null });
+      activityLoadVersion += 1;
+      store.update({ books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], profile: null, tasteProfile: [], readingHistory: [], readingRecords: null, readingTimeSessions: null, detail: null, profileTab: 'feed', activityFeed: { events: [], loading: false, loaded: false, filter: 'all', cursor: null, hasMore: false, error: null } });
       paint(authView(store.value.authMode));
       return;
     }
@@ -927,7 +1006,10 @@ async function init() {
     connectServiceWorkerDiagnostics(diagnostics, registration).catch(() => {});
   }).catch(error => console.info('[Reading Room] service worker unavailable:', error?.message || error));
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') void redirectPendingNfcOnResume();
+    if (document.visibilityState === 'visible') {
+      void redirectPendingNfcOnResume();
+      if (store.value.route.name === 'profile') void refresh({ quiet: true });
+    }
   });
   window.addEventListener('focus', () => { void redirectPendingNfcOnResume(); });
   diagnostics.event('app_init_complete');
