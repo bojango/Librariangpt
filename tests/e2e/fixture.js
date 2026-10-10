@@ -8,6 +8,7 @@ import { activateCovers, collectCoverImages, reuseCoverImages } from '../../src/
 import { initialiseCarousel } from '../../src/features/current-reading-carousel.js';
 import { upNextManagerRows } from '../../src/features/up-next-markup.js';
 import { installStatusSurface, syncStatusSurface } from '../../src/ui/status-surface.js';
+import { handleFeedDisclosure } from '../../src/features/activity-feed.js';
 
 const books = [
   { id: 'current-1', title: 'The Unfinished Harauld Hughes', authors: 'Reader One', overall_status: 'Currently Reading', ownership_status: 'Owned', started_at: '2026-07-28', current_page: 40, total_pages: 200, progress_percent: 20, cover_url: '/delayed-cover.svg', primary_genre: 'Fiction' },
@@ -25,7 +26,7 @@ const state = {
   filters: { library: 'All', wishlist: 'Wishlist' }, queries: { library: '', wishlist: '' }, route: { name: 'home' },
   profile: { display_name: 'Calum', handle: '@calum', short_bio: 'A private record of reading, preferences and finished books.', avatar_path: null, avatarUrl: null },
   tasteProfile: [{ dimension: 'Setting', preference: 'distinctive settings', direction: 'Positive', strength: 'Strong', confidence: 'High', evidence_count: 4, last_updated: '2026-09-18' }],
-  readingHistory: [], profileTab: 'stats', detail: null
+  readingHistory: [], profileTab: 'feed', activityFeed: { events: [], loading: false, loaded: true, filter: 'all' }, detail: null
 };
 const app = document.querySelector('#app');
 installStatusSurface();
@@ -73,6 +74,8 @@ window.fixtureSetCover = url => window.fixtureRefresh({
 window.fixtureState = state;
 
 app.addEventListener('click', event => {
+  if (handleFeedDisclosure(event.target)) return;
+  const tab = event.target.closest('[data-profile-tab]'); if (tab) { state.profileTab = tab.dataset.profileTab; render(); return; }
   if (event.target.closest('[data-manage-upnext]')) { document.querySelector('#modal-root').innerHTML = `<div id="queue-manager-list">${upNextManagerRows(state.upNext)}</div>`; return; }
   const route = event.target.closest('[data-route]'); if (route) { location.hash = `#/${route.dataset.route}`; return; }
   const filter = event.target.closest('[data-filter]'); if (filter) { state.filters.library = filter.dataset.filter; render(); return; }

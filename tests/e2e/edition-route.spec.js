@@ -63,6 +63,8 @@ async function mockAuthenticatedLibrary(page) {
     const json = value => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(value), headers: { 'access-control-allow-origin': '*' } });
 
     if (path === '/auth/v1/user') return json(user);
+    if (path.includes('/rest/v1/reader_profiles')) return json(null);
+    if (['taste_profile','reading_sessions','activity_events'].some(table => path.includes(`/rest/v1/${table}`))) return json([]);
     if (path.includes('/rest/v1/rpc/select_book_edition')) {
       selected = request.postDataJSON().p_edition_id;
       return json(selected);
