@@ -28,16 +28,19 @@ export function tasteIdentity(signals = [], books = []) {
     for (const evidence of signal.taste_evidence || []) {
       if (evidence.relation !== 'supports' || Number(evidence.weight ?? 1) <= 0) continue;
       const book = evidence.book || byId.get(evidence.book_id);
-      const genre = String(book?.primary_genre || '').trim();
-      if (!genre) continue;
-      if (!genreEvidence.has(genre)) genreEvidence.set(genre, new Set());
-      genreEvidence.get(genre).add(evidence.book_id);
+      // Split explicitly recorded slash-separated labels; do not infer subgenres.
+      const genres = String(book?.primary_genre || '').split(/\s+\/\s+/).map(value => value.trim()).filter(Boolean);
+      for (const genre of genres) {
+        if (!genreEvidence.has(genre)) genreEvidence.set(genre, new Set());
+        genreEvidence.get(genre).add(evidence.book_id || book?.id);
+      }
     }
   }
   const genres = [...genreEvidence].sort((a, b) => b[1].size - a[1].size || a[0].localeCompare(b[0])).slice(0, 4).map(([genre]) => genre);
-  const sentences = strong.slice(0, 2).map(s => concise(s.preference));
-  let summary = sentences.length ? `${sentences.join('. ')}.` : 'Your reading identity will take shape as reliable taste evidence grows.';
+  const endSentence = value => /[.!?…]$/.test(value) ? value : `${value}.`;
+  const sentences = strong.slice(0, 2).map(s => endSentence(concise(s.preference)));
+  let summary = sentences.length ? sentences.join(' ') : 'Your reading identity will take shape as reliable taste evidence grows.';
   const negative = friction.find(s => s.direction === 'Negative');
-  if (negative) summary += ` Friction: ${concise(negative.preference, 100)}.`;
+  if (negative) summary += ` Friction: ${endSentence(concise(negative.preference, 100))}`;
   return { summary, genres, strong, friction, emerging, ranked, updated: signals.map(s => s.last_updated).filter(Boolean).sort().at(-1) || null };
 }

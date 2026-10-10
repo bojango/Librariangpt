@@ -35,6 +35,14 @@ test('taste genres require reliable positive supporting book evidence, with no g
   assert.deepEqual(tasteIdentity([signal],[{...book,primary_genre:'Mystery'}]).genres,['Mystery']);
   assert.equal(tasteIdentity([signal],[book]).summary,'Enjoys gradual discovery.');
 });
+test('compound recorded genres deduplicate individual labels and compact prose has clean punctuation', () => {
+  const signal = { direction:'Positive',strength:'Strong',confidence:'High',evidence_count:3,preference:'Enjoys discovery. Keeps exploring.',taste_evidence:[{book_id:'book',relation:'supports'},{book_id:'two',relation:'supports'}] };
+  const identity = tasteIdentity([signal],[{...book,primary_genre:'Science Fiction / Techno-thriller'},{...book,id:'two'}]);
+  assert.deepEqual(identity.genres,['Science Fiction','Techno-thriller']);
+  assert.equal(identity.summary,'Enjoys discovery.');
+  const long = tasteIdentity([{...signal,preference:'Enjoys '.repeat(40)}]);
+  assert.match(long.summary,/…$/); assert.doesNotMatch(long.summary,/…\./);
+});
 test('profile defaults to Feed, keeps summary sourced and history retains session-specific dates and rereads', () => {
   assert.match(profileView(state),/id="profile-tab-feed"[^>]*aria-selected="true"/);
   assert.match(profileView({...state,profile:{...state.profile,short_bio:'Old generic bio'}}),/reading identity will take shape/);
