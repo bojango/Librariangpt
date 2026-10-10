@@ -12,7 +12,7 @@ async function isolatedProfile(page, { theme = 'reading-room', feedError = false
   },{user,jwt,theme});
   const book = { id:'20000000-0000-0000-0000-000000000001',title:'Gateway',authors:'Frederik Pohl',overall_status:'Read',user_rating_5:3.8,ownership_status:'Owned',primary_genre:'Science Fiction',total_pages:280,started_at:'2026-01-01',completed_at:'2026-01-05',cover_url:'/icons/icon-192.png',synopsis:'A test book.' };
   const current = {...book,id:'20000000-0000-0000-0000-000000000002',title:'Thunderhead',overall_status:'Currently Reading',current_page:40,completed_at:null,user_rating_5:null};
-  let profile = {display_name:'Calum',handle:'@calum',short_bio:'An obsolete biography.',avatar_path:null};
+  let profile = {display_name:'Calum',handle:'@calum',library_name:'Alder Creek Library',short_bio:'An obsolete biography.',avatar_path:null};
   let quotes = []; let avatarUploads = 0; let failFeed = feedError;
   const signals = [{id:'signal',dimension:'Discovery',preference:'Enjoys exploring unfamiliar worlds through gradual discovery, with a clear sense of progression and grounded explanations. Prefers stories whose secrets reward close attention.',direction:'Positive',strength:'Strong',confidence:'High',evidence_count:4,last_updated:'2026-10-10',taste_evidence:[{book_id:book.id,relation:'supports',weight:1,book}]}];
   const events = Array.from({length:25},(_,i)=>({id:`40000000-0000-0000-0000-${String(100-i).padStart(12,'0')}`,event_type:i===1?'librarian':i%2?'wishlist':'started',source:'system',occurred_at:new Date(Date.now()-(i+1)*3600000).toISOString(),book_id:current.id,metadata:{},hashtags:[i===1?'librarian':i%2?'wishlist':'started'],content:i===1?'A reading reflection.':null}));
@@ -152,11 +152,11 @@ for (const theme of ['reading-room','terminal']) test(`profile polish aligns at 
     await page.setViewportSize({width,height:844});
     const layout=await page.locator('.profile-card').evaluate(card=>{
       const rect=selector=>card.querySelector(selector).getBoundingClientRect();
-      const photo=rect('.profile-avatar'),badge=rect('.profile-private'),genres=rect('.profile-genres'),bio=rect('.profile-bio'),heading=rect('.profile-inline-identity');
+      const photo=rect('.profile-avatar'),badge=rect('.profile-private'),genres=rect('.profile-genres'),bio=rect('.profile-bio'),heading=rect('.profile-inline-identity'),library=rect('.profile-library-name');
       const stats=[...card.querySelectorAll('.profile-card-stats > div')].map(column=>{
         const c=column.getBoundingClientRect();return {width:c.width,center:c.x+c.width/2,children:[...column.children].map(x=>{const r=x.getBoundingClientRect();return {center:r.x+r.width/2,top:r.top};})};
       });
-      return {photoWidth:photo.width,topGap:badge.top-photo.top,bottomGap:genres.bottom-photo.bottom,identityCenterGap:heading.top+heading.height/2-(badge.bottom+genres.top)/2,clampHeight:bio.height,lineHeight:parseFloat(getComputedStyle(card.querySelector('.profile-bio')).lineHeight),stats,overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth};
+      return {photoWidth:photo.width,topGap:badge.top-photo.top,bottomGap:genres.bottom-photo.bottom,identityCenterGap:(heading.top+library.bottom)/2-(badge.bottom+genres.top)/2,clampHeight:bio.height,lineHeight:parseFloat(getComputedStyle(card.querySelector('.profile-bio')).lineHeight),stats,overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth};
     });
     expect(layout.photoWidth).toBeGreaterThanOrEqual(100);expect(Math.abs(layout.topGap)).toBeLessThanOrEqual(1);expect(Math.abs(layout.bottomGap)).toBeLessThanOrEqual(1);
     expect(Math.abs(layout.identityCenterGap)).toBeLessThanOrEqual(1);
@@ -217,5 +217,42 @@ test('Sessions filter, duration, exact timestamp and book links work; filter row
   await page.locator('.activity-book').click();await expect(page.locator('.detail-header')).toBeVisible();await page.locator('[data-back]').click();await expect(page.locator('.activity-card')).toHaveCount(1);
   mock.events.unshift({id:'70000000-0000-0000-0000-000000000002',event_type:'quotes',book_id:mock.events[0].book_id,occurred_at:new Date().toISOString(),metadata:{chapter:'Chapter 6',quote_text:'Exactly preserved.'},hashtags:['quotes']});
   await page.locator('.feed-filters [data-feed-filter="quotes"]').click();await expect(page.locator('.activity-book small')).toHaveText('Chapter 6');
+  expect(mock.errors).toEqual([]);
+});
+
+for(const theme of ['reading-room','terminal']) test(`library name edit persists and record-column tabs stay plain in ${theme}`,async({page},info)=>{
+  const mock=await isolatedProfile(page,{theme});
+  await expect(page.locator('[data-library-name-edit]')).toHaveText('Alder Creek Library');
+  await page.locator('[data-library-name-edit]').click();await expect(page.getByLabel('Library name',{exact:true})).toBeFocused();
+  await page.getByLabel('Library name',{exact:true}).fill('Cancelled library');await page.getByLabel('Library name',{exact:true}).press('Escape');
+  await expect(page.locator('[data-library-name-edit]')).toHaveText('Alder Creek Library');await expect(page.locator('[data-library-name-edit]')).toBeFocused();
+  await page.locator('[data-library-name-edit]').click();await page.getByLabel('Library name',{exact:true}).fill('Alder Creek Reading Library');
+  await page.locator('.profile-inline-form button[type="submit"]').click();await expect(page.locator('.profile-inline-form')).toHaveCount(0);
+  expect(mock.profile().library_name).toBe('Alder Creek Reading Library');expect(mock.profile().handle).toBe('@calum');expect(mock.profile().short_bio).toBe('An obsolete biography.');
+  await page.locator('[data-route="home"]').last().click();await page.locator('[data-route="profile"]').last().click();await expect(page.locator('[data-library-name-edit]')).toHaveText('Alder Creek Reading Library');
+  await page.reload();await expect(page.locator('[data-library-name-edit]')).toHaveText('Alder Creek Reading Library');
+  // A new document also exercises the persisted profile retrieval, rather than in-memory paint.
+  for(const width of [320,375,390,430]){
+    await page.setViewportSize({width,height:844});
+    const layout=await page.locator('.profile-page').evaluate(page=>{
+      const rect=s=>page.querySelector(s).getBoundingClientRect(),avatar=rect('.profile-avatar'),badge=rect('.profile-private'),heading=rect('.profile-inline-identity'),library=rect('.profile-library-name'),genres=rect('.profile-genres');
+      const nav=page.querySelector('.profile-tabs'),style=getComputedStyle(nav),libraryStyle=getComputedStyle(page.querySelector('.profile-library-name'));
+      const tabs=[...nav.children].map((tab,i)=>{const s=getComputedStyle(tab),r=tab.getBoundingClientRect(),divider=getComputedStyle(tab,'::before');return {height:r.height,width:r.width,background:s.backgroundColor,image:s.backgroundImage,radius:s.borderRadius,shadow:s.boxShadow,border:s.borderBottomWidth,borderColor:s.borderBottomColor,color:s.color,weight:s.fontWeight,clipped:tab.scrollWidth>tab.clientWidth+1,divider:i?divider.borderInlineStartWidth:null};});
+      return {overflow:document.documentElement.scrollWidth>document.documentElement.clientWidth,photoWidth:avatar.width,topGap:badge.top-avatar.top,bottomGap:genres.bottom-avatar.bottom,order:badge.bottom<=heading.top&&heading.bottom<=library.top&&library.bottom<=genres.top,libraryTransform:libraryStyle.textTransform,libraryFont:libraryStyle.fontFamily,navBackground:style.backgroundColor,navRadius:style.borderRadius,tabs};
+    });
+    expect(layout.overflow).toBe(false);expect(layout.photoWidth).toBeGreaterThanOrEqual(100);expect(Math.abs(layout.topGap)).toBeLessThanOrEqual(1);expect(Math.abs(layout.bottomGap)).toBeLessThanOrEqual(1);expect(layout.order).toBe(true);
+    expect(layout.libraryTransform).toBe('uppercase');expect(layout.libraryFont).toContain('sans-serif');expect(layout.navBackground).toBe('rgba(0, 0, 0, 0)');expect(layout.navRadius).toBe('0px');
+    expect(Math.max(...layout.tabs.map(x=>x.width))-Math.min(...layout.tabs.map(x=>x.width))).toBeLessThan(1);
+    for(const [i,tab] of layout.tabs.entries()){
+      expect(tab.height).toBeGreaterThanOrEqual(44);expect(tab.clipped).toBe(false);expect(tab.background).toBe('rgba(0, 0, 0, 0)');expect(tab.image).toBe('none');expect(tab.radius).toBe('0px');expect(tab.shadow).toBe('none');if(i) expect(tab.divider).toBe('1px');
+    }
+    expect(layout.tabs[0].weight).toBe('600');expect(layout.tabs[0].border).toBe('1px');expect(layout.tabs[0].borderColor).toBe(layout.tabs[0].color);
+    await page.screenshot({path:info.outputPath(`library-record-${theme}-${width}.png`)});
+  }
+  for(const tab of ['Stats','Taste Details','History','Feed']){
+    await page.getByRole('tab',{name:tab,exact:true}).click();await expect(page.getByRole('tab',{name:tab,exact:true})).toHaveAttribute('aria-selected','true');
+    const active=await page.getByRole('tab',{name:tab,exact:true}).evaluate(x=>({bg:getComputedStyle(x).backgroundColor,border:getComputedStyle(x).borderBottomColor,color:getComputedStyle(x).color}));expect(active.bg).toBe('rgba(0, 0, 0, 0)');expect(active.border).toBe(active.color);
+  }
+  await page.getByRole('tab',{name:'Feed',exact:true}).press('ArrowRight');await expect(page.getByRole('tab',{name:'Stats',exact:true})).toBeFocused();await page.getByRole('tab',{name:'Stats',exact:true}).press('End');await expect(page.getByRole('tab',{name:'History',exact:true})).toBeFocused();await page.getByRole('tab',{name:'History',exact:true}).press('Home');await expect(page.getByRole('tab',{name:'Feed',exact:true})).toBeFocused();
   expect(mock.errors).toEqual([]);
 });

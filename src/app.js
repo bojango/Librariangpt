@@ -577,13 +577,13 @@ app.addEventListener('click', async event => {
   if (feedFilter) { await refreshActivity({ filter: feedFilter.dataset.feedFilter }); return; }
   if (target.closest('[data-feed-more]')) { await refreshActivity({ more: true }); return; }
   if (target.closest('[data-feed-retry]')) { await refreshActivity(); return; }
-  const identityButton = target.closest('[data-identity-edit]');
+  const identityButton = target.closest('[data-identity-edit],[data-library-name-edit]');
   if (identityButton) {
     editProfileIdentity(identityButton, store.value.profile, store.value.session?.user?.user_metadata, async values => {
       const saved = await updateReaderProfile(values);
       store.value.profile = { ...store.value.profile, ...saved };
       paint(profileView(store.value), { preserveScroll: window.scrollY, reuseCovers: true });
-      app.querySelector('[data-identity-edit]')?.focus();
+      app.querySelector(identityButton.matches('[data-library-name-edit]') ? '[data-library-name-edit]' : '[data-identity-edit]')?.focus();
       toast('Profile updated.');
     });
     return;

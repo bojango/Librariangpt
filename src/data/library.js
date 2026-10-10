@@ -81,7 +81,7 @@ export function loadLibrarySnapshot() {
       optional(supabase.from('v_up_next').select('*').order('position')),
       optional(supabase.from('v_ai_recommendations').select('*').order('display_rank', { ascending: true })),
       optional(supabase.from('v_library_chapters').select('*').eq('overall_status', 'Currently Reading')),
-      optional(supabase.from('reader_profiles').select('display_name,handle,short_bio,avatar_path,updated_at').maybeSingle(), null),
+      optional(supabase.from('reader_profiles').select('display_name,handle,library_name,short_bio,avatar_path,updated_at').maybeSingle(), null),
       optional(supabase.from('taste_profile').select('id,dimension,preference,direction,strength,confidence,evidence_count,last_updated,taste_evidence(id,book_id,relation,weight,book:books(id,title,primary_genre))').order('last_updated', { ascending: false, nullsFirst: false })),
       optional(supabase.from('reading_sessions').select('id,book_id,edition_id,session_type,completed_at,started_at,user_rating_5,format_read,created_at').eq('status', 'Completed').order('completed_at', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false })),
       optional(loadReadingTimeSessions(), null),
@@ -130,9 +130,13 @@ export async function updateReaderProfile(values, client = supabase) {
   };
   if (!payload.display_name) throw new Error('Display name is required.');
   if (!payload.handle) throw new Error('Handle is required.');
+  if (Object.hasOwn(values, 'libraryName')) {
+    payload.library_name = String(values.libraryName ?? '').trim() || null;
+    if (payload.library_name?.length > 120) throw new Error('Library name must be 120 characters or fewer.');
+  }
   const { data, error } = await client.from('reader_profiles')
     .upsert(payload, { onConflict: 'user_id' })
-    .select('display_name,handle,short_bio,avatar_path,updated_at')
+    .select('display_name,handle,library_name,short_bio,avatar_path,updated_at')
     .single();
   if (error) throw error;
   return data;

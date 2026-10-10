@@ -39,6 +39,14 @@ test('Profile edit form uses the existing profile fields and escapes stored valu
   assert.doesNotMatch(html, /<reader>/);
 });
 
+test('library identity renders escaped saved text with a dedicated editable affordance and no user-specific fallback',()=>{
+  const html=profileView({...state,profile:{handle:'Calum Lewis',library_name:'Alder & Creek Library'}});
+  assert.match(html,/data-library-name-edit aria-label="Edit library name">Alder &amp; Creek Library/);
+  assert.match(html,/PRIVATE<\/span><div class="profile-identity-main"><h2>/);
+  assert.match(profileView(state),/Name your library/);
+  assert.doesNotMatch(profileView(state),/Alder Creek Library/);
+});
+
 test('Taste Details retains full preferences, directions and confidence', () => {
   const html = profileView({ ...state, profileTab: 'taste' });
   assert.match(html, /Strongly prefers narratives with a clear through-line, destination, progression or central problem/);
