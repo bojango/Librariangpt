@@ -1,4 +1,4 @@
-Production continuation: the security and stability migrations and four Edge Functions are deployed and verified. See the [current release runbook](reading-room-release-runbook.md) for updated hosted integration evidence and frontend status. The sections below preserve the original audit snapshot.
+Release completed 10 October: PR #22 is merged; security/stability migrations, four Edge Functions and GitHub Pages generation 114 are deployed and verified. See the [current release runbook](reading-room-release-runbook.md) for hosted integration, authenticated disposable UI checks, final integrity results and physical-iPhone requirements. The sections below preserve the original audit snapshot and its then-current deployment limitations.
 
 # Reading Room stability audit — 9 October 2026
 

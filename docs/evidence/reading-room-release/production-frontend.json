@@ -1,0 +1,134 @@
+{
+  "checked_at": "2026-10-10T09:20:55.820Z",
+  "merge_commit": "d1f144b5113c0caa24f6d42ce6d08e20c338f7fb",
+  "pages_run": "https://github.com/bojango/Librariangpt/actions/runs/37994612543",
+  "pwa_generation": 114,
+  "assets": [
+    {
+      "path": "index.html",
+      "status": 200,
+      "sha256": "87ea54a09fc50f3f985cacb12c6f9b019810aa9896df9672f5d29875bc7b1333",
+      "matches_repository": true
+    },
+    {
+      "path": "dist/app.js",
+      "status": 200,
+      "sha256": "581a7eeadd66344f24664d93e742791a425fa04171bf7d7adc6e44dcfd5da9ea",
+      "matches_repository": true
+    },
+    {
+      "path": "sw.js",
+      "status": 200,
+      "sha256": "47d3ad73516cd67a6c5ce57c1b1f7e29c8d563461bc3ad25665ac7cf0e78f297",
+      "matches_repository": true
+    },
+    {
+      "path": "src/styles/app.css",
+      "status": 200,
+      "sha256": "25a48caa934e420b438269064f8ea1b25497b7463d0c8995059bb6340fcfc29f",
+      "matches_repository": true
+    },
+    {
+      "path": "manifest.webmanifest",
+      "status": 200,
+      "sha256": "cf41df6f15f7309dd138182e688f254ab0b89138b2c6bfed963ae7ad1b1eed95",
+      "matches_repository": true
+    }
+  ],
+  "unauthorised_endpoints": [
+    {
+      "name": "upload-cover-photo",
+      "status": 401
+    },
+    {
+      "name": "select-cover",
+      "status": 401
+    },
+    {
+      "name": "edition-options",
+      "status": 401
+    },
+    {
+      "name": "content-enrichment",
+      "status": 401
+    },
+    {
+      "name": "nfc-reading-session",
+      "status": 401
+    },
+    {
+      "name": "nfc-open-book",
+      "status": 401
+    }
+  ],
+  "pwa_browser_checks": [
+    {
+      "engine": "chromium",
+      "result": "passed",
+      "state": {
+        "script": "https://bojango.github.io/Librariangpt/dist/app.js?v=114",
+        "worker": "https://bojango.github.io/Librariangpt/sw.js",
+        "cache_keys": [
+          "reading-room-shell-v114"
+        ],
+        "overflow": 0,
+        "viewport": {
+          "width": 440,
+          "height": 894
+        }
+      },
+      "page_errors": [],
+      "failed_requests": []
+    },
+    {
+      "engine": "webkit",
+      "result": "passed",
+      "state": {
+        "script": "https://bojango.github.io/Librariangpt/dist/app.js?v=114",
+        "worker": "https://bojango.github.io/Librariangpt/sw.js",
+        "cache_keys": [
+          "reading-room-shell-v114"
+        ],
+        "overflow": 0,
+        "viewport": {
+          "width": 440,
+          "height": 894
+        }
+      },
+      "page_errors": [],
+      "failed_requests": []
+    }
+  ],
+  "live_deployed_bundle_navigation": {
+    "result": "2 passed",
+    "backend": "Isolated mocked backend; actual deployed JavaScript/HTML/CSS",
+    "engines": [
+      "Chromium",
+      "touch WebKit"
+    ],
+    "viewport": "440 × 894",
+    "gestures": "Repeated, cancelled and interrupted swipes; vertical scrolling and overflow checked"
+  },
+  "authenticated_owner_ui": {
+    "backend": "Actual deployed Supabase and frontend",
+    "disposable_fixture": "b641089b-21cf-4c7c-ac75-2d7c7a6f8e93",
+    "book_upload": "passed without edition",
+    "url_cover": "passed",
+    "edition_upload": "passed with synthetic fixture edition",
+    "reload_persistence": "passed: loaded images after refresh",
+    "invalid_image": "visible error, Save re-enabled",
+    "invalid_isbn": "visible validation error; no edition saved",
+    "cover_locks": "book and edition true; one selected candidate",
+    "navigation": "Home/Library/Book/Wishlist; final transform none, no horizontal overflow or captured console errors",
+    "cleanup": {
+      "books": 0,
+      "editions": 0,
+      "library_entries": 0,
+      "events": 0,
+      "stored_objects": 0,
+      "uploaded_images_removed": 3
+    },
+    "screenshot": "Authenticated IAB screenshot capture timed out; no authenticated screenshot claimed",
+    "physical_iphone": "Not tested; desktop emulation cannot replace standalone PWA testing"
+  }
+}

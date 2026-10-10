@@ -1,0 +1,748 @@
+{
+  "checked_at": "2026-10-10T09:22:00Z",
+  "postconditions": {
+    "yeti": {
+      "status": "ready",
+      "editions": 3
+    },
+    "bridge": {
+      "acl": [
+        "postgres=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "anon": false,
+      "service": true,
+      "authenticated": false,
+      "definition_md5": "5f41baef80645072f955cee90ab7dbdc",
+      "source_md5": "c9b55ca60c40d124ea07021a0997d972"
+    },
+    "history": [
+      {
+        "name": "secure_reading_checkin_bridge",
+        "version": "20261009202447"
+      },
+      {
+        "name": "reading_room_stability",
+        "version": "20261009212029"
+      }
+    ],
+    "rls_disabled": 0,
+    "view_columns": 69,
+    "view_options": [
+      "security_invoker=true"
+    ],
+    "cover_trigger": "O",
+    "quote_indexes": [
+      {
+        "name": "book_quotes_book_idx",
+        "valid": true
+      },
+      {
+        "name": "book_quotes_edition_idx",
+        "valid": true
+      }
+    ],
+    "overdue_queued": 0,
+    "stale_editions": 9,
+    "historical_rows": [
+      {
+        "n": 1010,
+        "table_name": "editions",
+        "fingerprint": "d145b8ae15b28883ba33e244026d932f"
+      },
+      {
+        "n": 144,
+        "table_name": "public_ratings",
+        "fingerprint": "530056b5ecaa13462e5420821c6ed0e8"
+      },
+      {
+        "n": 1014,
+        "table_name": "library_events",
+        "fingerprint": "0728cb24e654053219fbde046df13a2b"
+      }
+    ],
+    "stale_processing": 0,
+    "incompatible_isbns": 11
+  },
+  "rpc_permissions": [
+    {
+      "proname": "add_manual_edition",
+      "definer": false,
+      "anon": false,
+      "authenticated": true,
+      "service": true
+    },
+    {
+      "proname": "claim_edition_discovery",
+      "definer": false,
+      "anon": false,
+      "authenticated": false,
+      "service": true
+    },
+    {
+      "proname": "record_reading_checkin_bridge",
+      "definer": true,
+      "anon": false,
+      "authenticated": false,
+      "service": true
+    },
+    {
+      "proname": "save_cover_selection",
+      "definer": false,
+      "anon": false,
+      "authenticated": false,
+      "service": true
+    }
+  ],
+  "fingerprints": [
+    {
+      "table_name": "library_entries",
+      "n": 71,
+      "fingerprint": "3972e97885ab6856d52d618a353f5871"
+    },
+    {
+      "table_name": "reading_sessions",
+      "n": 12,
+      "fingerprint": "6f718e2bcb20d77e683cf06f61ae3997"
+    },
+    {
+      "table_name": "progress_logs",
+      "n": 58,
+      "fingerprint": "5ebc86f936db0523f3321364e69d5248"
+    },
+    {
+      "table_name": "reading_time_sessions",
+      "n": 22,
+      "fingerprint": "34debbd1a3e469e2405739059937e4dd"
+    },
+    {
+      "table_name": "reading_feedback",
+      "n": 95,
+      "fingerprint": "dbcc7c409b30b4319a9cbfb0f527c748"
+    },
+    {
+      "table_name": "reading_card_notes",
+      "n": 38,
+      "fingerprint": "7152ac47c2630186cb69fba83ac434a2"
+    },
+    {
+      "table_name": "recommendations",
+      "n": 111,
+      "fingerprint": "e4fd1a173c28f820bb6cc5257f9a523f"
+    },
+    {
+      "table_name": "public_ratings",
+      "n": 145,
+      "fingerprint": "59d92f30c1bff98c5ee9cb2f62d04226"
+    },
+    {
+      "table_name": "library_events",
+      "n": 1054,
+      "fingerprint": "3f1e982148c4c38b6cf43585a04cb109"
+    },
+    {
+      "table_name": "nfc_bookmarks",
+      "n": 1,
+      "fingerprint": "68de718c7ad32b98e9fa86219f6096a7"
+    },
+    {
+      "table_name": "nfc_pending_starts",
+      "n": 0,
+      "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    {
+      "table_name": "editions",
+      "n": 1013,
+      "fingerprint": "80ee12800aa75d445754a1771a17b0c7"
+    }
+  ],
+  "health": [
+    [
+      {
+        "issue": "cross_book_current_edition",
+        "n": 0
+      },
+      {
+        "issue": "cross_book_reference",
+        "n": 0
+      },
+      {
+        "issue": "cross_book_session_edition",
+        "n": 0
+      },
+      {
+        "issue": "invalid_library_pages",
+        "n": 0
+      },
+      {
+        "issue": "invalid_session_pages",
+        "n": 0
+      },
+      {
+        "issue": "invalid_progress",
+        "n": 0
+      },
+      {
+        "issue": "progress_session_mismatch",
+        "n": 0
+      },
+      {
+        "issue": "feedback_session_mismatch",
+        "n": 0
+      },
+      {
+        "issue": "notes_session_mismatch",
+        "n": 0
+      },
+      {
+        "issue": "invalid_dates",
+        "n": 0
+      },
+      {
+        "issue": "invalid_nfc_dates",
+        "n": 0
+      },
+      {
+        "issue": "nfc_reading_mismatch",
+        "n": 0
+      },
+      {
+        "issue": "nfc_duplicate_open",
+        "n": 0
+      },
+      {
+        "issue": "duplicate_editions_isbn",
+        "n": 0
+      },
+      {
+        "issue": "duplicate_library",
+        "n": 0
+      }
+    ],
+    [
+      {
+        "issue": "cross_book_cover_candidate",
+        "n": 0
+      },
+      {
+        "issue": "cross_book_quote_edition",
+        "n": 0
+      },
+      {
+        "issue": "quote_session_mismatch",
+        "n": 0
+      },
+      {
+        "issue": "diagnostic_owner_mismatch",
+        "n": 0
+      },
+      {
+        "issue": "nfc_invalid_pages",
+        "n": 0
+      },
+      {
+        "issue": "isbn13_invalid_shape",
+        "n": 0
+      },
+      {
+        "issue": "isbn13_invalid_checksum",
+        "n": 0
+      },
+      {
+        "issue": "invalid_edition_pages",
+        "n": 1
+      },
+      {
+        "issue": "duplicate_active_recommendations",
+        "n": 0
+      },
+      {
+        "issue": "owned_wishlist",
+        "n": 0
+      },
+      {
+        "issue": "completed_without_date",
+        "n": 0
+      },
+      {
+        "issue": "duplicate_title_author",
+        "n": 0
+      },
+      {
+        "issue": "missing_stored_cover_object",
+        "n": 0
+      }
+    ],
+    [
+      {
+        "issue": "book_authors_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_authors_author_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_series_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_series_series_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "editions_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "library_entries_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "library_entries_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "library_entries_current_edition_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_sessions_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_sessions_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_sessions_edition_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "progress_logs_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "progress_logs_session_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "progress_logs_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "recommendations_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "recommendations_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_feedback_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_feedback_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_feedback_session_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "taste_profile_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "taste_evidence_taste_profile_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "taste_evidence_feedback_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "taste_evidence_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_external_ids_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "library_events_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "library_events_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "library_events_session_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "books_reference_edition_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "public_ratings_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_cover_candidates_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_cover_candidates_edition_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "edition_chapters_edition_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_metadata_candidates_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "up_next_queue_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "up_next_queue_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_quotes_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_quotes_edition_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_quotes_session_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "diagnostic_sessions_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "diagnostic_events_session_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "diagnostic_events_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_card_notes_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_card_notes_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_card_notes_session_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_card_notes_progress_log_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "rating_refresh_state_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_accolades_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_accolades_accolade_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reader_profiles_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reader_ui_preferences_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "book_enrichment_jobs_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "next_read_intents_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "next_read_intents_source_session_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "next_read_intents_source_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "next_read_transitions_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "next_read_transitions_session_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "up_next_planner_state_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "up_next_refreshes_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "up_next_exclusions_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "up_next_exclusions_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "nfc_bookmarks_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "nfc_bookmarks_pinned_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_time_sessions_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_time_sessions_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_time_sessions_edition_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_time_sessions_reading_session_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "reading_time_sessions_bookmark_id_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "nfc_bookmarks_active_book_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "nfc_pending_starts_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "nfc_pending_starts_bookmark_id_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "app_navigation_requests_user_id_fkey",
+        "n": 0
+      },
+      {
+        "issue": "app_navigation_requests_book_id_fkey",
+        "n": 0
+      }
+    ]
+  ],
+  "additional_health": [
+    {
+      "issue": "book_locked_without_cover",
+      "n": 0
+    },
+    {
+      "issue": "uploaded_edition_unlocked",
+      "n": 0
+    },
+    {
+      "issue": "multiple_selected_cover",
+      "n": 0
+    },
+    {
+      "issue": "upnext_duplicate_book",
+      "n": 0
+    },
+    {
+      "issue": "upnext_duplicate_position",
+      "n": 0
+    },
+    {
+      "issue": "upnext_ineligible",
+      "n": 0
+    },
+    {
+      "issue": "nfc_negative_duration",
+      "n": 0
+    },
+    {
+      "issue": "nfc_submitted_without_end",
+      "n": 0
+    }
+  ],
+  "user_data_preservation": "All nine fingerprints for library ownership/progress/ratings/reviews, reading sessions, progress logs, time sessions, feedback, card notes, recommendations and NFC tables exactly match pre-release values. Pre-release library events also match. Scheduled metadata refreshes changed 13 old edition rows and two public provider-rating rows overnight; these tables are not reported unchanged.",
+  "fixture_cleanup": {
+    "books": 0,
+    "editions": 0,
+    "library_entries": 0,
+    "events": 0,
+    "storage_objects": 0,
+    "uploaded_images_removed": 3,
+    "genuine_history_created": 0
+  },
+  "legacy_writer_denial": {
+    "anon_sqlstate": "42501",
+    "authenticated_sqlstate": "42501"
+  },
+  "log_review": {
+    "start": "2026-10-09T21:41:00Z",
+    "end": "2026-10-10T09:17:57Z",
+    "updated_edge_http_errors": 0,
+    "background_enrich_202": 142,
+    "edition_options_200": 21,
+    "content_enrichment_200": 20,
+    "upload_cover_photo_200": 2,
+    "select_cover_200": 2,
+    "provider_identity_conflicts": {
+      "count": 2,
+      "sqlstate": "23505",
+      "constraint": "editions_open_library_edition_uidx",
+      "book": "Atlas of Vanishing Places",
+      "provider_id": "OL28720011M",
+      "timestamps": [
+        "2026-10-10T02:25:08.620Z",
+        "2026-10-10T08:30:10.034Z"
+      ],
+        "effect": "Conflicting provider candidate rejected; existing edition retained; catalogue reports partial. No duplicate rows created. Requires separate source-backed historical identity review.",
+        "source_verified": {
+          "url": "https://openlibrary.org/books/OL28720011M.json",
+          "title": "Atlas of Vanishing Places",
+          "provider_isbn13": "9781781318959",
+          "stored_isbn13": "9780711281158",
+          "stored_isbn10": "0711281165",
+          "proposal": "Verify the intended printing and physical copy before correcting the provider-ID relationship or splitting historical aliases. Preserve ownership, exact-copy identity and history; no automatic correction applied."
+        }
+    },
+    "other_errors": "One read-only verification query used the wrong timestamp column (42703) and was corrected; later read-only queries/denial tests are outside this window. One connection EOF logged at LOG level. No failed Edge invocations in inspected window."
+  },
+  "security_advisors": {
+    "lints": [
+      {
+        "name": "rls_enabled_no_policy",
+        "title": "RLS Enabled No Policy",
+        "level": "INFO",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Detects cases where row level security (RLS) has been enabled on a table but no RLS policies have been created.",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy",
+        "count": 3,
+        "findings": [
+          {
+            "detail": "Table \\`public.book_enrichment_jobs\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "book_enrichment_jobs",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-10T09:17:55.711Z"
+          },
+          {
+            "detail": "Table \\`public.enrichment_provider_state\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "enrichment_provider_state",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-10T09:17:55.711Z"
+          },
+          {
+            "detail": "Table \\`public.reading_checkin_run_audit\\` has RLS enabled, but no policies exist",
+            "metadata": {
+              "name": "reading_checkin_run_audit",
+              "type": "table",
+              "schema": "public"
+            },
+            "observed_at": "2026-10-10T09:17:55.711Z"
+          }
+        ]
+      },
+      {
+        "name": "authenticated_security_definer_function_executable",
+        "title": "Signed-In Users Can Execute SECURITY DEFINER Function",
+        "level": "WARN",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Detects `SECURITY DEFINER` functions that are callable by signed-in users. Revoke `EXECUTE`, switch the function to `SECURITY INVOKER`, or move it out of your exposed API schema if signed-in users should not call it.",
+        "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable",
+        "count": 2,
+        "findings": [
+          {
+            "detail": "Function `public.admin_edit_book(p_book_id uuid, p_library jsonb, p_book jsonb, p_edition_id uuid, p_edition jsonb)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/admin_edit_book`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "admin_edit_book",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_book_id uuid, p_library jsonb, p_book jsonb, p_edition_id uuid, p_edition jsonb",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-10T09:17:55.711Z"
+          },
+          {
+            "detail": "Function `public.save_reading_card_note(p_book_id uuid, p_note_text text, p_page integer, p_progress_percent numeric, p_session_id uuid, p_progress_log_id bigint, p_chapter_number text, p_chapter_title text, p_source text)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/save_reading_card_note`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+            "metadata": {
+              "name": "save_reading_card_note",
+              "schema": "public",
+              "language": "plpgsql",
+              "arguments": "p_book_id uuid, p_note_text text, p_page integer, p_progress_percent numeric, p_session_id uuid, p_progress_log_id bigint, p_chapter_number text, p_chapter_title text, p_source text",
+              "security_definer": true
+            },
+            "observed_at": "2026-10-10T09:17:55.711Z"
+          }
+        ]
+      },
+      {
+        "name": "auth_leaked_password_protection",
+        "title": "Leaked Password Protection Disabled",
+        "level": "WARN",
+        "facing": "EXTERNAL",
+        "categories": [
+          "SECURITY"
+        ],
+        "description": "Leaked password protection is currently disabled.",
+        "remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection",
+        "count": 1,
+        "findings": [
+          {
+            "detail": "Supabase Auth prevents the use of compromised passwords by checking against HaveIBeenPwned.org. Enable this feature to enhance security.",
+            "metadata": {
+              "type": "auth",
+              "entity": "Auth"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

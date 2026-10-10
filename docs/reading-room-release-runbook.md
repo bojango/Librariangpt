@@ -1,4 +1,4 @@
-# Reading Room release continuation — 9 October 2026
+# Reading Room release — completed 10 October 2026
 
 PR: https://github.com/bojango/Librariangpt/pull/22. Branch: `fix/reading-room-stability-audit`. Production project: `fbbpovieqfsjunmqtxvf`.
 
@@ -6,7 +6,7 @@ PR: https://github.com/bojango/Librariangpt/pull/22. Branch: `fix/reading-room-s
 
 The user approved the exact permission-only SQL on 9 October. Supabase applied `secure_reading_checkin_bridge` as version **20261009202447** at 20:24:47 UTC. The repository file was aligned to that generated version without changing production history or the reviewed SQL.
 
-`record_reading_checkin_bridge(uuid,uuid,text,integer,integer,text)` now has only `{postgres=X/postgres,service_role=X/postgres}`. Actual production calls as both `anon` and `authenticated` fail with SQLSTATE **42501**. The function body MD5 remains `5f41baef80645072f955cee90ab7dbdc`.
+`record_reading_checkin_bridge(uuid,uuid,text,integer,integer,text)` now has only `{postgres=X/postgres,service_role=X/postgres}`. Actual production calls as both `anon` and `authenticated` fail with SQLSTATE **42501**, repeated on 10 October. The complete function-definition MD5 remains `5f41baef80645072f955cee90ab7dbdc`.
 
 Caller review found no references in application/Edge source, database routines, catalog dependents, cron commands, or the installed local Codex automation. The deployed `reading-checkin-bridge` v8 uses `reading_checkin_bridge_snapshot()` and `save_reading_card_note_bridge(...)`, both already service-only. The 64 observed direct legacy calls all used `postgres`, whose access remains. External ChatGPT automation configuration was not directly accessible; its observed SQL execution role remains allowed. No automation was disabled or credentials rotated.
 
@@ -50,14 +50,19 @@ After explicit approval, the existing managed service credential was held only i
 
 The initial test fixture used an invalid metadata status; production correctly rejected it and the fixture was corrected to the actual allowed status. CLI-issued legacy service keys were rejected by both changed and unchanged Edge handlers. The existing managed service credential succeeded through the supported apikey header; no authentication or credential configuration was changed.
 
-Build passed; **310 unit/integration tests passed**, runtime checks passed for 56 modules, and Playwright passed **177 tests with one intentional skip**, including mobile WebKit at 440 × 894. [Backend postconditions](evidence/reading-room-release/production-backend.json). The existing browser session is signed out; authenticated owner UI smoke testing awaits sign-in. Physical standalone iPhone validation remains necessary.
+Build passed; **310 unit/integration tests passed**, runtime checks passed for 56 modules, and Playwright passed **177 tests with one intentional skip**, including mobile WebKit at 440 × 894. [Backend postconditions](evidence/reading-room-release/production-backend.json). Physical standalone iPhone validation remains necessary.
 
-## Remaining frontend deployment sequence
+## Frontend deployment and final verification — completed
 
-1. Complete final diff/security review and record production backend evidence on PR #22.
-2. Merge PR #22 into main without deleting or overwriting feature branches.
-3. Wait for the existing Pages workflow to complete for that exact merge commit. Verify live index/assets/service-worker generation 114 and fresh-cache behaviour.
-4. Run accessible live browser/Playwright smoke tests, record the authenticated-session limitation if it remains, and recheck genuine-data fingerprints, health, permissions, function versions and logs.
+PR #22 merged at 21:37:59 UTC on 9 October as **d1f144b5113c0caa24f6d42ce6d08e20c338f7fb**. The existing [Pages workflow](https://github.com/bojango/Librariangpt/actions/runs/37994612543) succeeded for that commit. The [live application](https://bojango.github.io/Librariangpt/) serves generation **114**. Five live assets match the repository after line-ending normalization; rechecked on 10 October. Existing feature branches remain intact. No further application deployment was needed for this final evidence-only update.
+
+Two actual live-site Chromium/WebKit PWA tests passed at 440 × 894: a seeded v113 shell cache was replaced by v114, the correct worker controlled the page, and no page errors, failed requests or horizontal overflow occurred. Two additional tests using the actual deployed bundle with isolated mocked backend data passed repeated/cancelled/interrupted swipe navigation and vertical-scroll checks. The mock backend distinction is explicit: these do not claim native iPhone or authenticated production gesture validation. [Frontend evidence](evidence/reading-room-release/production-frontend.json), [actual live PWA screenshot](evidence/reading-room-release/live-pwa-webkit.png), [deployed-bundle navigation screenshot with test data](evidence/reading-room-release/live-navigation-iphone.png).
+
+The in-app browser had an existing authenticated owner session. On one clearly marked disposable book, actual production UI uploads passed both without an edition and with a synthetic edition; URL selection also passed. Images loaded after refreshing. Invalid image bytes displayed a visible error and restored Save; an invalid ISBN displayed the form validation error without saving an edition. Production confirmed book/edition cover locks and one selected candidate. Real Yeti's catalogue displayed its three discovered editions and the manual form. No genuine book was edited. All disposable book/edition/library/event records and three uploaded images were removed; no test reading history was created. Authenticated Home/Library/Book/Wishlist navigation ended with no stale transform, overflow or captured console errors. Authenticated IAB screenshot capture timed out; no screenshot of that flow is claimed.
+
+Final health/security checks on 10 October found zero orphans across 72 FKs, no new relationship/progress/cover-lock errors, correct RPC ACLs, active unchanged function versions and the two valid quote indexes. Both migrations remain in history, with the invoker library view at 69 columns and cover trigger enabled. All nine fingerprints covering genuine library ownership/progress/user ratings/reviews, reading sessions/logs/time, feedback, notes, recommendations and NFC data match pre-release values exactly. Pre-release library events also match. Overnight normal enrichment refreshed 13 old edition rows and two public provider-rating rows; those metadata tables are **not** reported unchanged. Forty new library events are scheduler enrichment start/finish events. [Final SQL and integrity evidence](evidence/reading-room-release/final-production-verification.json).
+
+The inspected 21:41 UTC–09:17:57 UTC log window contains no failed updated Edge invocations. Two SQLSTATE 23505 conflicts concern the old Atlas of Vanishing Places edition with provider ID OL28720011M: its stored ISBN-13 is 9780711281158, while the current public Open Library record identifies 9781781318959. Canonical ISBN comparison refuses to conflate them and the unique constraint rejects a conflicting insert. Existing identity remains preserved and the catalogue reports partial results. This historical metadata discrepancy needs a source-backed correction proposal; neither an automatic identity rewrite nor removal of the uniqueness constraint is justified. Retry occurrences are six hours apart, with no stale processing or overdue queued jobs. An erroneous read-only verification query used a nonexistent timestamp column and was corrected; permission-denial probes also deliberately produce database errors. No claim of completely error-free logs is made.
 
 For repeat execution: inspect migration history **and** object definitions first. Skip an already-applied step only when its content/ACL/postconditions match. Abort on a partial or conflicting state; do not repair history speculatively.
 
@@ -69,7 +74,7 @@ Prefer leaving additive database RPCs/indexes in place when reverting the applic
 
 ## Issues outside this release
 
-The 11 incompatible ISBN pairs require physical-copy or authoritative-catalogue evidence for each identity before an individual correction proposal. Jurassic Park's 12,549 pages require authoritative edition-specific evidence; do not guess the replacement or change progress/history. Nine stale searches should recover through bounded individual refreshes after release, not a bulk status rewrite. The two quote indexes are prepared. Leaked-password protection, outbound image DNS/egress hardening, remaining provider warnings and canonical bootstrap-history completion remain separate work.
+The 11 incompatible ISBN pairs require physical-copy or authoritative-catalogue evidence for each identity before an individual correction proposal; the Atlas provider-ID conflict above is now also evidenced. Jurassic Park's 12,549 pages require authoritative edition-specific evidence; do not guess the replacement or change progress/history. Nine stale searches remain for bounded individual recovery, not a bulk status rewrite. The two quote indexes are deployed and valid. Leaked-password protection remains disabled ([Supabase guidance](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection)); outbound image DNS/egress hardening, remaining provider warnings and canonical bootstrap-history completion remain separate work. Existing owner-guarded SECURITY DEFINER warnings and intentionally service-only RLS tables were reviewed; no new HIGH advisory remains.
 
 ## Final physical-iPhone checks
 
