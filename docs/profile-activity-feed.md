@@ -26,6 +26,8 @@ The API uses descending `(occurred_at, id)` keyset pagination. Owner RLS applies
 
 ## Authenticated Librarian insertion
 
+The independent ChatGPT Librarian Feed automation now has a management-SQL-only discovery and atomic publishing pipeline, including evidence revision tracking, stable observation keys, daily limits and rollback-verified privacy. See [the ready-to-use automation handoff](librarian-feed-automation.md) for exact `librarian_feed_candidates` / `publish_librarian_feed_reflection` calls, editorial rules and activation. Existing authenticated/service authoring APIs below are preserved; they are not used to bypass the automated pipeline's evidence checks.
+
 For ChatGPT/tools with the library owner's authenticated Supabase session:
 
 ```js

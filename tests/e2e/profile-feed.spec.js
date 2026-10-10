@@ -69,6 +69,24 @@ async function isolatedProfile(page, { theme = 'reading-room', feedError = false
   return {events,errors,quotes,signals,get uploads(){return avatarUploads;},recover(){failFeed=false;},profile:()=>profile};
 }
 
+test('automated evidence-backed reflections reuse Librarian cards, filters and book navigation',async({page})=>{
+  const mock=await isolatedProfile(page);
+  const reflection=mock.events.find(e=>e.event_type==='librarian');
+  reflection.source='automation';reflection.hashtags=['librarian','reflections','reactions'];
+  reflection.metadata={pipeline:'librarian-feed-v1',editorial_reason:'reading_reaction',feedback_ids:['30000000-0000-0000-0000-000000000005']};
+  reflection.content='Calum is engaged by the unfolding expedition, although its familiar ensemble gives him pause. <script>unexpected()</script>';
+  await page.locator('.feed-filters [data-feed-filter="librarian"]').click();
+  const card=page.locator('.activity-librarian');await expect(card).toHaveCount(1);
+  await expect(card.locator('.activity-meta strong')).toHaveText('Librarian');await expect(card.locator('.feed-avatar')).toBeVisible();
+  await expect(card.locator('.feed-prose')).toHaveText(reflection.content);await expect(card.locator('script')).toHaveCount(0);
+  await expect(card.locator('.activity-time')).toBeVisible();await expect(card.getByRole('button',{name:'Filter by librarian'})).toBeVisible();
+  await expect(card.locator('.activity-book')).toContainText('Thunderhead');await expect(card.locator('.activity-book')).toContainText('Frederik Pohl');
+  await card.getByRole('button',{name:'Filter by reflections',exact:true}).click();await expect(page.locator('.activity-card')).toHaveCount(1);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await card.locator('.activity-book').click();await expect(page.getByRole('heading',{name:'Thunderhead',exact:true,level:1})).toBeVisible();
+  expect(mock.errors).toEqual([]);
+});
+
 test('iPhone profile feed, timestamp, filters, pagination, all tabs and back navigation', async ({page},info) => {
   const mock=await isolatedProfile(page);
   await expect(page.getByRole('tab',{name:'Feed',exact:true})).toHaveAttribute('aria-selected','true');
