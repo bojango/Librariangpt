@@ -582,8 +582,10 @@ app.addEventListener('click', async event => {
     editProfileIdentity(identityButton, store.value.profile, store.value.session?.user?.user_metadata, async values => {
       const saved = await updateReaderProfile(values);
       store.value.profile = { ...store.value.profile, ...saved };
-      paint(profileView(store.value), { preserveScroll: window.scrollY, reuseCovers: true });
-      app.querySelector(identityButton.matches('[data-library-name-edit]') ? '[data-library-name-edit]' : '[data-identity-edit]')?.focus();
+      if (store.value.route.name === 'profile') {
+        paint(profileView(store.value), { preserveScroll: window.scrollY, reuseCovers: true });
+        app.querySelector(identityButton.matches('[data-library-name-edit]') ? '[data-library-name-edit]' : '[data-identity-edit]')?.focus();
+      }
       toast('Profile updated.');
     });
     return;
