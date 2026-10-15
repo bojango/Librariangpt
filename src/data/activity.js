@@ -3,7 +3,8 @@ import { supabase } from './supabase.js';
 export async function loadActivity({ filter = 'all', cursor = null, limit = 20 } = {}, client = supabase) {
   let query = client.from('activity_events').select('*')
     .order('occurred_at', { ascending: false }).order('id', { ascending: false });
-  if (filter === 'librarian') query = query.in('event_type', ['librarian', 'taste']);
+  if (filter.startsWith('hashtag:')) query = query.contains('hashtags', [filter.slice('hashtag:'.length)]);
+  else if (filter === 'librarian') query = query.in('event_type', ['librarian', 'taste']);
   else if (filter === 'progress') query = query.in('event_type', ['progress', 'paused', 'dnf']);
   else if (['wishlist','started','finished','bought','quotes','rating','sessions'].includes(filter)) query = query.eq('event_type', filter);
   else if (filter !== 'all') query = query.contains('hashtags', [filter]);
