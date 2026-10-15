@@ -3,23 +3,11 @@ import { cover, esc, progressPct, progressText, readingAgeText } from '../ui/for
 import { currentTitlePresentation } from '../utils/text.js';
 import { uiCopyHtml } from '../ui/copy.js';
 import { upNextMetadata } from '../features/up-next-metadata.js';
+import { currentlyReadingBooks } from '../utils/currently-reading.js';
+
+export { currentlyReadingBooks } from '../utils/currently-reading.js';
 
 export const VISIBLE_UP_NEXT_COUNT = 5;
-
-function startedAtTime(value) {
-  const time = Date.parse(value || '');
-  return Number.isFinite(time) ? time : Number.NEGATIVE_INFINITY;
-}
-
-export function currentlyReadingBooks(books) {
-  return books
-    .filter(book => book.overall_status === 'Currently Reading')
-    .sort((a, b) => {
-      const aTime = startedAtTime(a.started_at);
-      const bTime = startedAtTime(b.started_at);
-      return aTime === bTime ? 0 : bTime > aTime ? 1 : -1;
-    });
-}
 
 export function homeRecommendations(items) {
   const picks = [];

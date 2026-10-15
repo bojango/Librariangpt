@@ -68,6 +68,10 @@ The external hourly ChatGPT Reading Check-in automation remains the scheduler. I
 
 The browser contains only the public Supabase project URL and publishable key. Access is enforced by Supabase Auth and RLS. Historical refactor findings are documented in `REFACTOR_STATUS.md`. The additive NFC migration was deployed separately and audited; it does not change existing Auth settings or weaken library RLS.
 
+## Currently Reading iPhone widget
+
+See [Widget Web 26 setup and implementation notes](docs/currently-reading-widget.md) for the standalone medium widget, separate sign-in, expected Pages URLs, tests and physical-device checks.
+
 ## NFC bookmark sessions
 
 See [NFC setup and endpoint contract](docs/nfc-reading-sessions.md) for token setup,
