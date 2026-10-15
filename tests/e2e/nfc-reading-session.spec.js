@@ -150,7 +150,7 @@ test('Copy NFC book ID lives in collapsed metadata and copies exact canonical UU
   await expect(page.getByText('NFC book ID copied.',{ exact:true })).toBeVisible();
 });
 
-test('NFC finish return retains persistent collection control and Profile configuration', async ({ page }) => {
+test('NFC finish return retains persistent collection control and menu configuration', async ({ page }) => {
   const { statusWrites } = await mockApp(page);
   await page.goto(`/#/reading-session/${sessionId}/finish`);
   await page.getByRole('button', { name: 'Skip page entry' }).click();
@@ -164,6 +164,7 @@ test('NFC finish return retains persistent collection control and Profile config
   expect(statusWrites).toEqual([{ p_book_id: 'book-1', p_status: 'Currently Reading', p_ownership: 'On Order', p_priority: null, p_source: 'frontend' }]);
   await expect(page.locator('.detail-header .status-currently-reading')).toBeVisible();
   await page.goto('/#/profile');
+  await page.locator('[data-menu]').click(); await page.locator('.nfc-menu-section summary').click();
   await page.getByRole('button', { name: 'Configure bookmark' }).click();
   await expect(page.getByRole('button', { name: 'Create bookmark & token' })).toBeVisible();
   await expect(page.getByRole('combobox', { name: 'Book' })).toHaveValue('');
@@ -217,7 +218,7 @@ test('pending NFC startup redirect does not override an explicit non-home route'
   await mockApp(page, { pendingOnLaunch: true });
   await page.goto('/#/profile');
   await expect(page).toHaveURL(/#\/profile$/);
-  await expect(page.getByRole('heading', { name: 'Reading Record' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Feed', exact: true })).toHaveAttribute('aria-selected','true');
 });
 
 test('foregrounding an already-running home PWA redirects a pending NFC session', async ({ page }) => {
@@ -246,9 +247,11 @@ test('unavailable session cannot display page entry', async ({ page }) => {
   await expect(page.getByRole('spinbutton')).toHaveCount(0);
 });
 
-test('Profile generates token once, stores only SHA-256, rotates and toggles without exposing stored secret', async ({ page }) => {
+test('menu NFC settings generate token once, store only SHA-256, rotate and toggle without exposing stored secret', async ({ page }) => {
   const { bookmarkWrites } = await mockApp(page);
-  await page.goto('/#/profile'); await page.getByRole('button', { name: 'Configure bookmark' }).click();
+  await page.goto('/#/profile');
+  await page.locator('[data-menu]').click(); await page.locator('.nfc-menu-section summary').click();
+  await page.getByRole('button', { name: 'Configure bookmark' }).click();
   await page.getByRole('button', { name: 'Create bookmark & token' }).click();
   const tokenBox = page.getByRole('textbox', { name: 'New bookmark token' });
   await expect(tokenBox).toBeVisible(); const first = await tokenBox.inputValue();
@@ -257,6 +260,7 @@ test('Profile generates token once, stores only SHA-256, rotates and toggles wit
   expect(JSON.stringify(bookmarkWrites)).not.toContain(first);
   expect(await page.evaluate(value => JSON.stringify(localStorage).includes(value), first)).toBe(false);
   await page.getByRole('button', { name: 'Close', exact: true }).click();
+  await page.locator('[data-menu]').click(); await page.locator('.nfc-menu-section summary').click();
   await page.getByRole('button', { name: 'Configure bookmark' }).click();
   await expect(tokenBox).toHaveCount(0); await expect(page.getByText(/Token configured/)).toBeVisible();
   await page.getByRole('checkbox', { name: 'Enabled' }).uncheck();

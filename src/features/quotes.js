@@ -79,14 +79,15 @@ function openManual(book,existing=null){
 }
 
 async function latestSession(bookId){const {data}=await supabase.from('reading_sessions').select('id,edition_id,status,started_at').eq('book_id',bookId).order('started_at',{ascending:false,nullsFirst:false}).limit(1).maybeSingle();return data||null;}
-function formValues(){const pageStart=modalRoot.querySelector('#quote-page-start-v40')?.value;const pageEnd=modalRoot.querySelector('#quote-page-end-v40')?.value;return{page_start:pageStart?Number(pageStart):null,page_end:pageEnd?Number(pageEnd):null,chapter:modalRoot.querySelector('#quote-chapter-v40')?.value.trim()||null,quote_text:cleanText(modalRoot.querySelector('#quote-text-v40')?.value||''),note:modalRoot.querySelector('#quote-note-v40')?.value.trim()||null};}
+function formValues(){const pageStart=modalRoot.querySelector('#quote-page-start-v40')?.value;const pageEnd=modalRoot.querySelector('#quote-page-end-v40')?.value;return{page_start:pageStart?Number(pageStart):null,page_end:pageEnd?Number(pageEnd):null,chapter:modalRoot.querySelector('#quote-chapter-v40')?.value.trim()||null,quote_text:modalRoot.querySelector('#quote-text-v40')?.value||'',note:modalRoot.querySelector('#quote-note-v40')?.value.trim()||null};}
 function bindSaveForm(book,captureMethod,quoteId=null){
+ const newQuoteId=quoteId||crypto.randomUUID();
  modalRoot.querySelector('#quote-save-form-v40')?.addEventListener('submit',async e=>{
    e.preventDefault();const button=e.currentTarget.querySelector('button[type="submit"]');button.disabled=true;button.textContent='Saving…';
    try{
-     const values=formValues();if(!values.quote_text)throw new Error('Add the quote or passage before saving.');if(values.page_start&&values.page_end&&values.page_end<values.page_start)throw new Error('End page cannot be before the start page.');
+     const values=formValues();if(!values.quote_text.trim())throw new Error('Add the quote or passage before saving.');if(values.page_start&&values.page_end&&values.page_end<values.page_start)throw new Error('End page cannot be before the start page.');
      if(quoteId){const {error}=await supabase.from('book_quotes').update(values).eq('id',quoteId);if(error)throw error;}
-     else {const session=await latestSession(book.id);const payload={...values,book_id:book.id,edition_id:session?.edition_id||book.current_edition_id||book.display_edition_id||book.reference_edition_id||null,session_id:session?.id||null,capture_method:captureMethod==='scan'?'scan':'manual'};const {error}=await supabase.from('book_quotes').insert(payload);if(error)throw error;}
+     else {const session=await latestSession(book.id);const payload={...values,id:newQuoteId,book_id:book.id,edition_id:session?.edition_id||book.current_edition_id||book.display_edition_id||book.reference_edition_id||null,session_id:session?.id||null,capture_method:captureMethod==='scan'?'scan':'manual'};const {error}=await supabase.from('book_quotes').upsert(payload,{onConflict:'id'});if(error)throw error;}
      closeModal();toast(quoteId?'Quote updated.':'Quote saved.');window.dispatchEvent(new CustomEvent('reading-room:refresh'));
    }catch(err){toast(err?.message||'Could not save quote',true);button.disabled=false;button.textContent=quoteId?'Save changes':'Save quote';}
  });

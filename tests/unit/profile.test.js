@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
 import { profileEditMarkup, profileView } from '../../src/views/profile.js';
 
 const state = {
@@ -20,15 +19,16 @@ const state = {
   readingHistory: [{ id: 'session-1', book_id: 'book-1', completed_at: '2026-09-18', user_rating_5: 4.5, status: 'Completed' }]
 };
 
-test('Profile defaults to an accessible Stats reading record', () => {
+test('Profile retains Stats with accessible tabs and invisible avatar controls', () => {
   const html = profileView(state);
   assert.match(html, /role="tablist"/);
   assert.match(html, /aria-selected="true"/);
   assert.match(html, /Reading Record/);
-  assert.match(html, /UPLOAD PHOTO/);
+  assert.doesNotMatch(html, /profile-avatar-action-icon|terminal-profile-upload/);
   assert.match(html, /data-avatar-input/);
   assert.match(html, /data-avatar-menu/);
-  assert.match(html, /data-profile-edit/);
+  assert.match(html, /data-identity-edit/);
+  assert.doesNotMatch(html, /data-profile-edit|nfc-profile-section/);
 });
 
 test('Profile edit form uses the existing profile fields and escapes stored values', () => {
@@ -39,27 +39,22 @@ test('Profile edit form uses the existing profile fields and escapes stored valu
   assert.doesNotMatch(html, /<reader>/);
 });
 
-test('Terminal keeps its existing profile photo control while Reading Room uses the avatar action', async () => {
-  const [html, css] = await Promise.all([profileView(state), readFile('src/styles/app.css', 'utf8')]);
-  assert.match(html, /terminal-profile-upload/);
-  assert.match(css, /html\[data-theme="reading-room"\] \.terminal-profile-upload \{ display: none; \}/);
-  assert.match(css, /html\[data-theme="terminal"\] \.profile-edit/);
+test('library identity renders escaped saved text with a dedicated editable affordance and no user-specific fallback',()=>{
+  const html=profileView({...state,profile:{handle:'Calum Lewis',library_name:'Alder & Creek Library'}});
+  assert.match(html,/data-library-name-edit aria-label="Edit library name">Alder &amp; Creek Library/);
+  assert.match(html,/PRIVATE<\/span><div class="profile-identity-main"><h2>/);
+  assert.match(profileView(state),/Name your library/);
+  assert.doesNotMatch(profileView(state),/Alder Creek Library/);
 });
 
-test('Taste Profile composes real full-sentence preferences into third-person prose', () => {
+test('Taste Details retains full preferences, directions and confidence', () => {
   const html = profileView({ ...state, profileTab: 'taste' });
-  assert.match(html, /Calum strongly prefers narratives with a clear through-line, destination, progression or central problem/);
-  assert.match(html, /Calum strongly enjoys gradual discovery of unfamiliar places, systems and histories/);
-  assert.match(html, /Calum has a strong aversion to graphic gore and body horror/);
-  assert.match(html, /Calum prefers conflict that grows organically from character choices rather than contrivance/);
-  assert.match(html, /<li><span>\+<\/span>Narrative structure<\/li>/);
-  assert.match(html, /<li><span>−<\/span>Horror<\/li>/);
-});
-
-test('Taste Profile uses a neutral dimension-led sentence for declarative preferences', () => {
-  const html = profileView({ ...state, profileTab: 'taste', tasteProfile: [{ dimension: 'Setting', preference: 'Stories with distinctive settings are especially memorable when the world can be gradually understood.', direction: 'Positive', strength: 'Strong', confidence: 'High', evidence_count: 4 }] });
-  assert.match(html, /Evidence around Setting is consistent: Stories with distinctive settings are especially memorable/);
-  assert.doesNotMatch(html, /Calum is most consistently drawn to Stories/);
+  assert.match(html, /Strongly prefers narratives with a clear through-line, destination, progression or central problem/);
+  assert.match(html, /Strong aversion to graphic gore and body horror/);
+  assert.match(html, /Prefers conflict that grows organically from character choices rather than contrivance/);
+  assert.match(html, /Mixed . Moderate . Medium confidence/);
+  assert.match(html, /Emerging Signals/);
+  assert.match(html, /Overview/);
 });
 
 test('Taste Profile prose safely escapes stored preference text', () => {
