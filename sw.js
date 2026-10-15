@@ -143,6 +143,9 @@ self.addEventListener('fetch', event => {
   }
 
   if (url.origin !== self.location.origin) return;
+  // WidgetWeb owns its page cache. Never substitute the PWA shell for a widget
+  // or setup page if this worker acquired the same browser after a book tap.
+  if (/\/widgets\/currently-reading(?:\/|$)/.test(url.pathname)) return;
   if (event.request.mode === 'navigate' || event.request.destination === 'document') {
     event.respondWith(networkFirst(event.request));
     return;

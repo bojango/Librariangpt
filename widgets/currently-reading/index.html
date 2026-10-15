@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en" data-size="medium">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="js-widget-title" content="Reading Room · Currently Reading">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src https://covers.openlibrary.org https://books.google.com https://books.googleusercontent.com; connect-src https://fbbpovieqfsjunmqtxvf.supabase.co; base-uri 'none'; form-action 'none'">
+  <title>Reading Room · Currently Reading</title>
+  <script>
+    window.__rrWidgetReady = false;
+    window.__wweb2WaitMillisecondsToWidgetIsReady = function () { return window.__rrWidgetReady ? 0 : 250; };
+    window.__rrWidgetDeadline = setTimeout(function () {
+      if (window.__rrWidgetReady) return;
+      var heading = document.getElementById('state-title');
+      var detail = document.getElementById('state-detail');
+      if (heading) heading.textContent = 'Unable to refresh';
+      if (detail) detail.textContent = 'Open Widget Web and reload to try again.';
+      window.__rrWidgetReady = true;
+    }, 20000);
+  </script>
+  <link rel="stylesheet" href="./widget.css?v=1">
+</head>
+<body>
+  <main id="widget" aria-live="polite" data-state="loading">
+    <a class="card state-card" href="./setup.html">
+      <span class="eyebrow">Currently reading</span>
+      <h1 id="state-title">Opening your book…</h1>
+      <p id="state-detail">Connecting to Reading Room.</p>
+      <footer><span class="brand">Reading Room</span></footer>
+    </a>
+  </main>
+  <script type="module" src="../../dist/widget.js?v=1"></script>
+</body>
+</html>

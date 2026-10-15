@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; connect-src https://fbbpovieqfsjunmqtxvf.supabase.co; base-uri 'none'; form-action 'none'">
+  <title>Connect Reading Room widget</title>
+  <link rel="stylesheet" href="./setup.css?v=1">
+</head>
+<body>
+  <main>
+    <p class="brand">Reading Room</p>
+    <h1>Your book, at a glance.</h1>
+    <p>Open this page inside Widget Web and sign in with your Reading Room account. Safari and your Home Screen app have separate sessions.</p>
+    <form id="connect-form">
+      <label>Email<input name="email" type="email" autocomplete="username" required></label>
+      <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+      <button type="submit">Connect widget</button>
+    </form>
+    <p id="status" role="status" aria-live="polite"></p>
+    <a id="preview" href="./index.html">View widget</a>
+    <button id="disconnect" type="button">Disconnect widget</button>
+    <p class="help">Only enter your password on your Reading Room GitHub Pages address. Your password is sent directly to Supabase and is never saved. This connection uses your existing library permissions.</p>
+    <p class="help">Disconnect here to remove this Widget Web session and its saved book. Signing out of Safari does not necessarily disconnect Widget Web. Existing iOS screenshots may remain until the next refresh or widget removal.</p>
+  </main>
+  <script type="module" src="../../dist/setup.js?v=1"></script>
+</body>
+</html>
