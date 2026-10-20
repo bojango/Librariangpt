@@ -13,6 +13,9 @@ import { detailFingerprint, sameRoute, snapshotFingerprint } from './lifecycle.j
 import { authView, claimView, errorView } from './views/auth.js';
 import { homeView } from './views/home.js';
 import { libraryView } from './views/library.js';
+import { collectionsView, collectionDetailView, catalogueBookView } from './views/collections.js';
+import { buildCollections, catalogueBook } from './features/collections.js';
+import { loadCollectionData, saveReadingPath } from './data/collections.js';
 import { profileEditMarkup, profilePhotoActionsMarkup, profileView } from './views/profile.js';
 import { recommendationsView } from './views/recommendations.js';
 import { bookDetailView } from './views/book-detail.js';
@@ -55,7 +58,6 @@ applyPreferences(preferences, savedTheme());
 const store = createAppState();
 let router;
 let previousRoute = 'home';
-let bookHasReturnRoute = false;
 let dataLoad = null;
 let libraryLoaded = false;
 let scrollRestoreFrame = null;
@@ -156,7 +158,7 @@ function currentBook(id = store.value.route.bookId) {
 
 function saveCurrentScroll() {
   const name = store.value.route.name;
-  if (['home', 'library', 'wishlist', 'profile', 'recommendations'].includes(name)) store.saveScroll(name, window.scrollY);
+  if (['home', 'library', 'wishlist', 'profile', 'recommendations', 'collections'].includes(name)) store.saveScroll(name, window.scrollY);
 }
 
 function syncNavigation(current, next) {
@@ -308,9 +310,15 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
     } catch { if (store.isCurrent(version)) paint(errorView('This reading session is unavailable. Sign in as its owner.'), { renderMode: mode }); }
     return;
   }
-  if (!store.value.books.length) { paint(claimView(), { renderMode: mode }); diagnostics.event('route_render_complete', { route: route.name, mode, render_generation: version }); return; }
+  if (!store.value.books.length && !['collections','collection'].includes(route.name) && !(route.name==='book'&&catalogueBook(store.value,route.bookId))) { paint(claimView(), { renderMode: mode }); diagnostics.event('route_render_complete', { route: route.name, mode, render_generation: version }); return; }
 
   if (route.name === 'book') {
+    const libraryBook = store.value.books.find(book=>book.id===route.bookId);
+    const externalBook = !libraryBook ? catalogueBook(store.value,route.bookId) : null;
+    if(externalBook) {
+      paint(catalogueBookView(store.value,externalBook),{positionY:routeChanged?0:null,preserveScroll:preservedY,transition,renderMode:mode});
+      return;
+    }
     const seed = currentBook(route.bookId);
     if (!seed) { diagnostics.event('route_render_cancelled', { route: route.name, mode, render_generation: version, reason: 'missing_book' }); router.navigate({ name: 'library' }, { replace: true }); return; }
     const paintedLoading = !detail && store.value.detail?.book?.id !== route.bookId && mode === 'navigation';
@@ -340,6 +348,8 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
       ? { restore: 'startup', restoreY: routeRestoreY, renderMode: mode }
       : { preserveScroll: preservedY, reuseCovers: true, renderMode: mode };
   if (route.name === 'home') paint(homeView(store.value), options);
+  else if (route.name === 'collections') paint(collectionsView(store.value), options);
+  else if (route.name === 'collection') paint(collectionDetailView(store.value), {...options, restore: false, positionY: routeChanged ? 0 : null});
   else if (route.name === 'library' || route.name === 'wishlist') paint(libraryView(store.value, route.name), options);
   else if (route.name === 'recommendations') paint(recommendationsView(store.value), options);
   else {
@@ -354,7 +364,9 @@ async function loadSnapshot() {
   if (dataLoad) { diagnostics.event('request_deduped', { request_key: 'app-library-snapshot' }); return dataLoad; }
   const started = performance.now();
   diagnostics.event('snapshot_load_start');
+  const snapshotUser = store.value.session.user.id;
   dataLoad = refreshLibrary().then(snapshot => {
+    if (store.value.session?.user?.id !== snapshotUser) return snapshot;
     store.update(snapshot);
     libraryLoaded = true;
     diagnostics.event('snapshot_load_complete', { duration_ms: Math.round(performance.now() - started), book_count: snapshot.books.length });
@@ -524,8 +536,7 @@ function navigate(route) {
     motionController?.suspend({ expand: true });
   }
   if (route.name === 'book') {
-    previousRoute = ['home', 'library', 'wishlist', 'profile'].includes(store.value.route.name) ? store.value.route.name : previousRoute;
-    bookHasReturnRoute = store.value.route.name !== 'book';
+    previousRoute = ['home', 'library', 'wishlist', 'profile', 'collections', 'collection'].includes(store.value.route.name) ? store.value.route.name : previousRoute;
   }
   diagnostics.event('route_navigation_requested', { from: store.value.route.name, from_book_id: store.value.route.bookId || null, to: route.name, to_book_id: route.bookId || null, source: 'app_navigation' });
   router.navigate(route, { restoreY });
@@ -572,6 +583,56 @@ function openProfileEditor() {
 app.addEventListener('click', async event => {
   const target = event.target instanceof Element ? event.target : null;
   if (!target) return;
+  const collectionLink=target.closest('a[href^="#/collection/"]');
+  if(collectionLink) {
+    event.preventDefault();
+    store.value.pathDraft=null; store.value.pathError=null;
+    navigate(parseRoute(collectionLink.getAttribute('href'))); return;
+  }
+  if(target.closest('[data-collection-back]')) {
+    event.preventDefault();
+    if(history.state?.readingRoomReturnHash) { history.back(); }
+    else navigate({name:'collections'});
+    return;
+  }
+  const mode=target.closest('[data-collection-mode]');
+  if(mode) { store.value.collectionMode=mode.dataset.collectionMode;store.value.pathDraft=null;store.value.pathError=null;paint(collectionDetailView(store.value),{preserveScroll:window.scrollY});return; }
+  if(target.closest('[data-collections-retry]')) {
+    const userId=store.value.session?.user?.id;
+    store.value.collectionsLoading=true;
+    await renderRoute({...store.value.route},{mode:'refresh'});
+    const data=await loadCollectionData();
+    if(store.value.session?.user?.id!==userId) return;
+    store.value.collectionData=data;store.value.collectionsLoading=false;
+    await renderRoute({...store.value.route},{mode:'refresh'});return;
+  }
+  if(target.closest('[data-path-edit]')) {
+    const collection=buildCollections(store.value).find(c=>c.key===store.value.route.collectionKey);
+    if(!collection || !store.value.collectionData?.available || collection.verified===false) return;
+    const saved=new Map(collection.pathWorks.map(w=>[w.key,w]));
+    store.value.pathDraft={collectionKey:collection.key,works:[...collection.pathWorks,...collection.works.filter(w=>!saved.has(w.key))].map(w=>({...w,selection:w.selection || (w.recommendation?'recommended':'skipped'),reasoning:w.reasoning || w.recommendation?.why_recommended || null}))};
+    paint(collectionDetailView(store.value),{preserveScroll:window.scrollY});return;
+  }
+  if(target.closest('[data-path-cancel]')) {store.value.pathDraft=null;store.value.pathError=null;paint(collectionDetailView(store.value),{preserveScroll:window.scrollY});return;}
+  const move=target.closest('[data-path-move]');
+  if(move && store.value.pathDraft) {
+    const list=store.value.pathDraft.works,index=Number(move.dataset.pathMove),next=index+Number(move.dataset.direction);
+    if(next>=0 && next<list.length) [list[index],list[next]]=[list[next],list[index]];
+    paint(collectionDetailView(store.value),{preserveScroll:window.scrollY});
+    app.querySelector(`[data-path-move="${next}"][data-direction="${move.dataset.direction}"]`)?.focus({preventScroll:true});return;
+  }
+  if(target.closest('[data-path-save]') && store.value.pathDraft && !store.value.pathSaving) {
+    const draft=store.value.pathDraft,userId=store.value.session.user.id;
+    store.value.pathSaving=true;store.value.pathError=null;paint(collectionDetailView(store.value),{preserveScroll:window.scrollY});
+    try {
+      await saveReadingPath(draft.collectionKey,draft.works);
+      const data=await loadCollectionData();
+      if(store.value.session?.user?.id!==userId) return;
+      store.value.collectionData=data;store.value.pathDraft=null;
+    } catch(error) { if(store.value.session?.user?.id===userId) store.value.pathError=error.message || 'Could not save reading path.'; }
+    finally {store.value.pathSaving=false;if(store.value.route.name==='collection'&&store.value.route.collectionKey===draft.collectionKey&&store.value.session?.user?.id===userId) paint(collectionDetailView(store.value),{preserveScroll:window.scrollY});}
+    return;
+  }
   if (handleFeedDisclosure(target)) return;
   const feedFilter = target.closest('[data-feed-filter]');
   if (feedFilter) { await refreshActivity({ filter: feedFilter.dataset.feedFilter }); return; }
@@ -597,7 +658,8 @@ app.addEventListener('click', async event => {
   if (target.closest('[data-back]')) {
     scrollTrackingSuspended = true;
     motionController?.suspend({ expand: true });
-    if (bookHasReturnRoute) { bookHasReturnRoute = false; history.back(); } else navigate({ name: previousRoute });
+    if (history.state?.readingRoomReturnHash) history.back();
+    else navigate({ name: ['collection','collections'].includes(previousRoute) ? 'collections' : previousRoute });
     return;
   }
   if (target.closest('[data-menu]')) { openMenu(); return; }
@@ -693,10 +755,12 @@ app.addEventListener('keydown', event => {
   }
   if (!['Enter', ' '].includes(event.key)) return;
   const item = event.target.closest('[data-open-book],[data-upnext-id],[data-recommendation-id]');
-  if (item) { event.preventDefault(); item.click(); }
+  if (item && !event.target.closest('a,button')) { event.preventDefault(); item.click(); }
 });
 
 app.addEventListener('change', async event => {
+  const selection=event.target.closest('[data-path-selection]');
+  if(selection && store.value.pathDraft) {const work=store.value.pathDraft.works.find(w=>w.key===selection.dataset.pathSelection);if(work) work.selection=selection.value;return;}
   const input = event.target.closest('[data-avatar-input]');
   const file = input?.files?.[0];
   if (!file) return;
@@ -726,6 +790,10 @@ app.addEventListener('change', async event => {
 });
 
 app.addEventListener('input', event => {
+  if(event.target.matches('[data-collection-search]')) {
+    store.value.collectionQuery=event.target.value;
+    paint(collectionsView(store.value),{preserveScroll:window.scrollY,reuseCovers:true});app.querySelector('[data-collection-search]')?.focus();return;
+  }
   const input = event.target.closest('[data-library-search]');
   if (!input) return;
   const name = input.dataset.librarySearch;
@@ -981,7 +1049,7 @@ async function init() {
       libraryLoaded = false;
       sessionBootstrapUser = null;
       activityLoadVersion += 1;
-      store.update({ books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], profile: null, tasteProfile: [], readingHistory: [], readingRecords: null, readingTimeSessions: null, detail: null, profileTab: 'feed', activityFeed: { events: [], loading: false, loaded: false, filter: 'all', cursor: null, hasMore: false, error: null } });
+      store.update({ collectionData: null, pathDraft: null, pathError: null, pathSaving: false, collectionQuery: '', books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], profile: null, tasteProfile: [], readingHistory: [], readingRecords: null, readingTimeSessions: null, detail: null, profileTab: 'feed', activityFeed: { events: [], loading: false, loaded: false, filter: 'all', cursor: null, hasMore: false, error: null } });
       paint(authView(store.value.authMode));
       return;
     }

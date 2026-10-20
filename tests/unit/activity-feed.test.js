@@ -48,7 +48,7 @@ test('feed escapes text, preserves exact multiline quotes and exposes book and h
   const html = activityCard({ id:'quote',event_type:'quotes',book_id:'book',occurred_at:'2026-10-10',metadata:{quote_text:quote,page_start:12,page_end:14,chapter:'One',note:'<note>'},hashtags:['quotes'] },state);
   assert.match(html,/  Line one\n\n&lt;script&gt;/); assert.doesNotMatch(html,/<script>/);
   assert.match(html,/data-open-book="book"/); assert.match(html,/p\. 12–14 · Chapter One/);
-  assert.match(html,/data-feed-filter="quotes"/); assert.match(html,/&lt;note&gt;/);
+  assert.match(html,/data-feed-filter="hashtag:quotes"/); assert.match(html,/&lt;note&gt;/);
   assert.match(activityCard({id:'l',event_type:'librarian',content:'Reflection',occurred_at:'2026-10-10'},state),/>Librarian<\/strong>/);
 });
 test('feed covers loading, empty, error and progressively loaded states', () => {

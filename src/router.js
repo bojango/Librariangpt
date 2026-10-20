@@ -1,16 +1,18 @@
-const ROUTES = new Set(['home', 'library', 'wishlist', 'profile', 'recommendations']);
+const ROUTES = new Set(['home', 'library', 'wishlist', 'profile', 'recommendations', 'collections']);
 
 export function parseRoute(hash = location.hash) {
   const path = String(hash || '').replace(/^#\/?/, '');
   const [name, bookId] = path.split('/');
   if (name === 'reading-session' && bookId && ['finish','active','choose'].includes(path.split('/')[2])) return { name: `reading-session-${path.split('/')[2]}`, sessionId: decodeURIComponent(bookId), bookId: null };
   if (name === 'book' && bookId) return { name: 'book', bookId: decodeURIComponent(bookId) };
+  if (name === 'collection' && bookId) return { name: 'collection', collectionKey: decodeURIComponent(bookId), bookId: null };
   // Keep bookmarked Stage 1 Stats links working without retaining a second page.
   if (name === 'stats') return { name: 'profile', bookId: null };
   return { name: ROUTES.has(name) ? name : 'home', bookId: null };
 }
 
 export function routeHash(route) {
+  if (route.name === 'collection') return `#/collection/${encodeURIComponent(route.collectionKey)}`;
   if (route.name.startsWith('reading-session-')) return `#/reading-session/${encodeURIComponent(route.sessionId)}/${route.name.replace('reading-session-', '')}`;
   return route.name === 'book' ? `#/book/${encodeURIComponent(route.bookId)}` : `#/${route.name}`;
 }
@@ -21,6 +23,7 @@ export function createRouter(onChange, hooks = null) {
     const context = pendingContext || { source: 'hashchange' };
     pendingContext = null;
     const route = parseRoute();
+    if (context.returnHash) history.replaceState({ ...history.state, readingRoomReturnHash: context.returnHash }, '', location.href);
     hooks?.event('hashchange', { route: route.name, book_id: route.bookId || null, source: context.source });
     onChange(route, context);
   };
@@ -39,7 +42,7 @@ export function createRouter(onChange, hooks = null) {
         history.replaceState(null, '', hash);
         onChange(route, { source: 'navigation', restoreY });
       } else if (location.hash !== hash) {
-        pendingContext = { source: 'navigation', restoreY };
+        pendingContext = { source: 'navigation', restoreY, returnHash: location.hash };
         location.hash = hash;
       } else onChange(route, { source: 'same-route', restoreY });
     },

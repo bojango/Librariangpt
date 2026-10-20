@@ -1,0 +1,637 @@
+{
+  "verified_at": "2026-10-20",
+  "works": [
+    {
+      "key": "pc:relic",
+      "title": "Relic",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 1995,
+      "source_url": "https://www.prestonchild.com/books/relic/"
+    },
+    {
+      "key": "pc:reliquary",
+      "title": "Reliquary",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 1997,
+      "source_url": "https://www.prestonchild.com/books/reliquary/"
+    },
+    {
+      "key": "pc:cabinet",
+      "title": "The Cabinet of Curiosities",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2002,
+      "source_url": "https://www.prestonchild.com/books/cabinet/"
+    },
+    {
+      "key": "pc:stilllife",
+      "title": "Still Life with Crows",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2003,
+      "source_url": "https://www.prestonchild.com/books/stilllife/"
+    },
+    {
+      "key": "pc:brimstone",
+      "title": "Brimstone",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2004,
+      "source_url": "https://www.prestonchild.com/books/brimstone/"
+    },
+    {
+      "key": "pc:danceofdeath",
+      "title": "Dance of Death",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2005,
+      "source_url": "https://www.prestonchild.com/books/danceofdeath/"
+    },
+    {
+      "key": "pc:bookofthedead",
+      "title": "The Book of the Dead",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2006,
+      "source_url": "https://www.prestonchild.com/books/bookofthedead/"
+    },
+    {
+      "key": "pc:wheelofdarkness",
+      "title": "The Wheel of Darkness",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2007,
+      "source_url": "https://www.prestonchild.com/books/wheelofdarkness/"
+    },
+    {
+      "key": "pc:cemeterydance",
+      "title": "Cemetery Dance",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2009,
+      "source_url": "https://www.prestonchild.com/books/cemeterydance/"
+    },
+    {
+      "key": "pc:feverdream",
+      "title": "Fever Dream",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2010,
+      "source_url": "https://www.prestonchild.com/books/feverdream/"
+    },
+    {
+      "key": "pc:coldvengeance",
+      "title": "Cold Vengeance",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2011,
+      "source_url": "https://www.prestonchild.com/books/coldvengeance/"
+    },
+    {
+      "key": "pc:twograves",
+      "title": "Two Graves",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2012,
+      "source_url": "https://www.prestonchild.com/books/twograves/"
+    },
+    {
+      "key": "pc:whitefire",
+      "title": "White Fire",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2013,
+      "source_url": "https://www.prestonchild.com/books/whitefire/"
+    },
+    {
+      "key": "pc:bluelabyrinth",
+      "title": "Blue Labyrinth",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2014,
+      "source_url": "https://www.prestonchild.com/books/bluelabyrinth/"
+    },
+    {
+      "key": "pc:crimsonshore",
+      "title": "Crimson Shore",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2015,
+      "source_url": "https://www.prestonchild.com/books/crimsonshore/"
+    },
+    {
+      "key": "pc:obsidianchamber",
+      "title": "The Obsidian Chamber",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2016,
+      "source_url": "https://www.prestonchild.com/books/obsidianchamber/"
+    },
+    {
+      "key": "pc:endlessnight",
+      "title": "City of Endless Night",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2018,
+      "source_url": "https://www.prestonchild.com/books/endlessnight/"
+    },
+    {
+      "key": "pc:verses",
+      "title": "Verses for the Dead",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2018,
+      "source_url": "https://www.prestonchild.com/books/verses/"
+    },
+    {
+      "key": "pc:crooked-river",
+      "title": "Crooked River",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2020,
+      "source_url": "https://www.prestonchild.com/books/crooked-river/"
+    },
+    {
+      "key": "pc:bloodless",
+      "title": "Bloodless",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2021,
+      "source_url": "https://www.prestonchild.com/books/bloodless/"
+    },
+    {
+      "key": "pc:thecabinetofdrleng",
+      "title": "The Cabinet of Dr. Leng",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2023,
+      "source_url": "https://www.prestonchild.com/books/thecabinetofdrleng/"
+    },
+    {
+      "key": "pc:angelofvengeance",
+      "title": "Angel of Vengeance",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2024,
+      "source_url": "https://www.prestonchild.com/books/angelofvengeance/"
+    },
+    {
+      "key": "pc:beginning",
+      "title": "Pendergast: The Beginning",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2026,
+      "source_url": "https://www.prestonchild.com/books/beginning/"
+    },
+    {
+      "key": "pc:old-bones",
+      "title": "Old Bones",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2019,
+      "source_url": "https://www.prestonchild.com/books/old-bones/"
+    },
+    {
+      "key": "pc:the-scorpions-tail",
+      "title": "The Scorpion’s Tail",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2021,
+      "source_url": "https://www.prestonchild.com/books/the-scorpions-tail/"
+    },
+    {
+      "key": "pc:diablomesa",
+      "title": "Diablo Mesa",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2022,
+      "source_url": "https://www.prestonchild.com/books/diablomesa/"
+    },
+    {
+      "key": "pc:deadmountain",
+      "title": "Dead Mountain",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2023,
+      "source_url": "https://www.prestonchild.com/books/deadmountain/"
+    },
+    {
+      "key": "pc:badlands",
+      "title": "Badlands",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2025,
+      "source_url": "https://www.prestonchild.com/books/badlands/"
+    },
+    {
+      "key": "pc:thunderhead",
+      "title": "Thunderhead",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 1999,
+      "source_url": "https://www.prestonchild.com/books/thunderhead/"
+    },
+    {
+      "key": "pc:extraction",
+      "title": "Extraction",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2012,
+      "source_url": "https://www.prestonchild.com/books/extraction/",
+      "format": "Short story"
+    },
+    {
+      "key": "pc:dead-mans-journey",
+      "title": "Dead Man’s Journey",
+      "authors": "Douglas Preston, Lincoln Child",
+      "publication_year": 2027,
+      "publication_state": "forthcoming",
+      "source_url": "https://www.hachettebookgroup.com/titles/douglas-preston/dead-mans-journey/9781538765869/"
+    },
+    {
+      "key": "crichton:jurassic-park",
+      "title": "Jurassic Park",
+      "authors": "Michael Crichton",
+      "publication_year": 1990,
+      "source_url": "https://michaelcrichton.com/works/"
+    },
+    {
+      "key": "crichton:the-lost-world",
+      "title": "The Lost World",
+      "authors": "Michael Crichton",
+      "publication_year": 1995,
+      "source_url": "https://michaelcrichton.com/works/"
+    },
+    {
+      "key": "howey:wool",
+      "title": "Wool",
+      "authors": "Hugh Howey",
+      "publication_year": 2011,
+      "source_url": "https://hughhowey.com/series/silo/"
+    },
+    {
+      "key": "howey:shift",
+      "title": "Shift",
+      "authors": "Hugh Howey",
+      "publication_year": 2013,
+      "source_url": "https://hughhowey.com/series/silo/"
+    },
+    {
+      "key": "howey:dust",
+      "title": "Dust",
+      "authors": "Hugh Howey",
+      "publication_year": 2013,
+      "source_url": "https://hughhowey.com/series/silo/"
+    }
+  ],
+  "collections": [
+    {
+      "key": "preston-child",
+      "name": "Preston–Child",
+      "kind": "universe",
+      "description": "The connected world of Pendergast, Nora Kelly and Corrie Swanson. This catalogue covers their published novels, Thunderhead, Extraction and the announced Nora Kelly novel.",
+      "complete": true,
+      "source_url": "https://www.prestonchild.com/books/series/",
+      "members": [
+        {
+          "work_key": "pc:thunderhead",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:relic",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:reliquary",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:cabinet",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:stilllife",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:brimstone",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:danceofdeath",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:bookofthedead",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:wheelofdarkness",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:cemeterydance",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:feverdream",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:coldvengeance",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:twograves",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:whitefire",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:bluelabyrinth",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:crimsonshore",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:obsidianchamber",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:endlessnight",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:verses",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:crooked-river",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:bloodless",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:thecabinetofdrleng",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:angelofvengeance",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:beginning",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:extraction",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:old-bones",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:the-scorpions-tail",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:diablomesa",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:deadmountain",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:badlands",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:dead-mans-journey",
+          "official_number": null
+        }
+      ]
+    },
+    {
+      "key": "nora-corrie",
+      "name": "Nora Kelly & Corrie Swanson",
+      "kind": "crossover",
+      "description": "Selected character connections from Thunderhead through Pendergast to the dedicated Nora Kelly series. A character collection, with no official series numbering of its own.",
+      "complete": false,
+      "source_url": "https://www.hachettebookgroup.com/series/douglas-preston/nora-kelly/",
+      "members": [
+        {
+          "work_key": "pc:thunderhead",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:cabinet",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:stilllife",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:danceofdeath",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:bookofthedead",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:cemeterydance",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:whitefire",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:old-bones",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:the-scorpions-tail",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:diablomesa",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:deadmountain",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:badlands",
+          "official_number": null
+        },
+        {
+          "work_key": "pc:dead-mans-journey",
+          "official_number": null
+        }
+      ]
+    },
+    {
+      "key": "pendergast",
+      "name": "Pendergast",
+      "kind": "series",
+      "description": "The published Agent Pendergast novels in official publication order, plus the unnumbered short story Extraction. The Beginning is the later-published origin story.",
+      "complete": true,
+      "source_url": "https://www.prestonchild.com/books/series/",
+      "members": [
+        {
+          "work_key": "pc:relic",
+          "official_number": 1
+        },
+        {
+          "work_key": "pc:reliquary",
+          "official_number": 2
+        },
+        {
+          "work_key": "pc:cabinet",
+          "official_number": 3
+        },
+        {
+          "work_key": "pc:stilllife",
+          "official_number": 4
+        },
+        {
+          "work_key": "pc:brimstone",
+          "official_number": 5
+        },
+        {
+          "work_key": "pc:danceofdeath",
+          "official_number": 6
+        },
+        {
+          "work_key": "pc:bookofthedead",
+          "official_number": 7
+        },
+        {
+          "work_key": "pc:wheelofdarkness",
+          "official_number": 8
+        },
+        {
+          "work_key": "pc:cemeterydance",
+          "official_number": 9
+        },
+        {
+          "work_key": "pc:feverdream",
+          "official_number": 10
+        },
+        {
+          "work_key": "pc:coldvengeance",
+          "official_number": 11
+        },
+        {
+          "work_key": "pc:twograves",
+          "official_number": 12
+        },
+        {
+          "work_key": "pc:whitefire",
+          "official_number": 13
+        },
+        {
+          "work_key": "pc:bluelabyrinth",
+          "official_number": 14
+        },
+        {
+          "work_key": "pc:crimsonshore",
+          "official_number": 15
+        },
+        {
+          "work_key": "pc:obsidianchamber",
+          "official_number": 16
+        },
+        {
+          "work_key": "pc:endlessnight",
+          "official_number": 17
+        },
+        {
+          "work_key": "pc:verses",
+          "official_number": 18
+        },
+        {
+          "work_key": "pc:crooked-river",
+          "official_number": 19
+        },
+        {
+          "work_key": "pc:bloodless",
+          "official_number": 20
+        },
+        {
+          "work_key": "pc:thecabinetofdrleng",
+          "official_number": 21
+        },
+        {
+          "work_key": "pc:angelofvengeance",
+          "official_number": 22
+        },
+        {
+          "work_key": "pc:beginning",
+          "official_number": 23
+        },
+        {
+          "work_key": "pc:extraction",
+          "official_number": null
+        }
+      ]
+    },
+    {
+      "key": "nora-kelly",
+      "name": "Nora Kelly",
+      "kind": "series",
+      "description": "The dedicated Nora Kelly and Corrie Swanson novels, beginning with Old Bones. Thunderhead and the Pendergast appearances belong to the connected crossover collection.",
+      "complete": true,
+      "source_url": "https://www.hachettebookgroup.com/series/douglas-preston/nora-kelly/",
+      "members": [
+        {
+          "work_key": "pc:old-bones",
+          "official_number": 1
+        },
+        {
+          "work_key": "pc:the-scorpions-tail",
+          "official_number": 2
+        },
+        {
+          "work_key": "pc:diablomesa",
+          "official_number": 3
+        },
+        {
+          "work_key": "pc:deadmountain",
+          "official_number": 4
+        },
+        {
+          "work_key": "pc:badlands",
+          "official_number": 5
+        },
+        {
+          "work_key": "pc:dead-mans-journey",
+          "official_number": 6
+        }
+      ]
+    },
+    {
+      "key": "jurassic-park",
+      "name": "Jurassic Park",
+      "kind": "series",
+      "description": "Michael Crichton’s two Jurassic Park novels in publication order.",
+      "complete": true,
+      "source_url": "https://michaelcrichton.com/works/",
+      "members": [
+        {
+          "work_key": "crichton:jurassic-park",
+          "official_number": 1
+        },
+        {
+          "work_key": "crichton:the-lost-world",
+          "official_number": 2
+        }
+      ]
+    },
+    {
+      "key": "silo",
+      "name": "Silo",
+      "kind": "series",
+      "description": "The core Silo trilogy: Wool, Shift and Dust. The omnibus volumes are counted once; separate short stories are outside this collection.",
+      "complete": true,
+      "source_url": "https://hughhowey.com/series/silo/",
+      "members": [
+        {
+          "work_key": "howey:wool",
+          "official_number": 1
+        },
+        {
+          "work_key": "howey:shift",
+          "official_number": 2
+        },
+        {
+          "work_key": "howey:dust",
+          "official_number": 3
+        }
+      ]
+    }
+  ]
+}

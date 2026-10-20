@@ -1,4 +1,73 @@
 /* Consolidated from styles.css */
+/* Collections share the existing theme tokens and bottom navigation. */
+.collection-tabs { display:flex; gap:6px; margin:18px 0 24px; border-bottom:1px solid var(--line); }
+.collection-tabs > a,.collection-tabs > button { flex:1; display:block; min-height:44px; padding:12px 8px; border:0; border-bottom:2px solid transparent; background:transparent; color:var(--muted); text-align:center; text-decoration:none; font-size:13px; }
+.collection-tabs > .active { border-bottom-color:var(--accent); color:var(--text); font-weight:700; }
+.collection-heading { margin:20px 0 24px; max-width:780px; }
+.collection-heading h1,.collection-catalogue-hero h1 { font:500 clamp(30px,5vw,46px)/1.12 Georgia,serif; margin:8px 0 14px; letter-spacing:-.025em; overflow-wrap:anywhere; }
+.collection-heading > p:not(.eyebrow),.collection-explanation { color:var(--muted); font-size:14px; line-height:1.65; }
+.collections-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); gap:18px; margin-top:24px; }
+.collection-card { display:grid; grid-template-columns:112px minmax(0,1fr); gap:22px; align-items:center; padding:22px; border:1px solid var(--line); border-radius:var(--radius); background:var(--panel); text-decoration:none; color:var(--text); }
+.collection-card h2 { margin:4px 0 16px; font:500 23px/1.2 Georgia,serif; overflow-wrap:anywhere; }
+.collection-covers { position:relative; height:148px; }
+.collection-covers > .cover { position:absolute; width:88px; height:132px; top:8px; left:0; transform:rotate(-8deg); box-shadow:0 6px 16px #0003; }
+.collection-covers > .cover:nth-child(2) { left:12px; top:4px; transform:rotate(1deg); }
+.collection-covers > .cover:nth-child(3) { left:24px; top:12px; transform:rotate(9deg); }
+.collection-counts { display:flex; flex-wrap:wrap; gap:5px 12px; color:var(--muted); font-size:12px; margin:10px 0; }
+.collection-progress { display:block; width:100%; height:5px; border:0; border-radius:3px; background:var(--line); accent-color:var(--accent); }
+.collection-progress::-webkit-progress-bar { background:var(--line); border-radius:3px; }
+.collection-progress::-webkit-progress-value { background:var(--accent); border-radius:3px; }
+.collection-progress::-moz-progress-bar { background:var(--accent); border-radius:3px; }
+.collection-open { display:block; margin-top:14px; font-size:12px; color:var(--muted); }
+.collection-detail { max-width:940px; margin:0 auto; }
+.collection-state { padding:40px 12px; text-align:center; color:var(--muted); }
+.collection-book-list { padding:0; margin:20px 0; list-style:none; }
+.collection-book { display:grid; grid-template-columns:76px minmax(0,1fr); gap:18px; padding:22px 0; border-bottom:1px solid var(--line); }
+.collection-book-cover .cover { width:76px; aspect-ratio:2/3; }
+.collection-book-copy { min-width:0; }
+.collection-book-copy h3 { font:500 21px/1.25 Georgia,serif; margin:4px 0 5px; overflow-wrap:anywhere; }
+.collection-book-copy h3 a { text-decoration:none; }
+.collection-book-order,.collection-author { font-size:12px; color:var(--muted); margin:0 0 7px; line-height:1.5; }
+.collection-statuses { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin:10px 0; }
+.path-selection,.collection-score { font-size:11px; padding:4px 7px; border:1px solid var(--line); border-radius:5px; }
+.selection-recommended { color:var(--accent); }
+.selection-optional { color:var(--muted); }
+.selection-skipped { color:var(--muted); border-style:dashed; }
+.collection-reason { margin-top:10px; font-size:13px; line-height:1.65; }
+.collection-reason summary { cursor:pointer; color:var(--muted); min-height:32px; padding:5px 0; }
+.collection-reason p { white-space:pre-wrap; overflow-wrap:anywhere; }
+.collection-next,.book-collection-membership p { font-size:13px; line-height:1.6; }
+.collection-next a,.book-collection-membership p a { text-underline-offset:3px; }
+.collection-source { display:flex; flex-wrap:wrap; gap:10px 24px; padding:24px 0; color:var(--muted); font-size:12px; }
+.book-collections { border-block:1px solid var(--line); padding:20px 0; margin:20px 0; }
+.book-collections h2 { font-size:17px; margin:0 0 14px; }
+.book-collection-membership + .book-collection-membership { border-top:1px solid var(--line); padding-top:12px; }
+.book-collection-membership > a { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 14px; padding:5px 0; text-decoration:none; }
+.book-collection-membership > a span { color:var(--muted); font-size:12px; }
+.book-collection-membership p { color:var(--muted); margin:5px 0 12px; }
+.path-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:18px 0; }
+.path-actions p { flex-basis:100%; font-size:12px; line-height:1.6; color:var(--muted); margin:0; }
+.path-edit-controls { display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; font-size:12px; }
+.path-edit-controls label { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.path-edit-controls select { max-width:100%; padding:8px; background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:6px; }
+.path-edit-controls button { min-height:44px; }
+.collection-catalogue-detail { max-width:940px; margin:20px auto; }
+.collection-catalogue-hero { display:grid; grid-template-columns:120px minmax(0,1fr); gap:24px; margin:25px 0; }
+.collection-catalogue-hero > .cover { width:120px; aspect-ratio:2/3; }
+.collection-catalogue-hero p { line-height:1.6; color:var(--muted); }
+html[data-theme="terminal"] .collection-card { border-radius:var(--terminal-control-radius); }
+html[data-theme="terminal"] .collection-heading h1,html[data-theme="terminal"] .collection-card h2,html[data-theme="terminal"] .collection-book-copy h3,html[data-theme="terminal"] .collection-catalogue-hero h1 { font-family:var(--font-terminal); }
+@media(max-width:480px) {
+  .collection-card { padding:18px; grid-template-columns:96px minmax(0,1fr); gap:15px; }
+  .collection-covers > .cover { width:72px; height:108px; }
+  .collection-covers { height:128px; }
+  .collection-card h2 { font-size:21px; }
+  .collection-book { grid-template-columns:60px minmax(0,1fr); gap:14px; }
+  .collection-book-cover .cover { width:60px; }
+  .collection-catalogue-hero { grid-template-columns:85px minmax(0,1fr); gap:18px; }
+  .collection-catalogue-hero > .cover { width:85px; }
+  .collection-catalogue-hero h1 { font-size:27px; }
+}
 :root {
   color-scheme: dark;
   --bg: #11100f;
