@@ -15,7 +15,7 @@ import { homeView } from './views/home.js';
 import { libraryView } from './views/library.js';
 import { collectionsView, collectionDetailView, catalogueBookView } from './views/collections.js';
 import { buildCollections, catalogueBook } from './features/collections.js';
-import { loadCollectionData, saveReadingPath } from './data/collections.js';
+import { addCatalogueToWishlist, loadCollectionData, saveReadingPath } from './data/collections.js';
 import { profileEditMarkup, profilePhotoActionsMarkup, profileView } from './views/profile.js';
 import { recommendationsView } from './views/recommendations.js';
 import { bookDetailView } from './views/book-detail.js';
@@ -527,11 +527,12 @@ function maybeEnrich(detail, renderVersion) {
   }).catch(error => console.info('[Reading Room] background enrichment deferred:', error?.message || error));
 }
 
-function navigate(route) {
+function navigate(route, options = {}) {
   if (route.name === 'profile' && store.value.route.name !== 'profile') store.value.profileTab = 'feed';
   const restoreY = store.scrollFor(route.name);
   saveCurrentScroll();
   if (!sameRoute(store.value.route, route)) {
+    store.value.collectionAddError=null;
     scrollTrackingSuspended = true;
     motionController?.suspend({ expand: true });
   }
@@ -539,7 +540,7 @@ function navigate(route) {
     previousRoute = ['home', 'library', 'wishlist', 'profile', 'collections', 'collection'].includes(store.value.route.name) ? store.value.route.name : previousRoute;
   }
   diagnostics.event('route_navigation_requested', { from: store.value.route.name, from_book_id: store.value.route.bookId || null, to: route.name, to_book_id: route.bookId || null, source: 'app_navigation' });
-  router.navigate(route, { restoreY });
+  router.navigate(route, { restoreY, ...options });
 }
 
 function openAvatarMenu() {
@@ -583,6 +584,36 @@ function openProfileEditor() {
 app.addEventListener('click', async event => {
   const target = event.target instanceof Element ? event.target : null;
   if (!target) return;
+  const addCollectionBook=target.closest('[data-collection-add]');
+  if(addCollectionBook) {
+    if(store.value.collectionAddingKey) return;
+    const work=buildCollections(store.value).flatMap(c=>c.works).find(w=>w.key===addCollectionBook.dataset.collectionAdd);
+    if(!work || work.library) return;
+    const userId=store.value.session?.user?.id,routeAtStart={...store.value.route};
+    store.value.collectionAddingKey=work.key;store.value.collectionAddError=null;
+    await renderRoute({...routeAtStart},{mode:'refresh'});
+    try {
+      const result=await addCatalogueToWishlist(work);
+      await loadSnapshot();
+      if(store.value.session?.user?.id!==userId) return;
+      toast(result.already_in_library?'This book is already in your Library.':'Added to Wishlist.');
+      if(sameRoute(routeAtStart,store.value.route)&&routeAtStart.name==='book') {
+        navigate({name:'book',bookId:result.book_id},{replace:true,preserveReturn:true});
+      }
+    } catch(error) {
+      if(store.value.session?.user?.id===userId) {
+        const message=error.message || 'Could not add this title. Try again.';
+        if(sameRoute(routeAtStart,store.value.route)) store.value.collectionAddError=message;
+        else toast(message,true);
+      }
+    } finally {
+      if(store.value.session?.user?.id===userId) {
+        store.value.collectionAddingKey=null;
+        if(sameRoute(routeAtStart,store.value.route)) await renderRoute({...store.value.route},{mode:'refresh'});
+      }
+    }
+    return;
+  }
   const collectionLink=target.closest('a[href^="#/collection/"]');
   if(collectionLink) {
     event.preventDefault();
@@ -790,6 +821,10 @@ app.addEventListener('change', async event => {
 });
 
 app.addEventListener('input', event => {
+  if(event.target.matches('[data-author-collections]')) {
+    store.value.showAuthorCollections=event.target.checked;
+    paint(collectionsView(store.value),{preserveScroll:window.scrollY});return;
+  }
   if(event.target.matches('[data-collection-search]')) {
     store.value.collectionQuery=event.target.value;
     paint(collectionsView(store.value),{preserveScroll:window.scrollY,reuseCovers:true});app.querySelector('[data-collection-search]')?.focus();return;
@@ -1049,7 +1084,7 @@ async function init() {
       libraryLoaded = false;
       sessionBootstrapUser = null;
       activityLoadVersion += 1;
-      store.update({ collectionData: null, pathDraft: null, pathError: null, pathSaving: false, collectionQuery: '', books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], profile: null, tasteProfile: [], readingHistory: [], readingRecords: null, readingTimeSessions: null, detail: null, profileTab: 'feed', activityFeed: { events: [], loading: false, loaded: false, filter: 'all', cursor: null, hasMore: false, error: null } });
+      store.update({ collectionData: null, pathDraft: null, pathError: null, pathSaving: false, collectionQuery: '', showAuthorCollections: false, collectionAddingKey: null, collectionAddError: null, books: [], recommendations: [], aiRecommendations: [], upNext: [], chapters: [], profile: null, tasteProfile: [], readingHistory: [], readingRecords: null, readingTimeSessions: null, detail: null, profileTab: 'feed', activityFeed: { events: [], loading: false, loaded: false, filter: 'all', cursor: null, hasMore: false, error: null } });
       paint(authView(store.value.authMode));
       return;
     }

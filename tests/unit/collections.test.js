@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildCollections,catalogueBook,collectionMemberships,resolveWork} from '../../src/features/collections.js';
+import {buildCollections,catalogueBook,collectionMemberships,resolveWork,overviewCollections,groupedCollectionWorks,readingProgress} from '../../src/features/collections.js';
 import {catalogueCollections,catalogueWorks} from '../../src/data/collection-catalogue.js';
 import {collectionDetailView,collectionsView,bookCollectionsSection} from '../../src/views/collections.js';
 import {parseRoute,routeHash} from '../../src/router.js';
@@ -54,12 +54,70 @@ test('collection routes preserve identity and use distinct lifecycle keys',()=>{
 });
 test('views escape reasons, show missing data, expose search, maintain navigation and never invent path positions',()=>{
  const detail=collectionDetailView(state);
- assert.match(detail,/No personalised path saved yet/);assert.doesNotMatch(detail,/Path 1/);
- assert.match(detail,/Librarian’s Order/);assert.match(detail,/Full Collection/);
+ assert.match(detail,/Based on your existing recommendations/);assert.doesNotMatch(detail,/Path 1/);
+ assert.match(detail,/Suggested Reads/);assert.match(detail,/Full Collection/);
  assert.equal((detail.match(/class="nav-btn/g)||[]).length,4);
  assert.match(collectionsView({...state,collectionQuery:'not-a-series'}),/No matching collections/);
  assert.match(collectionsView({...state,collectionsLoading:true}),/Loading your collections/);
  assert.match(collectionsView({...state,collectionData:{error:'<unsafe>'}}),/&lt;unsafe&gt;/);
  assert.match(bookCollectionsSection(state,book),/Series & Collections/);
  assert.doesNotMatch(bookCollectionsSection(state,book),/Series #1/);
+});
+
+
+test('overview consolidates the universe and optionally distinguishes author collections',()=>{
+ const s={...state,books:[...state.books,{id:'jp',title:'Jurassic Park',authors:'Michael Crichton'}]};
+ assert.deepEqual(overviewCollections(s).map(c=>c.key),['preston-child','jurassic-park','silo']);
+ const author=overviewCollections({...s,showAuthorCollections:true}).find(c=>c.kind==='author');
+ assert.equal(author.name,'Michael Crichton');assert.equal(author.complete,false);assert.equal(author.verified,false);
+ assert.match(author.description,/not an official series/);
+ assert.equal(author.works.length,1);
+ assert.equal((bookCollectionsSection(state,book).match(/book-collection-membership/g)||[]).length,1);
+});
+
+test('universe groups every verified work once in official subseries order',()=>{
+ const all=buildCollections(state),c=all.find(c=>c.key==='preston-child');
+ const groups=groupedCollectionWorks(c,c.works,all);
+ assert.deepEqual(groups.map(g=>g.key),['pendergast','nora-kelly','standalone']);
+ assert.equal(groups.flatMap(g=>g.works).length,c.total);
+ assert.equal(new Set(groups.flatMap(g=>g.works.map(w=>w.key))).size,c.total);
+ assert.equal(groups[0].works[0].official_number,1);
+ assert.equal(groups[1].works[0].publication_year,2019);
+ assert.equal(groups[2].works[0].title,'Thunderhead');
+});
+
+test('full progress includes skipped books while path progress excludes skipped and forthcoming',()=>{
+ const works=[{selection:'skipped',library:{overall_status:'Read'}},{selection:'optional'},{publication_state:'forthcoming'}];
+ assert.deepEqual(readingProgress(works),{total:1,read:0});
+ assert.deepEqual(readingProgress(works,{excludeSkipped:false}),{total:2,read:1});
+ const s={...state,collectionData:{...state.collectionData,paths:[{id:'p',collection_key:'preston-child'}],entries:[{path_id:'p',work_key:'pc:thunderhead',position:1,selection:'skipped'},{path_id:'p',work_key:'pc:dead-mans-journey',position:2,selection:'recommended'}]}};
+ const c=buildCollections(s).find(c=>c.key==='preston-child');
+ assert.equal(c.fullProgress.total,30);assert.equal(c.pathProgress.total,0);assert.equal(c.forthcoming,1);
+});
+
+test('source-backed artwork is only a display fallback and never replaces edition covers',()=>{
+ const c=buildCollections({...state,books:[{...book,cover_url:'selected-edition.jpg'}]}).find(c=>c.key==='preston-child');
+ assert.equal(c.works.find(w=>w.key==='pc:thunderhead').cover_url,'selected-edition.jpg');
+ assert.equal(c.works.find(w=>w.key==='pc:thunderhead').artwork_source,null);
+ const relic=c.works.find(w=>w.key==='pc:relic');
+ assert.match(relic.cover_url,/prestonchild.com/);assert.match(relic.artwork_source,/books\/relic/);
+ assert.equal(relic.library,null);assert.equal(relic.recommendation,null);
+ assert.ok(relic.add_payload.isbn10);
+});
+
+test('subseries filters round trip through navigation and have separate lifecycle keys',()=>{
+ const route={name:'collection',collectionKey:'preston-child',collectionFilter:'nora-kelly',bookId:null};
+ assert.deepEqual(parseRoute(routeHash(route)),route);
+ assert.equal(sameRoute(route,{...route,collectionFilter:'pendergast'}),false);
+ const view=collectionDetailView({...state,route,collectionMode:'full'});
+ assert.match(view,/Old Bones/);assert.doesNotMatch(view,/>Relic<|>Thunderhead</);
+ assert.match(view,/aria-current="page">Nora Kelly/);
+});
+
+test('unavailable backend hides path controls and keeps explicit wishlist actions',()=>{
+ const view=collectionDetailView({...state,collectionMode:'full'});
+ assert.doesNotMatch(view,/data-path-edit|data-path-save|Connected title|selection-recommended/);
+ assert.match(view,/data-collection-add="pc:relic"/);
+ assert.match(view,/Full collection/);assert.match(view,/Suggested reads/);
+ assert.match(view,/status-pill collection-score/);
 });

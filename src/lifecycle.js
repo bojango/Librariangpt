@@ -1,6 +1,6 @@
 export function routeKey(route = {}) {
   if (route.name?.startsWith('reading-session-')) return `${route.name}:${route.sessionId || ''}`;
-  if (route.name === 'collection') return `collection:${route.collectionKey || ''}`;
+  if (route.name === 'collection') return `collection:${route.collectionKey || ''}${route.collectionFilter ? `:${route.collectionFilter}` : ''}`;
   return route.name === 'book' ? `book:${route.bookId || ''}` : String(route.name || 'home');
 }
 
