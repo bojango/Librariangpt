@@ -58,6 +58,7 @@ export async function publisherCatalogue(document,sourceUrl,book,{extraHosts=[],
 
 // Preserve backend keys and provenance. A database catalogue can learn new
 // series without a code release; the static registry is only a seed/fallback.
+const flat=value=>{const {provenance,...fields}=value || {};return fields;};
 export function mergeDiscoveryRegistry(snapshot,seed) {
   const works=[...seed.works],collections=seed.collections.map(c=>({...c,members:c.members.map(m=>({...m}))}));
   const remap=new Map();
@@ -65,8 +66,8 @@ export function mergeDiscoveryRegistry(snapshot,seed) {
     if(w.provenance?.type==='existing_database') continue;
     const matches=works.filter(x=>normalize(x.title)===normalize(w.title)&&authorKey(x.authors)===authorKey(w.authors));
     const old=works.find(x=>x.key===w.key)||(matches.length===1?matches[0]:null);
-    if(old) {remap.set(old.key,w.key);works.splice(works.indexOf(old),1,{...old,...w,identifiers:w.provenance?.identifiers || old.identifiers || []});}
-    else works.push({...w,identifiers:w.provenance?.identifiers || []});
+    if(old) {remap.set(old.key,w.key);works.splice(works.indexOf(old),1,flat({...old,...flat(w.provenance),...flat(w),identifiers:w.provenance?.identifiers || old.identifiers || []}));}
+    else works.push(flat({...flat(w.provenance),...flat(w),identifiers:w.provenance?.identifiers || []}));
   }
   for(const c of collections) c.members=c.members.map(m=>({...m,work_key:remap.get(m.work_key)||m.work_key}));
   for(const c of snapshot.collections || []) {
@@ -74,22 +75,22 @@ export function mergeDiscoveryRegistry(snapshot,seed) {
     const members=(snapshot.memberships || []).filter(m=>m.collection_key===c.key).map(m=>({work_key:m.work_key,official_number:m.official_number}));
     const old=collections.find(x=>sameCollection(x,c,members));
     const merged=old?[...old.members.map(m=>({...m})),...members.filter(m=>!old.members.some(n=>n.work_key===m.work_key))]:members;
-    const definition={...c.provenance,...c,description:old?.description || c.description,complete:Boolean(old?.complete&&merged.length===old.members.length||c.complete&&merged.length===members.length),catalogue_type:old?.catalogue_type || c.catalogue_type,members:merged};
+    const definition={...flat(c.provenance),...flat(c),description:old?.description || c.description,complete:Boolean(old?.complete&&merged.length===old.members.length||c.complete&&merged.length===members.length),catalogue_type:old?.catalogue_type || c.catalogue_type,members:merged};
     if(old) collections.splice(collections.indexOf(old),1,definition); else collections.push(definition);
   }
   for(const source of snapshot.sources || []) if(source.status==='verified'&&validCatalogue(source.catalogue)) {
     const aliases=new Map();
     for(const w of source.catalogue.works) {
       const matches=works.filter(x=>x.key===w.key||normalize(x.title)===normalize(w.title)&&authorKey(x.authors)===authorKey(w.authors));
-      if(matches.length===1) aliases.set(w.key,matches[0].key);else if(!matches.length) works.push(w);
+      if(matches.length===1) aliases.set(w.key,matches[0].key);else if(!matches.length) works.push(flat(w));
     }
     for(const c of source.catalogue.collections) {
       const members=c.members.map(m=>({...m,work_key:aliases.get(m.work_key)||m.work_key}));
       const old=collections.find(x=>sameCollection(x,c,members));
       if(old) {
         const merged=[...old.members,...members.filter(m=>!old.members.some(n=>n.work_key===m.work_key))];
-        collections.splice(collections.indexOf(old),1,{...c,key:old.key,series_id:old.series_id,members:merged,complete:c.complete&&merged.length===members.length});
-      }else collections.push({...c,members});
+        collections.splice(collections.indexOf(old),1,{...flat(c),key:old.key,series_id:old.series_id,members:merged,complete:c.complete&&merged.length===members.length});
+      }else collections.push({...flat(c),members});
     }
   }
   return {...seed,works,collections};

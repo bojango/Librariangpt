@@ -25,6 +25,7 @@ export async function discoveryDb(snapshot={books:[],series:[],book_series:[]}) 
   await db.exec(await readFile('supabase/seeds/collections-verified.sql','utf8'));
   await db.exec(await readFile(collectionMigration,'utf8'));
   await db.exec(await readFile('supabase/migrations/20261026154708_collection_discovery_automation_hardening.sql','utf8'));
+  await db.exec(await readFile('supabase/migrations/20261026191301_requeue_verified_collection_retries.sql','utf8'));
   return db;
 }
 export async function finish(db,job,result,error=null,retryAfter=null) {

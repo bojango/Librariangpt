@@ -100,17 +100,27 @@ retry deadlines, provider/source verification, idempotency, duplicate prevention
 and reader/recommendation/path preservation. Actual Edge handlers use controlled
 HTTP responses. Chromium and iPhone WebKit tests execute the existing add-book
 RPC and discovery SQL, including a previously unknown series and automatic UI
-refresh. The full checks passed: 435 unit/integration tests and 255 E2E tests,
-with one existing intentional E2E skip. Hosted Vault/JWT/network/cron behavior
-still requires a separately authorised staging smoke test.
+refresh. The full suite includes hosted-registry replay and verification of
+retry requeueing. Hosted Vault/JWT/network/cron behavior requires a separately
+authorised deployment smoke test against the intended target.
+
+Runtime registry reloads flatten persisted provenance rather than nesting the
+previous database row inside the next import. Newly verified evidence requeues
+matching provider-retry jobs without resetting shared provider backoff or
+interrupting processing claims. Apply
+`20261026191301_requeue_verified_collection_retries.sql` after automation
+hardening to enable that retry behavior.
 
 ## Separate rollout and activation
 
 1. Refresh and verify a private database backup immediately before deployment.
    Review a fresh production dry-run, unresolved cases and catalogue scopes.
    Keep backups, snapshots and coverage inventories outside version control.
-2. On an approved staging target, apply the pending Collections migration and
-   reviewed seed, then both discovery migrations. Assert that no
+2. On the explicitly approved deployment target, inspect schema and historical
+   migration reconciliation before applying only the pending Collections
+   migration, reviewed seed, discovery backend, automation hardening and retry
+   requeue migration, in that order. Do not replay historical migrations.
+   Assert that no
    `collection-discovery-every-five-minutes` cron job exists.
 3. Deploy `collection-discovery` and the updated `related-books` function with
    the existing Vault service/scheduler secrets. Deployment alone starts no job.
@@ -127,7 +137,8 @@ still requires a separately authorised staging smoke test.
    and run `supabase/operations/activate-collection-discovery.sql`. This is an
    administrator operation outside migrations. It rejects missing, stale or
    mismatched smoke evidence. Verify actual hosted scheduled execution.
-6. A separately approved production rollout repeats these steps. No merge into
+6. Direct production rollout is supported when expressly authorised, after a
+   verified private backup and isolated restore/migration test. No merge into
    main is needed. Service `reconcile_collection_discovery()` queues missing
    books without resetting live jobs. The activated worker drains two books
    every five minutes, at most four per invocation. The explicit
@@ -135,5 +146,6 @@ still requires a separately authorised staging smoke test.
    review; source and registry verification also reprocess cases automatically.
 
 If problems arise, unschedule only the discovery job and retain the additive
-tables, attempt logs, reader data and valid legacy memberships. Neither worker
-deployment nor cron activation has been performed as part of this hardening pass.
+tables, attempt logs, reader data and valid legacy memberships. Record the
+deployed revision, actual scheduled execution and preservation fingerprints in
+private deployment evidence; never publish reader inventories or credentials.
