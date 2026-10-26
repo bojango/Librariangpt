@@ -1,4 +1,5 @@
 // Bibliographic facts only. This module never creates a canonical/Library book.
+import {isValidIsbn} from './edition-ranking.js';
 export const identity = value => String(value || '').normalize('NFKD').toLowerCase().replace(/[^a-z0-9]/g,'');
 const authors = value => (Array.isArray(value)?value:String(value || '').split(',')).map(identity).filter(Boolean).sort().join('|');
 export const sameWork = (work,title,names) => identity(work.title)===identity(title)&&authors(work.authors)===authors(names);
@@ -64,15 +65,16 @@ export function imageSize(bytes) {
  return null;
 }
 export async function verifiedCover(url,request) {
- if(!url)return null;
+ if(!url||/\/(?:smedia|InteriorImage)(?:\/|\?|$)|\/1200x630w[pz]*\.|(?:^|[-_/])(?:logo|placeholder|no[-_]?cover)(?:[-_.\/]|$)/i.test(url))return null;
  const response=await request(url,'image');
  if(!response)return null;
  const {bytes,type}=response,size=imageSize(bytes);
- if(!/^image\/(jpeg|png|webp)/.test(type)||bytes.length<1000||!size||size[0]<60||size[1]<80)return null;
+ if(!/^image\/(jpeg|png|webp)/.test(type)||bytes.length<1000||!size||size[0]<60||size[1]<80||size[0]>size[1]*1.5)return null;
  return {cover_url:url,cover_verified:true,cover_validation:{content_type:type,bytes:bytes.length,width:size[0],height:size[1]}};
 }
 
 export async function enrichCatalogueWork(work,{canonical=null,cached=[],artwork=null,request,publisherAllowed=()=>false}) {
+ if(artwork?.title&&!sameWork(work,artwork.title,artwork.authors))artwork=null;
  const result={synopsis:work.synopsis || canonical?.synopsis || null,publication_year:work.publication_year || canonical?.original_publication_year || null,sources:[],diagnostics:[]};
  const candidates=[];
  if(canonical) {
@@ -86,11 +88,17 @@ export async function enrichCatalogueWork(work,{canonical=null,cached=[],artwork
  }
  const apply=candidate=>{
   if(!candidate)return;
-  if(!result.synopsis&&candidate.synopsis)result.synopsis=candidate.synopsis;
-  if(!result.publication_year&&candidate.publication_year&&candidate.provider!=='Google Books')result.publication_year=candidate.publication_year;
-  result.sources.push({provider:candidate.provider,source_url:candidate.source_url,fields:[...(candidate.synopsis?['synopsis']:[]),...(candidate.publication_year?['edition_publication_year']:[]),...(candidate.cover_url?['cover']:[])]});
+  const fields=[];
+  if(!result.synopsis&&candidate.synopsis){result.synopsis=candidate.synopsis;fields.push('synopsis');}
+  if(!result.publication_year&&candidate.publication_year&&candidate.provider!=='Google Books'){result.publication_year=candidate.publication_year;fields.push('edition_publication_year');}
+  if(candidate.cover_url)fields.push('cover');
+  if(fields.length)result.sources.push({provider:candidate.provider,source_url:candidate.source_url,fields});
  };
  for(const c of candidates)apply(c);
+ // Reuse verified bibliographic identifiers before spending a search request.
+ // Edition artwork is accepted only after the normal image validation below.
+ const knownIsbns=[...new Set([...(work.identifiers || []),...(work.provenance?.identifiers || [])].filter(v=>typeof v==='string'&&v.startsWith('isbn:')).map(v=>v.slice(5).replaceAll('-','')).filter(isValidIsbn))].slice(0,2);
+ for(const isbn of knownIsbns)candidates.push({cover_url:`https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg?default=false`,source_url:`https://openlibrary.org/isbn/${isbn}`,provider:'Open Library ISBN edition artwork'});
  // Validate selected artwork first. A failed manual selection stays selected.
  const initial=work.cover_url || canonical?.cover_url_preferred;
  const diagnostic=(stage,e)=>{result.diagnostics.push({stage,error:e.message});if(e.retryAfter&&(!result.retry_after||e.retryAfter>result.retry_after))result.retry_after=e.retryAfter;};

@@ -27,6 +27,6 @@ await writeFile(join(directory,`archive-${stamp}.txt`),list);
 run('pg_restore',['--file',decoded,dump]);
 const bytes=(await stat(dump)).size,sha256=createHash('sha256').update(await readFile(dump)).digest('hex');
 if(bytes<1000||!list.includes('TABLE DATA')||!(await stat(decoded)).size) throw new Error('Archive failed validation.');
-const evidence={created_at:new Date().toISOString(),database_file:dump.split(/[\\/]/).at(-1),bytes,sha256,table_data_entries:list.split('\n').filter(line=>line.includes('TABLE DATA')).length,archive_decode:'passed',tls:'verify-full',backup_location:'Private ReadingRoomBackups directory outside repository',hosted_restore:'not performed',storage_bytes:'Not included; existing media objects preserved'};
+const evidence={created_at:new Date().toISOString(),database_file:dump.split(/[\\/]/).at(-1),bytes,sha256,table_data_entries:list.split('\n').filter(line=>line.includes('TABLE DATA')).length,archive_decode:'passed',tls:'verify-full',backup_location:directory,hosted_restore:'not performed',storage_bytes:'Not included; existing media objects preserved'};
 await writeFile('docs/collections-backend-backup-evidence.json',JSON.stringify(evidence,null,2)+'\n');
 console.log(JSON.stringify(evidence,null,2));

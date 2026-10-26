@@ -7,6 +7,16 @@ actual image bytes and dimensions. Exact title and full author identity are
 required. Existing nonempty metadata and selected covers survive. Provider
 failures remain diagnostic evidence, never invented book facts.
 
+The server-side reviewed artwork cache also includes publisher-distributed
+edition images. New cache entries retain the exact reviewed title and authors;
+identity mismatch rejects them. Storefront social banners and interior artwork
+are excluded. Apple edition CDN images can be verified independently of search
+API quota. This adds no AI service or frontend credential.
+Known validated ISBNs also provide up to two Open Library edition-cover
+candidates before any catalogue search. All cover routes reject known logos,
+social previews, interior-image URLs and wide banners. Reviewed cache assets
+are visually checked against the book title and author before publication.
+
 `catalogue_enrichment_jobs` is independent of Library metadata and discovery.
 New catalogue rows enqueue automatically. Leases expire after fifteen minutes;
 claim tokens and identity hashes reject stale writes. Retries use 6/12/24/48-hour
@@ -40,6 +50,13 @@ source_url,summary)`. It checks identity and fills only an empty synopsis, with
 explicit provenance. Reconcile and obtain a fresh claim after recording new
 content; old claims must not be forced through. Artwork-only source additions
 are excluded from the assessment fingerprint.
+Unused provider descriptions also remain excluded: finding an edition cover
+does not promote an unselected description into material assessment evidence.
+After retaining source summaries, the trusted reviewer runs
+`supabase/operations/reconcile-reviewed-catalogue-metadata.sql`. It marks metadata
+complete only when a description, year and verified cover are already present,
+records that no provider request occurred, and preserves attempt budgets and
+all retry deadlines. Unfinished and currently leased work remains retryable.
 
 `collection_librarian_candidates(4)` returns leased work evidence, collection
 positions and the owner's canonical Taste Profile, actual feedback, ratings,

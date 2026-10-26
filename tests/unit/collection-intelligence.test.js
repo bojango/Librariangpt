@@ -47,6 +47,17 @@ test('new work trigger, fenced claims, metadata preservation and bounded provide
   assert.equal((await queryRow(db,"select count(*)::int n from collection_processing_attempts where work_key='new' and outcome='expired'")).n,1);
  }finally{await db.close();}
 });
+
+test('reviewed-source reconciliation reuses verified metadata without resetting deadlines or reader data',async()=>{
+ const db=await setup();try{
+  const key=(await queryRow(db,'select key from collection_catalogue_books limit 1')).key;
+  await db.query("update collection_catalogue_books set synopsis='A reviewed factual source description.',publication_year=2000,cover_url='https://source.test/edition.jpg',cover_verified_at=now() where key=$1",[key]);
+  await db.query("update catalogue_enrichment_jobs set status='incomplete',attempt_count=3,available_at=now()+interval '2 days' where work_key=$1",[key]);
+  const before=await queryRow(db,'select available_at,attempt_count from catalogue_enrichment_jobs where work_key=$1',[key]);await db.exec(await readFile('supabase/operations/reconcile-reviewed-catalogue-metadata.sql','utf8'));
+  const after=await queryRow(db,'select status,available_at,attempt_count from catalogue_enrichment_jobs where work_key=$1',[key]);assert.equal(after.status,'complete');assert.equal(after.available_at.getTime(),before.available_at.getTime());assert.equal(after.attempt_count,before.attempt_count);
+  assert.equal((await queryRow(db,"select count(*)::int n from collection_processing_attempts where outcome='reviewed_source_reconciled'")).n,1);assert.equal((await queryRow(db,'select count(*)::int n from library_entries')).n,0);
+ }finally{await db.close();}
+});
 test('individual assessment, duplicate publication fencing, pending failure and canonical association preserve history',async()=>{
  const db=await setup();try{
   const taste=await queryRow(db,"insert into taste_profile(user_id,dimension,preference) values($1,'Story','Exploration and discovery') returning id",[owner]);
@@ -100,6 +111,7 @@ test('catalogue providers require exact identity, reuse metadata, reject placeho
  const reused=await enrichCatalogueWork({...work,synopsis:'Existing factual synopsis.',cover_url:'https://manual.test/cover.jpg'},{canonical:null,request:async()=>({bytes:new Uint8Array(20),type:'image/png'})});
  assert.equal(reused.synopsis,'Existing factual synopsis.');assert.equal(reused.cover_verified,undefined);
  assert.equal(await verifiedCover('https://test/image',async()=>({bytes:new Uint8Array(2000),type:'image/png'})),null);
+ for(const url of ['https://images.test/smedia/isbn','https://images.test/InteriorImage','https://is1-ssl.mzstatic.com/image/1200x630wp.png','https://publisher.test/images/Publisher_Logo_cover.jpg'])assert.equal(await verifiedCover(url,async()=>{throw Error('Promotional image must not be requested');}),null);
  const retry=new Date(Date.now()+86400000).toISOString();const failed=await enrichCatalogueWork(work,{request:async()=>{throw Object.assign(new Error('Rate limited'),{retryAfter:retry});}});
  assert.equal(failed.retry_after,retry);assert.equal(failed.synopsis,null);assert.equal(failed.cover_url,undefined);
 });
@@ -108,6 +120,32 @@ test('actual metadata worker rejects browser credentials and never substitutes A
  assert.equal((await handler({},{Authorization:'Bearer owner',apikey:'public','x-enrichment-scheduler-token':''})).status,401);assert.equal(admin.rpcCalls.length,0);
  admin.rpc=async name=>({data:name==='claim_catalogue_enrichment'?[]:true,error:null});
  assert.equal((await handler({})).data.checked,0);
+});
+
+test('verified catalogue ISBN reuses edition artwork without a search or Library record',async()=>{
+ const urls=[],png=new Uint8Array(1500);png.set([137,80,78,71]);new DataView(png.buffer).setUint32(16,120);new DataView(png.buffer).setUint32(20,180);
+ const result=await enrichCatalogueWork({...work,synopsis:'Preserved source description.',provenance:{identifiers:['isbn:9780553298178','isbn:invalid']}},{request:async(url,kind)=>{urls.push(url);assert.equal(kind,'image');return{bytes:png,type:'image/png'};}});
+ assert.deepEqual(urls,['https://covers.openlibrary.org/b/isbn/9780553298178-L.jpg?default=false']);assert.equal(result.cover_verified,true);assert.equal(result.synopsis,'Preserved source description.');assert.equal(result.publication_year,2000);
+ assert.equal(result.sources[0].provider,'Open Library ISBN edition artwork');
+});
+
+test('unused cached descriptions do not turn cover enrichment into reassessment evidence',async()=>{
+ const png=new Uint8Array(1500);png.set([137,80,78,71]);new DataView(png.buffer).setUint32(16,120);new DataView(png.buffer).setUint32(20,180);
+ const result=await enrichCatalogueWork({...work,synopsis:'Selected factual synopsis.'},{cached:[{id:'edition',volumeInfo:{title:work.title,authors:[work.authors],description:'A different unused provider description.',publishedDate:'2024',imageLinks:{thumbnail:'https://books.google.com/edition.jpg'}}}],request:async()=>({bytes:png,type:'image/png'})});
+ assert.equal(result.synopsis,'Selected factual synopsis.');assert.equal(result.cover_verified,true);assert.ok(result.sources.length);assert.ok(result.sources.every(s=>s.fields.every(f=>f==='cover')));
+});
+
+test('reviewed artwork retains exact identity and supports publisher-distributed edition CDN',async()=>{
+ const {collectionArtwork}=await import('../../supabase/functions/_shared/catalogue-artwork.js');
+ const art=collectionArtwork['sam-reilly:abyss-codex'];assert.equal(art.title,'Abyss Codex');assert.equal(art.authors,'Christopher Cartwright');assert.match(art.cover_url,/mzstatic\.com/);assert.doesNotMatch(art.cover_url,/1200x630/);
+ let wrongImageRequested=false;
+ await enrichCatalogueWork(work,{artwork:art,request:async url=>{if(url===art.cover_url)wrongImageRequested=true;return null;}});assert.equal(wrongImageRequested,false);
+ const previous=globalThis.fetch;
+ try{
+  const admin=memoryAdmin({collection_catalogue_books:[{...work,cover_url:art.cover_url,synopsis:'Preserved factual description.'}]});const original=admin.rpc.bind(admin);admin.rpc=async(name,args)=>name==='claim_catalogue_enrichment'?{data:[{work_key:work.key,claim_token:owner}],error:null}:original(name,args);
+  const png=new Uint8Array(1500);png.set([137,80,78,71]);new DataView(png.buffer).setUint32(16,120);new DataView(png.buffer).setUint32(20,180);globalThis.fetch=async()=>new Response(png,{headers:{'Content-Type':'image/png'}});
+  const response=await(await edgeHandler('catalogue-enrichment',admin))({});assert.equal(response.status,200);assert.equal(admin.rpcCalls.find(c=>c.name==='finish_catalogue_enrichment').args.p_result.cover_verified,true);
+ }finally{globalThis.fetch=previous;}
 });
 test('cached real edition cover is validated during a Google search quota circuit',async()=>{
  const previous=globalThis.fetch;let fetched=0;

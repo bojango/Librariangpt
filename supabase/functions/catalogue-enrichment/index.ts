@@ -6,8 +6,8 @@ import { parseRetryAfter } from '../_shared/provider-fetch.js';
 import { collectionArtwork } from '../_shared/catalogue-artwork.js';
 const headers={'Content-Type':'application/json'};
 const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers});
-const authorHosts=['prestonchild.com','dennisetaylor.org','hughhowey.com','michaelcrichton.com','alastairreynolds.com','adriantchaikovsky.com','andyweirauthor.com'];
-const imageHosts=['covers.openlibrary.org','archive.org','books.google.com','books.google.co.uk','books.googleusercontent.com','images-na.ssl-images-amazon.com','images.macmillan.com','images.penguinrandomhouse.com','m.media-amazon.com','i0.wp.com','fbbpovieqfsjunmqtxvf.supabase.co',...authorHosts];
+const authorHosts=['prestonchild.com','dennisetaylor.org','hughhowey.com','michaelcrichton.com','alastairreynolds.com','adriantchaikovsky.com','andyweirauthor.com','carlosruizzafon.co.uk','daniel-suarez.com','chrishadfield.ca'];
+const imageHosts=['covers.openlibrary.org','archive.org','books.google.com','books.google.co.uk','books.googleusercontent.com','mzstatic.com','covers.audiobooks.com','images-na.ssl-images-amazon.com','images.macmillan.com','images.penguinrandomhouse.com','m.media-amazon.com','i0.wp.com','fbbpovieqfsjunmqtxvf.supabase.co',...authorHosts];
 function allowed(url:string,kind:string) {
  try{const u=new URL(url);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&Boolean(kind==='image'?(imageHosts.some(h=>u.hostname===h||u.hostname.endsWith(`.${h}`))||authorityUrl(url)):kind==='document'?authorityUrl(url,authorHosts):['openlibrary.org','www.googleapis.com'].includes(u.hostname));}catch{return false;}
 }
