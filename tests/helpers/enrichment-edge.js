@@ -13,8 +13,8 @@ export async function edgeHandler(slug, admin) {
   globalThis.__enrichmentTestClient = () => admin;
   globalThis.Deno = { env: { get: key => ({ SUPABASE_URL: 'https://db.example', SUPABASE_SERVICE_ROLE_KEY: 'test-service', SUPABASE_ANON_KEY: 'test-anon', ENRICHMENT_SCHEDULER_TOKEN: 'test-scheduler' })[key] }, serve: fn => { handler = fn; } };
   await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString('base64')}#${Math.random()}`);
-  return async body => {
-    const response = await handler(new Request('https://edge.example', { method: 'POST', headers: { Authorization: 'Bearer test-service', 'Content-Type': 'application/json', 'x-enrichment-scheduler-token': 'test-scheduler' }, body: JSON.stringify(body) }));
+  return async (body, headers={}) => {
+    const response = await handler(new Request('https://edge.example', { method: 'POST', headers: { Authorization: 'Bearer test-service', 'Content-Type': 'application/json', 'x-enrichment-scheduler-token': 'test-scheduler',...headers }, body: JSON.stringify(body) }));
     return { status: response.status, data: await response.json() };
   };
 }
@@ -24,7 +24,7 @@ export function memoryAdmin(seed = {}) {
   const rpcCalls = [];
   const admin = { tables, rpcCalls, from(table) {
     let operation = 'select', payload, options = {}, single = false;
-    const filters = [], orders = []; let limit = Infinity;
+    const filters = [], orders = []; let limit = Infinity,offset=0;
     const builder = {
       select(_columns, opts = {}) { options = { ...options, ...opts }; return this; },
       eq(key, value) { filters.push(row => row[key] === value); return this; },
@@ -32,6 +32,7 @@ export function memoryAdmin(seed = {}) {
       ilike(key, value) { filters.push(row => String(row[key]).toLowerCase() === value.toLowerCase()); return this; },
       order(key, opts = {}) { orders.push({ key, ascending: opts.ascending !== false }); return this; },
       limit(value) { limit = value; return this; },
+      range(from,to) { offset=from;limit=to-from+1;return this; },
       maybeSingle() { single = true; return this; }, single() { single = true; return this; },
       update(value) { operation = 'update'; payload = value; return this; },
       insert(value) { operation = 'insert'; payload = value; return this; },
@@ -55,7 +56,7 @@ export function memoryAdmin(seed = {}) {
           else { const row = { id: `generated-${all.length}`, ...payload }; all.push(row); tables[table] = all; rows = [row]; }
         }
         for (const {key,ascending} of orders.reverse()) rows.sort((a,b) => String(a[key] || '').localeCompare(String(b[key] || '')) * (ascending ? 1 : -1));
-        return { error: null, data: options.head ? null : single ? rows[0] || null : rows.slice(0,limit).map(row=>({...row})), count: rows.length };
+        return { error: null, data: options.head ? null : single ? rows[0] || null : rows.slice(offset,offset+limit).map(row=>({...row})), count: rows.length };
       }).then(resolvePromise,reject); }
     };
     return builder;

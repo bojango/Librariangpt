@@ -30,10 +30,15 @@ export function buildCollections(state) {
   const data = state.collectionData || {};
   const definitions = [...(data.collections?.length ? data.collections : catalogueCollections)];
   const works = [...(data.works?.length ? data.works : catalogueWorks)];
+  // A partial backend rollout must retain every previously visible starter.
+  if(data.collections?.length) {
+    for(const collection of catalogueCollections) if(!definitions.some(c=>c.key===collection.key)) definitions.push(collection);
+    for(const work of catalogueWorks) if(!works.some(w=>w.key===work.key)) works.push(work);
+  }
   // Preserve pre-existing series beyond the verified starter catalogues.
   // Their recorded titles are explicitly distinguished from a complete catalogue.
   for(const series of data.series || []) {
-    if(definitions.some(c=>c.series_id===series.id || normaliseIdentity(c.name)===normaliseIdentity(series.name))) continue;
+    if(definitions.some(c=>c.series_id===series.id || (!c.series_id&&normaliseIdentity(c.name)===normaliseIdentity(series.name)))) continue;
     const links=(data.bookSeries || []).filter(link=>link.series_id===series.id);
     if(!links.length) continue;
     const members=[];

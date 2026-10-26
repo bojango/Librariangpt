@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { catalogueRelatedItems } from '../_shared/collection-related.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -169,7 +170,18 @@ Deno.serve(async (req: Request) => {
       .filter((item: any) => item.title);
 
     const knownAuthorTitles = new Set(authorBookIds.map((id: string) => norm(baseMap.get(id)?.title)).filter(Boolean));
-    const knownSeriesTitles = new Set(seriesBookIds.map((id: string) => norm(baseMap.get(id)?.title)).filter(Boolean));
+    // Verified catalogue rows augment the retained shelf with the full sequence.
+    // Canonical series UUIDs remain the heading/navigation identity.
+    let catalogueItems:any[]=[];
+    if(seriesId) {
+      const collection=await admin.from('collections').select('key').eq('series_id',seriesId).maybeSingle();
+      if(collection.data?.key) {
+        const members=await admin.from('collection_memberships').select('official_number,collection_catalogue_books(*)').eq('collection_key',collection.data.key);
+        if(members.error) console.error('Could not read collection shelf',members.error.message);
+        else catalogueItems=catalogueRelatedItems(members.data || [],seriesItems,bookId,seriesName);
+      } else if(collection.error&&!['42P01','PGRST205'].includes(collection.error.code)) console.error('Could not read collection mapping',collection.error.message);
+    }
+    const knownSeriesTitles = new Set([...seriesBookIds.map((id: string) => norm(baseMap.get(id)?.title)),...catalogueItems.map(item=>norm(item.title))].filter(Boolean));
     const externalSeries: any[] = [];
     const externalAuthor: any[] = [];
 
@@ -205,7 +217,7 @@ Deno.serve(async (req: Request) => {
       await Promise.all([...externalSeries, ...externalAuthor].slice(0, 12).map(addSynopsis));
     }
 
-    const seriesBooks = [...seriesItems, ...externalSeries].sort((a: any, b: any) => {
+    const seriesBooks = [...seriesItems, ...catalogueItems, ...externalSeries].sort((a: any, b: any) => {
       const ao = Number.isFinite(Number(a.series_order)) ? Number(a.series_order) : 9999;
       const bo = Number.isFinite(Number(b.series_order)) ? Number(b.series_order) : 9999;
       return ao - bo || (a.publication_year || 9999) - (b.publication_year || 9999) || String(a.title).localeCompare(String(b.title));
@@ -215,7 +227,7 @@ Deno.serve(async (req: Request) => {
     return json({
       series: seriesName ? {
         id: seriesId, name: seriesName, current_order: seriesLink.data?.series_order == null ? null : Number(seriesLink.data.series_order),
-        total_books: seriesBookIds.length + externalSeries.length, books: seriesBooks
+        total_books: seriesBookIds.length + catalogueItems.length + externalSeries.length, books: seriesBooks
       } : null,
       author: authorName ? { id: authorId, name: authorName, books: authorBooks } : null,
       generated_at: new Date().toISOString()

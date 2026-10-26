@@ -4,7 +4,7 @@ import {readFile,mkdir,writeFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {chromium,webkit} from '@playwright/test';
 const base='https://bojango.github.io/Librariangpt/';
-const generation='123';
+const generation='124';
 const textFiles=['index.html','sw.js','src/styles/app.css','dist/app.js','supabase-config.js','manifest.webmanifest'];
 const evidence={url:base,verified_at:new Date().toISOString(),generation,assets:[],browser_checks:[],authenticated_owner_check:'Not performed: browser is signed out'};
 for(const file of textFiles) {

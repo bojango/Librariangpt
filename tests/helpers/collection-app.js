@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import {collectionArtwork} from '../../src/data/collection-artwork.js';
 import {catalogueWorks,catalogueCollections} from '../../src/data/collection-catalogue.js';
 
-export async function fixture(page,{theme='reading-room',backend=true,fail=false,delay=0,canonicalOnly=false,race=false,realArtwork=false,related=false,unmatchedSeries=false,base='/'}={}) {
+export async function fixture(page,{theme='reading-room',backend=true,fail=false,delay=0,canonicalOnly=false,race=false,realArtwork=false,related=false,unmatchedSeries=false,base='/',onSelectedAdd=null}={}) {
  const user={id:'10000000-0000-0000-0000-000000000001',aud:'authenticated',role:'authenticated'};
  const jwt=[{alg:'HS256'},{sub:user.id,role:'authenticated',exp:Math.floor(Date.now()/1000)+3600}].map(x=>Buffer.from(JSON.stringify(x)).toString('base64url')).join('.')+'.test';
  await page.addInitScript(({user,jwt,theme})=>{
@@ -59,9 +59,10 @@ export async function fixture(page,{theme='reading-room',backend=true,fail=false
    books.push({...canonicalBook,...value,cover_url:canonicalBook.cover_url_preferred});return json([{book_id:value.book_id}]);
   }
   if(table==='library_add_selected_result') {
-   const {p_result:result,p_status,p_ownership}=request.postDataJSON();
-   const book={id:`new-${canonical.length}`,title:result.title,authors:result.authors.join(', '),overall_status:p_status,ownership_status:p_ownership};
-   canonical.push(book);books.push(book);return json({book_id:book.id,already_in_library:false});
+   const payload=request.postDataJSON(),{p_result:result,p_status,p_ownership}=payload;
+   const saved=onSelectedAdd?await onSelectedAdd(payload):null;
+   const book={id:saved?.book_id || `new-${canonical.length}`,title:result.title,authors:result.authors.join(', '),overall_status:p_status,ownership_status:p_ownership};
+   canonical.push(book);books.push(book);return json(saved || {book_id:book.id,already_in_library:false});
   }
   if(table==='save_reading_path') {
    const payload=request.postDataJSON();paths=[{id:'saved-path',collection_key:payload.p_collection_key,user_id:user.id}];
