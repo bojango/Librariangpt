@@ -45,6 +45,8 @@ series('rama','Rama','Arthur C. Clarke','https://www.penguinrandomhouse.com/seri
 series('ready-player','Ready Player One','Ernest Cline','https://www.penguinrandomhouse.com/books/557223/ready-player-two-by-ernest-cline/',[['Ready Player One',2011],['Ready Player Two',2020]]);
 series('sand','Sand','Hugh Howey','https://harper1styear.com/book-details/9780358726425/',[['Sand',2014],['Across the Sand',2022]],{scope:'The two published Sand Chronicles novels, counting the original serial once as the Sand omnibus.'});
 series('beacon-23','Beacon 23','Hugh Howey','https://hughhowey.com/beacon-23/',[['Beacon 23',2015,null]],{numbers:false,scope:'The complete five-part serialized novel counted once as its omnibus. Component serial parts are not duplicate novels.'});
+extraCollections.at(-1).catalogue_type='serialized_novel';
+extraWorks.at(-1).serialized_novel=true;
 series('hitchhikers','Hitchhiker\'s Guide','Douglas Adams','https://www.panmacmillan.com/series/the-hitchhikers-guide-to-the-galaxy/panmac26797',[
  ["The Hitchhiker's Guide to the Galaxy",1979],['The Restaurant at the End of the Universe',1980],['Life, the Universe and Everything',1982],['So Long, and Thanks for All the Fish',1984],['Mostly Harmless',1992]
 ],{scope:'Douglas Adams\' five novels. Eoin Colfer\'s continuation is outside this scoped author sequence.'});

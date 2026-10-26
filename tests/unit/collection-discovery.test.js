@@ -17,7 +17,7 @@ test('all canonical works are classified, including Gateway, universes, standalo
   assert.ok(outcomes[1].collections.some(c=>c.kind==='universe'));
   assert.ok(outcomes[1].collections.some(c=>c.key==='inhibitor-trilogy'));
   assert.equal(outcomes[3].works.length,6);
-  assert.equal(outcomes[4].works.length,9);
+  assert.equal(outcomes[4].works.length,10);
   assert.ok(outcomes[5].collections.some(c=>c.key==='nora-corrie'));
   assert.ok(outcomes[5].collections.some(c=>c.key==='preston-child'));
 });

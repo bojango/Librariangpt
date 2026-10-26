@@ -109,7 +109,8 @@ begin
     select j.book_id from public.collection_discovery_jobs j
     where (p_book_id is null or j.book_id=p_book_id) and j.attempt_count<5 and
       ((j.status in ('queued','retry') and j.available_at<=now()) or (j.status='processing' and j.locked_at<now()-interval '15 minutes'))
-    order by j.available_at,j.book_id for update skip locked limit greatest(1,least(coalesce(p_limit,2),4))
+    order by case when exists(select 1 from public.library_entries l where l.book_id=j.book_id) then 0 else 1 end,
+      j.available_at,j.book_id for update skip locked limit greatest(1,least(coalesce(p_limit,2),4))
   ) update public.collection_discovery_jobs j set status='processing',attempt_count=j.attempt_count+1,
       claim_token=gen_random_uuid(),locked_at=now(),updated_at=now()
     from due where j.book_id=due.book_id returning j.*;
@@ -120,7 +121,7 @@ end $$;
 create function public.finish_collection_discovery(p_book_id uuid,p_token uuid,p_revision bigint,p_result jsonb,p_error text default null,p_retry_after timestamptz default null)
 returns boolean language plpgsql security invoker set search_path='' as $$
 declare j public.collection_discovery_jobs; w jsonb; c jsonb; m jsonb;
-  wk text; ck text; sid uuid; bid uuid; series_name text; mapping jsonb:='{}'::jsonb; conflict_found boolean:=false; existing_number numeric;
+  wk text; ck text; sid uuid; bid uuid; candidate_series uuid[]; series_name text; mapping jsonb:='{}'::jsonb; collection_mapping jsonb:='{}'::jsonb; conflict_found boolean:=false; existing_number numeric;
 begin
   select * into j from public.collection_discovery_jobs where book_id=p_book_id for update;
   if j.status is distinct from 'processing' or j.claim_token is distinct from p_token or j.revision is distinct from p_revision then return false; end if;
@@ -159,20 +160,29 @@ begin
     values(wk,bid,w->>'title',w->>'authors',(w->>'publication_year')::integer,coalesce(w->>'publication_state','published'),w->>'format',w->>'cover_url',w->>'source_url',(w->>'verified_at')::date,w)
     on conflict(key) do update set book_id=coalesce(collection_catalogue_books.book_id,excluded.book_id),
       cover_url=coalesce(collection_catalogue_books.cover_url,excluded.cover_url),
+      publication_year=case when collection_catalogue_books.provenance->>'type'='existing_database' then excluded.publication_year else coalesce(collection_catalogue_books.publication_year,excluded.publication_year) end,
+      publication_state=case when collection_catalogue_books.provenance->>'type'='existing_database' then excluded.publication_state else collection_catalogue_books.publication_state end,
+      format=coalesce(collection_catalogue_books.format,excluded.format),
       provenance=case when collection_catalogue_books.provenance->>'type'='existing_database' then excluded.provenance else collection_catalogue_books.provenance end,
       source_url=case when collection_catalogue_books.provenance->>'type'='existing_database' then excluded.source_url else collection_catalogue_books.source_url end,
       verified_at=case when collection_catalogue_books.provenance->>'type'='existing_database' then excluded.verified_at else collection_catalogue_books.verified_at end
     where collection_catalogue_books.provenance->>'type'='existing_database'
-      or (collection_catalogue_books.book_id is null and excluded.book_id is not null) or (collection_catalogue_books.cover_url is null and excluded.cover_url is not null);
+      or (collection_catalogue_books.book_id is null and excluded.book_id is not null) or (collection_catalogue_books.cover_url is null and excluded.cover_url is not null)
+      or (collection_catalogue_books.publication_year is null and excluded.publication_year is not null) or (collection_catalogue_books.format is null and excluded.format is not null);
     mapping:=mapping||jsonb_build_object(w->>'key',wk);
   end loop;
   for c in select value from jsonb_array_elements(coalesce(p_result->'collections','[]')) order by case when value->>'kind'='universe' then 0 else 1 end loop
     select key,series_id into ck,sid from public.collections where key=c->>'key';
     if ck is null and c->>'kind'='series' then
       -- Reuse an existing series only with corroborating canonical membership.
-      select s.id into sid from public.series s where lower(s.name)=lower(c->>'name') and exists(
+      select array_agg(s.id) into candidate_series from public.series s where (
+        regexp_replace(lower(normalize(s.name,NFKD)),'[^a-z0-9]','','g')=regexp_replace(lower(normalize(c->>'name',NFKD)),'[^a-z0-9]','','g')
+        or exists(select 1 from jsonb_array_elements_text(coalesce(c->'aliases','[]')) alias where regexp_replace(lower(normalize(s.name,NFKD)),'[^a-z0-9]','','g')=regexp_replace(lower(normalize(alias,NFKD)),'[^a-z0-9]','','g')))
+        and exists(
         select 1 from public.book_series bs join public.collection_catalogue_books b on b.book_id=bs.book_id
         where bs.series_id=s.id and b.key in (select mapping->>(value->>'work_key') from jsonb_array_elements(c->'members')));
+      if cardinality(candidate_series)>1 then raise exception 'Ambiguous existing series identities require review'; end if;
+      sid:=candidate_series[1];
       if sid is null then
         series_name:=c->>'name';
         if exists(select 1 from public.series where lower(name)=lower(c->>'name')) then
@@ -188,12 +198,13 @@ begin
     ck:=coalesce(ck,c->>'key');
     if exists(select 1 from public.collections where key=ck and kind is distinct from c->>'kind') then raise exception 'Collection kind conflict'; end if;
     insert into public.collections(key,series_id,name,kind,description,complete,source_url,provenance,parent_key)
-    values(ck,sid,c->>'name',c->>'kind',c->>'description',(c->>'complete')::boolean,c->>'source_url',c,
-      case when exists(select 1 from public.collections where key=c->>'parent_key') then c->>'parent_key' else null end)
+    values(ck,sid,c->>'name',c->>'kind',coalesce(c->>'description','Verified source catalogue; scope and numbering follow the cited source.'),(c->>'complete')::boolean,c->>'source_url',c,
+      case when exists(select 1 from public.collections where key=coalesce(collection_mapping->>(c->>'parent_key'),c->>'parent_key')) then coalesce(collection_mapping->>(c->>'parent_key'),c->>'parent_key') else null end)
     on conflict(key) do update set complete=excluded.complete,provenance=excluded.provenance,source_url=excluded.source_url,
-      description=case when collections.provenance->>'type'='existing_database' then excluded.description else collections.description end,
+      name=excluded.name,description=excluded.description,
       parent_key=coalesce(collections.parent_key,excluded.parent_key)
       where collections.provenance is distinct from excluded.provenance;
+    collection_mapping:=collection_mapping||jsonb_build_object(c->>'key',ck);
     for m in select value from jsonb_array_elements(c->'members') loop
       wk:=mapping->>(m->>'work_key');
       if wk is null then raise exception 'Missing catalogue work'; end if;
@@ -245,14 +256,6 @@ select c.key,w.key,bs.series_order,jsonb_build_object('type','existing_database'
 join public.collections c on c.series_id=bs.series_id join public.collection_catalogue_books w on w.book_id=bs.book_id
 on conflict(collection_key,work_key) do nothing;
 
--- Same Vault credentials and pg_cron/pg_net infrastructure as metadata enrichment.
--- Deploy collection-discovery before enabling this schedule in an approved rollout.
-select cron.schedule('collection-discovery-every-five-minutes','2-59/5 * * * *',$cron$
- select net.http_post(
-  url := (select decrypted_secret from vault.decrypted_secrets where name='project_url')||'/functions/v1/collection-discovery',
-  headers := jsonb_build_object('Content-Type','application/json',
-    'Authorization','Bearer '||(select decrypted_secret from vault.decrypted_secrets where name='goodreads_scheduler_service_key'),
-    'apikey',(select decrypted_secret from vault.decrypted_secrets where name='goodreads_scheduler_service_key'),
-    'x-enrichment-scheduler-token',(select decrypted_secret from vault.decrypted_secrets where name='enrichment_scheduler_token')),
-  body := '{"batch_size":2}'::jsonb);
-$cron$);
+-- This migration deliberately does not register or activate a cron job.
+-- After deployment and smoke testing, scheduling is a separate approved
+-- operation in supabase/operations/activate-collection-discovery.sql.

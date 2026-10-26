@@ -58,7 +58,7 @@ export function discoverCollections(book, snapshot, registry) {
     return {...w,book_id:canonical?.id || null,canonical_title:canonical?.title || null,canonical_authors:canonical?.authors || null,cover_url:canonical?.cover_url_preferred || editionCover || w.cover_url || null};
   });
   return { status:collections.length ? 'linked' : work.standalone === true ? 'standalone' : 'unresolved',
-    reason:collections.length ? `Verified ${match.basis}; official catalogues retained separately from reading paths.` : work.standalone === true ? 'Explicit author/publisher standalone classification.' : 'No verified membership.',
+    reason:collections.length ? `Verified ${match.basis}; official catalogues retained separately from reading paths.` : work.standalone === true ? (work.verification==='explicit_standalone_bibliography'?'Explicit standalone classification in the cited bibliography.':'Explicit author/publisher standalone classification.') : 'No verified membership.',
     work_key:work.key,basis:match.basis,source_url:work.source_url,verified_at:work.verified_at || registry.verified_at,
     existing_memberships:existing,collections,works };
 }
@@ -73,9 +73,15 @@ export function providerHints(book) {
 
 // Only a corroborated work/ISBN is queried. No title-only external lookup.
 // Evidence already fetched by metadata enrichment is always reused first.
-export async function discoverWithProviders(book, snapshot, registry, {fetchJson} = {}) {
-  const decision = discoverCollections(book,snapshot,registry);
-  if (decision.status !== 'unresolved' || !fetchJson || decision.candidates?.length) return decision;
+export async function discoverWithProviders(book, snapshot, registry, options = {}) {
+  const {fetchJson}=options;
+  const {mergeDiscoveryRegistry,discoverExternalCollections}=await import('./collection-providers.js');
+  const effective=mergeDiscoveryRegistry(snapshot,registry);
+  const decision = discoverCollections(book,snapshot,effective);
+  if (decision.status !== 'unresolved') return decision;
+  const external=await discoverExternalCollections(book,snapshot,effective,options);
+  if(external) return {...external,existing_memberships:decision.existing_memberships};
+  if (!fetchJson || decision.candidates?.length) return decision;
   const ids = identifiers(book), work = ids.find(id => /^ol:OL\d+W$/.test(id));
   const isbn = ids.find(id => /^isbn:(?:\d{13}|\d{9}[\dX])$/.test(id));
   const url = work ? `https://openlibrary.org/works/${work.slice(3)}.json` : isbn ? `https://openlibrary.org/isbn/${isbn.slice(5)}.json` : null;

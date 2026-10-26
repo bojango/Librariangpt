@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import {collectionArtwork} from '../../src/data/collection-artwork.js';
 import {catalogueWorks,catalogueCollections} from '../../src/data/collection-catalogue.js';
 
-export async function fixture(page,{theme='reading-room',backend=true,fail=false,delay=0,canonicalOnly=false,race=false,realArtwork=false,related=false,unmatchedSeries=false,base='/',onSelectedAdd=null}={}) {
+export async function fixture(page,{theme='reading-room',backend=true,fail=false,delay=0,canonicalOnly=false,race=false,realArtwork=false,related=false,unmatchedSeries=false,base='/',onSelectedAdd=null,extraBooks=[]}={}) {
  const user={id:'10000000-0000-0000-0000-000000000001',aud:'authenticated',role:'authenticated'};
  const jwt=[{alg:'HS256'},{sub:user.id,role:'authenticated',exp:Math.floor(Date.now()/1000)+3600}].map(x=>Buffer.from(JSON.stringify(x)).toString('base64url')).join('.')+'.test';
  await page.addInitScript(({user,jwt,theme})=>{
@@ -12,6 +12,7 @@ export async function fixture(page,{theme='reading-room',backend=true,fail=false
  },{user,jwt,theme});
  const books=[{id:'thunder',title:'Thunderhead',authors:'Douglas Preston, Lincoln Child',ownership_status:'Owned',overall_status:'Currently Reading',synopsis:'A verified expedition synopsis.',current_page:40,total_pages:400,progress_percent:10,cover_url:'/icons/icon-192.png'},
  {id:'jurassic',title:'Jurassic Park',authors:'Michael Crichton',ownership_status:'Owned',overall_status:'Read',synopsis:'A fictional dinosaur park.',cover_url:'/icons/icon-192.png'}];
+ books.push(...extraBooks);
  if(realArtwork) {books[0].cover_url=collectionArtwork['pc:thunderhead'].cover_url;books[1].cover_url=collectionArtwork['crichton:jurassic-park'].cover_url;}
  if(related) books.push({id:'bob',title:'We Are Legion (We Are Bob)',authors:'Dennis E. Taylor',original_publication_year:2016,overall_status:'Read',ownership_status:'Owned',cover_url:'/icons/icon-192.png'},{id:'bob-2',title:'For We Are Many',authors:'Dennis E. Taylor',overall_status:'Owned - Unread',ownership_status:'Owned',cover_url:'/icons/icon-192.png'});
  const series=related?[{id:'bob-series',name:'Bobiverse'},{id:'jp-series',name:'Jurassic Park'}]:[];

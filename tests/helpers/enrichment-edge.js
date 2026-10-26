@@ -4,14 +4,14 @@ import { resolve, dirname } from 'node:path';
 
 // Run the actual TS handlers with the Supabase/network boundary injected.
 // The DB migration tests separately execute real PostgreSQL constraints/RPCs.
-export async function edgeHandler(slug, admin) {
+export async function edgeHandler(slug, admin, environment = {}) {
   const path = resolve(`supabase/functions/${slug}/index.ts`);
   const source = (await readFile(path,'utf8')).replace(/import \{ createClient \} from 'https:[^']+';/,
     'const createClient = globalThis.__enrichmentTestClient;');
   const compiled = await build({ stdin: { contents: source, resolveDir: dirname(path), loader: 'ts' }, bundle: true, write: false, format: 'esm', platform: 'node' });
   let handler;
   globalThis.__enrichmentTestClient = () => admin;
-  globalThis.Deno = { env: { get: key => ({ SUPABASE_URL: 'https://db.example', SUPABASE_SERVICE_ROLE_KEY: 'test-service', SUPABASE_ANON_KEY: 'test-anon', ENRICHMENT_SCHEDULER_TOKEN: 'test-scheduler' })[key] }, serve: fn => { handler = fn; } };
+  globalThis.Deno = { env: { get: key => ({ SUPABASE_URL: 'https://db.example', SUPABASE_SERVICE_ROLE_KEY: 'test-service', SUPABASE_ANON_KEY: 'test-anon', ENRICHMENT_SCHEDULER_TOKEN: 'test-scheduler', DENO_DEPLOYMENT_ID:'fixture_project_function_version',...environment })[key] }, serve: fn => { handler = fn; } };
   await import(`data:text/javascript;base64,${Buffer.from(compiled.outputFiles[0].text).toString('base64')}#${Math.random()}`);
   return async (body, headers={}) => {
     const response = await handler(new Request('https://edge.example', { method: 'POST', headers: { Authorization: 'Bearer test-service', 'Content-Type': 'application/json', 'x-enrichment-scheduler-token': 'test-scheduler',...headers }, body: JSON.stringify(body) }));
@@ -28,6 +28,7 @@ export function memoryAdmin(seed = {}) {
     const builder = {
       select(_columns, opts = {}) { options = { ...options, ...opts }; return this; },
       eq(key, value) { filters.push(row => row[key] === value); return this; },
+      in(key, values) { filters.push(row => values.includes(row[key])); return this; },
       neq(key, value) { filters.push(row => row[key] !== value); return this; },
       ilike(key, value) { filters.push(row => String(row[key]).toLowerCase() === value.toLowerCase()); return this; },
       order(key, opts = {}) { orders.push({ key, ascending: opts.ascending !== false }); return this; },

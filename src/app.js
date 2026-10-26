@@ -14,7 +14,7 @@ import { authView, claimView, errorView } from './views/auth.js';
 import { homeView } from './views/home.js';
 import { libraryView } from './views/library.js';
 import { collectionsView, collectionDetailView, catalogueBookView } from './views/collections.js';
-import { buildCollections, catalogueBook } from './features/collections.js';
+import { buildCollections, catalogueBook, workRouteId } from './features/collections.js';
 import { addCatalogueToWishlist, loadCollectionData, saveReadingPath } from './data/collections.js';
 import { profileEditMarkup, profilePhotoActionsMarkup, profileView } from './views/profile.js';
 import { recommendationsView } from './views/recommendations.js';
@@ -68,6 +68,22 @@ let serviceWorkerRegistration = null;
 let motionController = null;
 let skipNextRouteTransition = false;
 let activityLoadVersion = 0;
+let collectionRefresh = null;
+
+async function refreshCollections() {
+  if(collectionRefresh || !store.value.session || store.value.pathDraft || store.value.pathSaving) return;
+  const userId=store.value.session.user.id,route={...store.value.route};
+  const before=JSON.stringify(store.value.collectionData);
+  collectionRefresh=loadCollectionData().then(async data=>{
+    if(store.value.session?.user?.id!==userId || store.value.pathDraft || store.value.pathSaving) return;
+    // Retain a previously loaded catalogue during a temporary provider/API error.
+    const next=data.error&&store.value.collectionData?.available?{...store.value.collectionData,error:data.error}:data;
+    if(before===JSON.stringify(next)) return;
+    store.value.collectionData=next;
+    if(sameRoute(store.value.route,route)&&['collections','collection','book'].includes(route.name)) await renderRoute(route,{mode:'refresh'});
+  }).catch(error=>console.info('[Reading Room] collection refresh deferred:',error?.message || error)).finally(()=>{collectionRefresh=null;});
+  return collectionRefresh;
+}
 
 function paintFeed() {
   if (store.value.route.name !== 'profile' || store.value.profileTab !== 'feed') return;
@@ -106,7 +122,9 @@ async function refreshActivity({ more = false, filter = null, background = false
 // Owner-scoped polling also captures changes made by ChatGPT/automation without
 // depending on optional Realtime publication configuration.
 window.setInterval(() => {
-  if (document.visibilityState !== 'visible' || store.value.route.name !== 'profile' || store.value.profileTab !== 'feed') return;
+  if(document.visibilityState!=='visible') return;
+  if(['collections','collection','book'].includes(store.value.route.name)) void refreshCollections();
+  if (store.value.route.name !== 'profile' || store.value.profileTab !== 'feed') return;
   if (!store.value.activityFeed.loading) void refreshActivity({ background: true });
   app.querySelectorAll('.activity-time time').forEach(time => {
     if (!time.parentElement.dataset.timeRevealed) time.textContent = activityTime(time.dateTime).label;
@@ -278,6 +296,12 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
   diagnostics.event('route_render_start', { route: route.name, book_id: route.bookId || null, mode, render_generation: version, route_changed: routeChanged });
   store.setRoute(route);
   if (!store.value.session) { paint(authView(store.value.authMode), { renderMode: mode }); diagnostics.event('route_render_complete', { route: route.name, mode, render_generation: version }); return; }
+  if(route.name==='collection') {
+    const collection=buildCollections(store.value).find(c=>c.key===route.collectionKey);
+    if(collection?.catalogue_type==='serialized_novel'&&collection.works.length===1) {
+      router.navigate({name:'book',bookId:workRouteId(collection.works[0])},{replace:true});return;
+    }
+  }
   if (route.name === 'reading-session-choose') {
     try {
       await loadPendingStart(route.sessionId);
@@ -1114,6 +1138,7 @@ async function init() {
     if (document.visibilityState === 'visible') {
       void redirectPendingNfcOnResume();
       if (store.value.route.name === 'profile') void refresh({ quiet: true });
+      else if(['collections','collection','book'].includes(store.value.route.name)) void refreshCollections();
     }
   });
   window.addEventListener('focus', () => { void redirectPendingNfcOnResume(); });

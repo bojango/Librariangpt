@@ -9,6 +9,18 @@ const authors='Douglas Preston, Lincoln Child';
 const book={id:'thunder',title:'Thunderhead',authors,ownership_status:'Owned',overall_status:'Currently Reading'};
 const state={books:[book],recommendations:[{book_id:'thunder',match_score_10:9.3,why_recommended:'Existing reason'}],route:{name:'collection',collectionKey:'preston-child'},collectionData:{books:[book]}};
 
+test('aliased backend catalogues reuse canonical keys without duplicate starter cards or work entries',()=>{
+ const jp={id:'jp',title:'Jurassic Park',authors:'Michael Crichton',ownership_status:'Owned',overall_status:'Read'};
+ const c=catalogueCollections.find(c=>c.key==='jurassic-park');
+ const s={books:[jp],collectionData:{books:[jp],authorCollections:[],collections:[{...c,key:'canonical-jp',series_id:'jp-series',members:undefined}],works:catalogueWorks.filter(w=>c.members.some(m=>m.work_key===w.key)).map((w,i)=>({...w,key:`canonical-${i}`,book_id:i===0?jp.id:null})),memberships:c.members.map((m,i)=>({...m,official_number:`${m.official_number}.00`,work_key:`canonical-${i}`,collection_key:'canonical-jp'}))}};
+ const matching=buildCollections(s).filter(x=>x.name==='Jurassic Park');assert.equal(matching.length,1);assert.equal(matching[0].key,'canonical-jp');assert.equal(matching[0].total,2);assert.equal(matching[0].owned,1);assert.equal(matching[0].works[0].official_number,1);
+});
+test('only the verified Beacon 23 serial is excluded; unrelated incomplete singleton catalogues remain visible',()=>{
+ const b={id:'beacon',title:'Beacon 23',authors:'Hugh Howey'},u={id:'unknown',title:'Unknown first',authors:'Another Author'};
+ const s={books:[b,u],collectionData:{books:[b,u],series:[{id:'b',name:'Beacon 23'},{id:'u',name:'Unresolved Series'}],bookSeries:[{series_id:'b',book_id:b.id},{series_id:'u',book_id:u.id}],authorCollections:[]}};
+ assert.equal(buildCollections(s).find(c=>c.series_id==='b').works.length,1);assert.equal(overviewCollections(s).some(c=>c.series_id==='b'),false);assert.equal(overviewCollections(s).find(c=>c.series_id==='u').total,1);assert.equal(seriesCollectionRoutes(s).b,undefined);
+});
+
 test('series links use canonical identifiers and membership joins rather than heading/title comparisons',()=>{
  const jp={id:'jp',title:'Jurassic Park',authors:'Michael Crichton'};
  const bob={id:'bob',title:'We Are Legion (We Are Bob)',authors:'Dennis E. Taylor'};

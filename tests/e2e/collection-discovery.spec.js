@@ -7,6 +7,7 @@ import {discoverCollections} from '../../supabase/functions/_shared/collection-d
 import {registry} from '../../supabase/functions/_shared/collection-registry.js';
 
 test('frontend add queues real SQL discovery and publishes collection links without adding catalogue titles to Wishlist',async({page})=>{
+ await page.clock.install();
  const db=await discoveryDb();
  try {
   await db.query('insert into auth.users(id) values($1)',[owner]);
@@ -24,6 +25,9 @@ test('frontend add queues real SQL discovery and publishes collection links with
   await page.locator('[data-work-key="pc:relic"] h3 a').click();
   await page.locator('.collection-catalogue-hero').getByRole('button',{name:'Add to library',exact:true}).click();
   await expect(page.locator('.detail-header h1')).toHaveText('Relic');
+  // Let detail requests settle before the later hard reload. Windows WebKit
+  // reports navigation-cancelled fetches as inspector access-control errors.
+  await page.waitForLoadState('networkidle');
   expect(added.book_id).toBeTruthy();
   const jobs=(await db.query('select * from public.collection_discovery_jobs')).rows;
   expect(jobs).toHaveLength(1);expect(jobs[0].book_id).toBe(added.book_id);expect(jobs[0].status).toBe('queued');
@@ -43,7 +47,8 @@ test('frontend add queues real SQL discovery and publishes collection links with
     const result=await db.query(`select * from public.${table}`);
     return route.fulfill({contentType:'application/json',body:JSON.stringify(result.rows)});
   });
-  await page.goto('/#/collections');await page.reload();
+  await page.goto('/#/collections');await expect(page.getByRole('searchbox',{name:'Search collections'})).toBeVisible();
+  await page.clock.runFor(30050);
   await page.goto('/#/collection/preston-child');await page.getByRole('button',{name:'Full Collection',exact:true}).click();
   await expect(page.locator('[data-work-key="pc:relic"]')).toContainText('Wishlist');
   await expect(page.locator('[data-work-key="pc:reliquary"]')).toContainText('Not in Library');
