@@ -21,11 +21,11 @@ for(const theme of ['reading-room','terminal']) test(`three collection screens, 
  await expect(page.locator('.collection-book')).toHaveCount(1);
  await page.locator('.collection-book h3 a').click();
  await expect(page.locator('.detail-header')).toBeVisible();
- await expect(page.locator('.book-collection-membership')).toHaveCount(1);
- const metadata=page.locator('.visible-metadata');
- expect(await metadata.evaluate(node=>node.nextElementSibling.classList.contains('book-collections'))).toBe(true);
+ await expect(page.locator('.book-collections')).toHaveCount(0);
+ await expect(page.locator('related-books')).toHaveCount(1);
  await page.screenshot({path:info.outputPath(`book-detail-${theme}.png`),fullPage:true});
- await page.locator('.book-collection-membership .collection-explore').click();
+ await page.locator('[data-back]').click();
+ await expect(page.locator('.collection-detail h1')).toHaveText('Preston–Child');
  await page.getByRole('link',{name:'Character appearances',exact:true}).click();
  await page.getByRole('button',{name:'Full Collection',exact:true}).click();
  await expect(page.locator('.collection-book')).toHaveCount(13);
@@ -37,8 +37,6 @@ for(const theme of ['reading-room','terminal']) test(`three collection screens, 
  await expect(page.locator('[data-start],[data-finish],[data-collection-status]')).toHaveCount(0);
  await page.locator('[data-back]').click();await expect(page).toHaveURL(/series=nora-corrie/);
  await page.goBack();await expect(page).not.toHaveURL(/series=/);
- await page.goBack();await expect(page.locator('.detail-header')).toBeVisible();
- await page.locator('[data-back]').click();await expect(page.locator('.collection-detail h1')).toHaveText('Preston–Child');
  await page.getByRole('button',{name:'Full Collection',exact:true}).click();
  for(const width of [320,390,1024]) {
   await page.setViewportSize({width,height:844});

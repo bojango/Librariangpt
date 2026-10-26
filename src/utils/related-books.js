@@ -33,6 +33,36 @@ export function normaliseRelatedItem(item = {}) {
   return { ...item, cover_url: coverUrl };
 }
 
+function workIdentity(item) {
+  const value=item.open_library_work_id || item.work_id || item.add_payload?.open_library_work_id
+    || [item.discovery_id,item.provider_id].find(id=>/^(?:\/works\/)?OL\d+W$/.test(String(id || '')));
+  return value?String(value).replace(/^\/works\//,''):null;
+}
+
+function sameSeriesWork(a,b) {
+  const aBook=a.book_id || (a.kind==='library'?a.id:null),bBook=b.book_id || (b.kind==='library'?b.id:null);
+  if(aBook&&bBook&&aBook===bBook) return true;
+  const aWork=workIdentity(a),bWork=workIdentity(b);
+  if(aWork&&bWork) return aWork===bWork;
+  // Distinct canonical identities, positions or years must not be collapsed
+  // by a shared title. Anonymous edition discoveries need corroborating authors.
+  if(aBook&&bBook) return false;
+  if(a.series_order!=null&&b.series_order!=null&&Number(a.series_order)!==Number(b.series_order)) return false;
+  if(a.publication_year&&b.publication_year&&Number(a.publication_year)!==Number(b.publication_year)) return false;
+  const authors=item=>(Array.isArray(item.authors)?item.authors:String(item.authors || item.author || '').split(',')).map(normaliseTitle).filter(Boolean).sort().join('|');
+  return Boolean(normaliseTitle(a.title)&&authors(a))&&normaliseTitle(a.title)===normaliseTitle(b.title)&&authors(a)===authors(b);
+}
+
+export function dedupeSeriesBooks(items=[]) {
+  const result=[];
+  for(const item of items) {
+    const index=result.findIndex(previous=>sameSeriesWork(previous,item));
+    if(index<0) result.push(item);
+    else if((item.book_id || item.kind==='library')&&!(result[index].book_id || result[index].kind==='library')) result[index]=item;
+  }
+  return result;
+}
+
 function mergeItem(previous, next) {
   const a = normaliseRelatedItem(previous);
   const b = normaliseRelatedItem(next);
@@ -55,6 +85,9 @@ export function mergeRelatedItems(previous = [], next = []) {
 }
 
 export function mergeRelatedData(cached, refreshed) {
+  const normaliseSeries=data=>data?.series?{...data,series:{...data.series,books:dedupeSeriesBooks(data.series.books || [])}}:data;
+  cached=normaliseSeries(cached);
+  refreshed=normaliseSeries(refreshed);
   if (!cached) return refreshed;
   if (!refreshed) return cached;
   const mergeShelf = (oldShelf, newShelf) => {
@@ -66,7 +99,7 @@ export function mergeRelatedData(cached, refreshed) {
     if (!newBooks.length && oldBooks.length) return oldShelf;
     return { ...oldShelf, ...newShelf, books: mergeRelatedItems(oldBooks, newBooks) };
   };
-  return { ...cached, ...refreshed, series: mergeShelf(cached.series, refreshed.series), author: mergeShelf(cached.author, refreshed.author) };
+  return normaliseSeries({ ...cached, ...refreshed, series: mergeShelf(cached.series, refreshed.series), author: mergeShelf(cached.author, refreshed.author) });
 }
 
 export function relatedDataFingerprint(data) {

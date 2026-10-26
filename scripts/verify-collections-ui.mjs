@@ -26,9 +26,9 @@ for(const [engine,type] of Object.entries({chromium,webkit})) {
   for(const theme of ['reading-room','terminal']) {
    const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:2,serviceWorkers:'block'});
    const page=await context.newPage();
-   const mock=await fixture(page,{theme,backend:false,realArtwork:true,base});
+   const mock=await fixture(page,{theme,backend:false,realArtwork:true,related:true,base});
    await page.goto(`${base}#/collections`);
-   await expect(page.locator('.collection-card')).toHaveCount(3);
+   await expect(page.locator('.collection-card')).toHaveCount(4);
    await expect(page.locator('.collection-card .cover-image').first()).toBeVisible();
    await expect.poll(()=>page.locator('.collection-card .cover-image').first().evaluate(n=>n.complete&&n.naturalWidth>0)).toBe(true);
    await page.screenshot({path:`${folder}/${engine}-${theme}-overview.png`,fullPage:true});
@@ -65,12 +65,23 @@ for(const [engine,type] of Object.entries({chromium,webkit})) {
    await expect(page.locator('.collection-catalogue-hero').getByRole('button',{name:'Add to library',exact:true})).toBeVisible();
    await page.screenshot({path:`${folder}/${engine}-${theme}-catalogue-book.png`});
    await page.locator('[data-back]').click();await expect(page).toHaveURL(/series=nora-kelly/);
+   for(const [book,heading,target,rows] of [['bob','Bobiverse','series%3Abob-series',2],['jurassic','Jurassic Park','jurassic-park',1]]) {
+    await page.goto(`${base}#/book/${book}`);
+    await expect(page.locator('.book-collections')).toHaveCount(0);
+    const related=page.locator('related-books > section').first(),link=related.getByRole('link',{name:heading,exact:true});
+    await expect(link).toHaveAttribute('href',`#/collection/${target}`);
+    await expect(related.locator('.book-card')).toHaveCount(rows);
+    await expect(page.locator('related-books > section').nth(1).locator('h2')).toContainText('More by');
+    assert.equal(await link.evaluate(n=>getComputedStyle(n).textDecorationLine),'none');
+    await link.click();await expect(page.locator('.collection-detail h1')).toHaveText(heading);
+    await page.locator('[data-collection-back]').click();
+    await expect(page.locator('.detail-header')).toHaveAttribute('data-book-id',book);
+    await related.scrollIntoViewIfNeeded();
+    await page.screenshot({path:`${folder}/${engine}-${theme}-${book}-existing-shelves.png`});
+   }
    await page.goto(`${base}#/book/thunder`);
-   await expect(page.locator('.visible-metadata')).toBeVisible();
-   assert.ok(await page.locator('.visible-metadata').evaluate(n=>n.nextElementSibling.classList.contains('book-collections')));
-   await expect(page.locator('.book-collection-membership')).toHaveCount(1);
-   await page.locator('.book-collections').scrollIntoViewIfNeeded();
-   await page.screenshot({path:`${folder}/${engine}-${theme}-book-collections.png`});
+   await expect(page.locator('.book-collections')).toHaveCount(0);
+   await expect(page.locator('related-books h2')).toHaveText('More by Douglas Preston');
    for(const width of [320,390,430]) {
     await page.setViewportSize({width,height:844});
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
@@ -82,7 +93,7 @@ for(const [engine,type] of Object.entries({chromium,webkit})) {
    await expect(page.locator('.detail-header .meta')).toContainText('Wishlist');
    assert.equal(mock.mutations.filter(m=>m.table==='library_add_selected_result').length,1);
    assert.deepEqual(mock.errors,[]);
-   evidence.checks.push({engine,theme,viewport:390,overview:true,subseries:true,cover_scrolling:engine==='chromium'?'touch swipe':'keyboard native overflow',back_navigation:true,book_section_placement:true,wishlist_fixture:true,overflow:false,page_errors:0});
+   evidence.checks.push({engine,theme,viewport:390,overview:true,subseries:true,cover_scrolling:engine==='chromium'?'touch swipe':'keyboard native overflow',back_navigation:true,existing_series_links:true,series_editions_deduplicated:true,author_shelves_preserved:true,book_collection_section_removed:true,wishlist_fixture:true,overflow:false,page_errors:0});
    await context.close();
   }
  } finally {await browser.close();}

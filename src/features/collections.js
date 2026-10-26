@@ -97,6 +97,31 @@ export function overviewCollections(state) {
   return buildCollections(state).filter(c=>!c.parent_key&&(c.kind!=='author'||state.showAuthorCollections));
 }
 
+// Resolve navigation from canonical IDs, never from a displayed series title.
+// Before the optional collections migration, verified starter collections can
+// be joined through their canonical book IDs and book_series memberships.
+export function seriesCollectionRoutes(state) {
+  const collections=buildCollections(state),links=state.collectionData?.bookSeries || [];
+  const ids=new Set([...links.map(link=>link.series_id),...collections.map(c=>c.series_id)].filter(Boolean));
+  const routes={};
+  for(const id of ids) {
+    let matches=collections.filter(c=>c.kind==='series'&&c.series_id===id);
+    if(!matches.length) {
+      const members=new Set(links.filter(link=>link.series_id===id).map(link=>link.book_id));
+      if(!members.size) continue;
+      matches=collections.filter(c=>{
+        if(c.kind!=='series') return false;
+        const books=new Set(c.works.map(work=>work.book_id).filter(Boolean));
+        return books.size===members.size&&[...members].every(bookId=>books.has(bookId));
+      });
+    }
+    if(matches.length!==1) continue;
+    const collection=matches[0];
+    routes[id]={name:'collection',collectionKey:collection.parent_key || collection.key,...(collection.parent_key?{collectionFilter:collection.key}:{})};
+  }
+  return routes;
+}
+
 export function groupedCollectionWorks(collection,works,collections) {
   if(collection.kind!=='universe') return [{key:collection.key,name:collection.kind==='author'?'Books in your catalogue':'',works}];
   const children=collections.filter(c=>c.parent_key===collection.key&&c.kind==='series');

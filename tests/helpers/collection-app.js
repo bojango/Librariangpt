@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import {collectionArtwork} from '../../src/data/collection-artwork.js';
 import {catalogueWorks,catalogueCollections} from '../../src/data/collection-catalogue.js';
 
-export async function fixture(page,{theme='reading-room',backend=true,fail=false,delay=0,canonicalOnly=false,race=false,realArtwork=false,base='/'}={}) {
+export async function fixture(page,{theme='reading-room',backend=true,fail=false,delay=0,canonicalOnly=false,race=false,realArtwork=false,related=false,unmatchedSeries=false,base='/'}={}) {
  const user={id:'10000000-0000-0000-0000-000000000001',aud:'authenticated',role:'authenticated'};
  const jwt=[{alg:'HS256'},{sub:user.id,role:'authenticated',exp:Math.floor(Date.now()/1000)+3600}].map(x=>Buffer.from(JSON.stringify(x)).toString('base64url')).join('.')+'.test';
  await page.addInitScript(({user,jwt,theme})=>{
@@ -13,6 +13,17 @@ export async function fixture(page,{theme='reading-room',backend=true,fail=false
  const books=[{id:'thunder',title:'Thunderhead',authors:'Douglas Preston, Lincoln Child',ownership_status:'Owned',overall_status:'Currently Reading',synopsis:'A verified expedition synopsis.',current_page:40,total_pages:400,progress_percent:10,cover_url:'/icons/icon-192.png'},
  {id:'jurassic',title:'Jurassic Park',authors:'Michael Crichton',ownership_status:'Owned',overall_status:'Read',synopsis:'A fictional dinosaur park.',cover_url:'/icons/icon-192.png'}];
  if(realArtwork) {books[0].cover_url=collectionArtwork['pc:thunderhead'].cover_url;books[1].cover_url=collectionArtwork['crichton:jurassic-park'].cover_url;}
+ if(related) books.push({id:'bob',title:'We Are Legion (We Are Bob)',authors:'Dennis E. Taylor',overall_status:'Read',ownership_status:'Owned',cover_url:'/icons/icon-192.png'},{id:'bob-2',title:'For We Are Many',authors:'Dennis E. Taylor',overall_status:'Owned - Unread',ownership_status:'Owned',cover_url:'/icons/icon-192.png'});
+ const series=related?[{id:'bob-series',name:'Bobiverse'},{id:'jp-series',name:'Jurassic Park'}]:[];
+ const bookSeries=related?[{book_id:'bob',series_id:'bob-series',series_order:1},{book_id:'bob-2',series_id:'bob-series',series_order:2},{book_id:'jurassic',series_id:'jp-series',series_order:1}]:[];
+ const external=(title,authors,id,series_order=null)=>({kind:'external',title,authors,discovery_id:id,provider_id:`/books/${id.replace('W','M')}`,series_order,cover_url:'/icons/icon-192.png',add_payload:{open_library_work_id:id}});
+ const lost=external('The Lost World','Michael Crichton','OL800W',2),worlds=external('All These Worlds','Dennis E. Taylor','OL801W',3);
+ const relatedData={
+  bob:{series:{id:'bob-series',name:'Bobiverse',current_order:1,total_books:3,books:[{kind:'library',book_id:'bob-2',...books.find(b=>b.id==='bob-2')},{kind:'library',book_id:'bob-2',...books.find(b=>b.id==='bob-2'),cover_url:'/icons/icon-512.png'},worlds,{...worlds,discovery_id:'edition-copy',provider_id:'/books/OL999M'}]},author:{name:'Dennis E. Taylor',books:[external('The Singularity Trap','Dennis E. Taylor','OL802W')]}},
+  'bob-2':{series:{id:'bob-series',name:'Bobiverse',current_order:2,total_books:3,books:[{kind:'library',book_id:'bob',...books.find(b=>b.id==='bob')},worlds]},author:{name:'Dennis E. Taylor',books:[external('The Singularity Trap','Dennis E. Taylor','OL802W')]}},
+  jurassic:{series:{id:unmatchedSeries?'unmatched-id':'jp-series',name:'Jurassic Park',current_order:1,total_books:2,books:[lost,{...lost,discovery_id:'other-edition',provider_id:'/books/OL998M'}]},author:{name:'Michael Crichton',books:[external('Sphere','Michael Crichton','OL803W')]}},
+  thunder:{series:null,author:{name:'Douglas Preston',books:[external('Relic','Douglas Preston, Lincoln Child','OL804W')]}}
+ };
  const works=catalogueWorks.map(w=>({...w,book_id:books.find(b=>b.title===w.title)?.id || null}));
  const collections=catalogueCollections.map(({members,...c})=>c);
  const memberships=catalogueCollections.flatMap(c=>c.members.map(m=>({...m,collection_key:c.key})));
@@ -33,6 +44,8 @@ export async function fixture(page,{theme='reading-room',backend=true,fail=false
   const table=path.split('/').at(-1);
   if(path.endsWith('/auth/v1/user')) return json(user);
   if(request.method()!=='GET') mutations.push({table,body:request.postDataJSON(),headers:request.headers()});
+  if(related&&table==='related-books') return json(relatedData[request.postDataJSON().book_id] || null);
+  if(related&&table==='library_add_related_result') return json({book_id:'fixture-related',already_in_library:false});
   if(table==='library_entries'&&request.method()==='POST') {
    const value=request.postDataJSON(),canonicalBook=canonical.find(b=>b.id===value.book_id);
    if(race&&value.book_id==='relic'&&!books.some(b=>b.id==='relic')) {
@@ -64,6 +77,8 @@ export async function fixture(page,{theme='reading-room',backend=true,fail=false
    return json({collections,collection_catalogue_books:works,collection_memberships:memberships,reading_paths:paths,reading_path_entries:entries}[table]);
   }
   if(table==='reader_profiles') return json(null);
+  if(table==='series') return json(series);
+  if(table==='book_series') return json(bookSeries);
   return json([]);
  });
  await page.goto(`${base}#/library`);await expect(page.locator('.library-grid')).toBeVisible();

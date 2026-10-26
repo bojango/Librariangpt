@@ -1,13 +1,34 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildCollections,catalogueBook,collectionMemberships,resolveWork,overviewCollections,groupedCollectionWorks,readingProgress} from '../../src/features/collections.js';
+import {buildCollections,catalogueBook,collectionMemberships,resolveWork,overviewCollections,groupedCollectionWorks,readingProgress,seriesCollectionRoutes} from '../../src/features/collections.js';
 import {catalogueCollections,catalogueWorks} from '../../src/data/collection-catalogue.js';
-import {collectionDetailView,collectionsView,bookCollectionsSection} from '../../src/views/collections.js';
+import {collectionDetailView,collectionsView,catalogueBookView} from '../../src/views/collections.js';
 import {parseRoute,routeHash} from '../../src/router.js';
 import {sameRoute} from '../../src/lifecycle.js';
 const authors='Douglas Preston, Lincoln Child';
 const book={id:'thunder',title:'Thunderhead',authors,ownership_status:'Owned',overall_status:'Currently Reading'};
 const state={books:[book],recommendations:[{book_id:'thunder',match_score_10:9.3,why_recommended:'Existing reason'}],route:{name:'collection',collectionKey:'preston-child'},collectionData:{books:[book]}};
+
+test('series links use canonical identifiers and membership joins rather than heading/title comparisons',()=>{
+ const jp={id:'jp',title:'Jurassic Park',authors:'Michael Crichton'};
+ const bob={id:'bob',title:'We Are Legion (We Are Bob)',authors:'Dennis E. Taylor'};
+ const s={books:[jp,bob],collectionData:{books:[jp,bob],series:[{id:'bob-series',name:'Bobiverse'},{id:'jp-series',name:'Jurassic Park'}],bookSeries:[{series_id:'bob-series',book_id:'bob',series_order:1},{series_id:'jp-series',book_id:'jp',series_order:1}]}};
+ const routes=seriesCollectionRoutes(s);
+ assert.equal(routes['bob-series'].collectionKey,'series:bob-series');
+ assert.equal(routes['jp-series'].collectionKey,'jurassic-park');
+ assert.equal(routes['not-an-id'],undefined);
+ const explicit={...s,collectionData:{...s.collectionData,collections:[{key:'stable',name:'Renamed heading',kind:'series',series_id:'jp-series',members:[]}]}};
+ assert.equal(seriesCollectionRoutes(explicit)['jp-series'].collectionKey,'stable');
+});
+
+test('ambiguous series-to-collection joins stay unlinked; internal subseries use the parent filter route',()=>{
+ const relic={id:'relic',title:'Relic',authors};
+ const s={books:[relic],collectionData:{books:[relic],series:[{id:'p',name:'Pendergast'}],bookSeries:[{series_id:'p',book_id:'relic'}]}};
+ assert.deepEqual(seriesCollectionRoutes(s).p,{name:'collection',collectionKey:'preston-child',collectionFilter:'pendergast'});
+ const shared={key:'book:relic',book_id:'relic',title:'Relic',authors};
+ const ambiguous={...s,collectionData:{...s.collectionData,series:[],collections:[{key:'a',kind:'series',members:[{work_key:shared.key}]},{key:'b',kind:'series',members:[{work_key:shared.key}]}],works:[shared]}};
+ assert.equal(seriesCollectionRoutes(ambiguous).p,undefined);
+});
 
 test('one canonical work can belong to universe and crossover without duplicating it or library entries',()=>{
  const memberships=collectionMemberships(state,book);
@@ -60,8 +81,7 @@ test('views escape reasons, show missing data, expose search, maintain navigatio
  assert.match(collectionsView({...state,collectionQuery:'not-a-series'}),/No matching collections/);
  assert.match(collectionsView({...state,collectionsLoading:true}),/Loading your collections/);
  assert.match(collectionsView({...state,collectionData:{error:'<unsafe>'}}),/&lt;unsafe&gt;/);
- assert.match(bookCollectionsSection(state,book),/Series & Collections/);
- assert.doesNotMatch(bookCollectionsSection(state,book),/Series #1/);
+ assert.doesNotMatch(catalogueBookView(state,catalogueBook(state,'catalogue:pc:relic')),/Series & Collections|book-collection-membership/);
 });
 
 
@@ -72,7 +92,6 @@ test('overview consolidates the universe and optionally distinguishes author col
  assert.equal(author.name,'Michael Crichton');assert.equal(author.complete,false);assert.equal(author.verified,false);
  assert.match(author.description,/not an official series/);
  assert.equal(author.works.length,1);
- assert.equal((bookCollectionsSection(state,book).match(/book-collection-membership/g)||[]).length,1);
 });
 
 test('universe groups every verified work once in official subseries order',()=>{

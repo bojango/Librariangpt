@@ -20,6 +20,8 @@ test('book detail maps fiction label, preserves quote newlines, and groups readi
   assert.equal((html.match(/class="btn/g) || []).filter(x => x).length >= 5, true);
   assert.match(html, /class="visible-metadata"[\s\S]*Pages/);
   assert.ok(html.indexOf('class="metadata-accordion"') > html.indexOf('class="visible-metadata"'));
+  assert.doesNotMatch(html,/Series & Collections|book-collections/);
+  assert.equal((html.match(/<related-books /g)||[]).length,1);
 });
 
 test('Nonfiction comes from detail data and Awards is placed after Synopsis before quotes', () => {

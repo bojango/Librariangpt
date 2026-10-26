@@ -1,7 +1,10 @@
 import { cover, esc } from '../ui/format.js';
 import { activateCovers } from '../ui/cover.js';
 import { closeModal, showModal, toast } from '../ui/feedback.js';
+import { seriesCollectionRoutes } from './collections.js';
+import { routeHash } from '../router.js';
 import {
+  dedupeSeriesBooks,
   excludeSeriesFromAuthor,
   readRelatedCache,
   relatedDataFingerprint,
@@ -29,9 +32,9 @@ function card(item) {
   return `<article class="book-card" ${attrs}><div style="position:relative">${cover(item)}${statusBadge(item)}</div><div class="book-title">${esc(item.title)}</div><div class="book-author">${esc(item.authors || item.author || 'Unknown author')}</div></article>`;
 }
 
-function shelf(title, note, items) {
+function shelf(title, note, items,collectionHref=null) {
   if (!items?.length) return '';
-  return `<section class="section" style="margin-top:34px"><div class="section-header"><div><h2>${esc(title)}</h2>${note ? `<p style="margin:5px 0 0;color:var(--muted);font-size:12px">${esc(note)}</p>` : ''}</div></div><div class="shelf">${items.map(card).join('')}</div></section>`;
+  return `<section class="section" style="margin-top:34px"><div class="section-header"><div><h2>${collectionHref?`<a class="series-collection-link" href="${esc(collectionHref)}">${esc(title)}</a>`:esc(title)}</h2>${note ? `<p style="margin:5px 0 0;color:var(--muted);font-size:12px">${esc(note)}</p>` : ''}</div></div><div class="shelf">${items.map(card).join('')}</div></section>`;
 }
 
 function discoveryModal(item, originBookId) {
@@ -66,13 +69,15 @@ class RelatedBooksElement extends HTMLElement {
   }
 
   #render(data, bookId) {
-    const seriesBooks = data?.series?.books || [];
+    const seriesBooks = dedupeSeriesBooks(data?.series?.books || []);
     const authorBooks = excludeSeriesFromAuthor(seriesBooks, data?.author?.books || []);
     const totalSeries = Number(data?.series?.total_books || (seriesBooks.length + 1));
     const currentOrder = data?.series?.current_order;
     const seriesNote = data?.series ? `Series${currentOrder != null ? ` · Book ${Number(currentOrder)}${totalSeries ? ` of ${totalSeries}` : ''}` : ''}` : '';
+    let collectionHref=null;
+    try {collectionHref=JSON.parse(this.dataset.seriesCollections || '{}')[data?.series?.id] || null;} catch {}
     const html = [
-      data?.series ? shelf(data.series.name, seriesNote, seriesBooks) : '',
+      data?.series ? shelf(data.series.name, seriesNote, seriesBooks,collectionHref) : '',
       data?.author ? shelf(`More by ${data.author.name}`, 'Other books by this author', authorBooks) : ''
     ].join('');
     this.innerHTML = html || '';
@@ -118,6 +123,7 @@ class RelatedBooksElement extends HTMLElement {
 
 if (typeof customElements !== 'undefined' && !customElements.get('related-books')) customElements.define('related-books', RelatedBooksElement);
 
-export function relatedBooksMarkup(book) {
-  return `<related-books data-book-id="${esc(book.id)}"></related-books>`;
+export function relatedBooksMarkup(book,state={}) {
+  const links=Object.fromEntries(Object.entries(seriesCollectionRoutes(state)).map(([id,route])=>[id,routeHash(route)]));
+  return `<related-books data-book-id="${esc(book.id)}" data-series-collections="${esc(JSON.stringify(links))}"></related-books>`;
 }
