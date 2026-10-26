@@ -9,7 +9,7 @@ function jwt(userId) {
   return `${header}.${payload}.fixture-signature`;
 }
 
-async function mockApplication(page, { bookOverrides = {}, bookAccolades = [], editions = [], adminRpcError = null, adminRpcDelayMs = 0 } = {}) {
+async function mockApplication(page, { bookOverrides = {}, bookAccolades = [], editions = [], adminRpcError = null, adminRpcDelayMs = 0, adminRpcGate = null } = {}) {
   const user = { id: '8bfc753c-cb6c-4b75-bd4a-2d5986ed8319', aud: 'authenticated', role: 'authenticated', email: 'fixture@example.test' };
   await page.addInitScript(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), {
     key: `sb-${project}-auth-token`,
@@ -45,6 +45,7 @@ async function mockApplication(page, { bookOverrides = {}, bookAccolades = [], e
     if (path.includes('/rest/v1/rpc/admin_edit_book')) {
       adminCalls += 1;
       adminPayload = route.request().postDataJSON();
+      if (adminRpcGate) await adminRpcGate;
       if (adminRpcDelayMs) await new Promise(resolve => setTimeout(resolve, adminRpcDelayMs));
       if (adminRpcError) return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ message: adminRpcError, code: 'P0001' }), headers: { 'access-control-allow-origin': '*' } });
       return json({ book: { overall_status: adminPayload.p_library.overall_status || 'Owned - Unread', ownership_status: adminPayload.p_library.ownership_status } });
@@ -213,13 +214,16 @@ test('invalid field in a closed section opens it, explains the error, and preven
 });
 
 test('failed save restores the button and displays the RPC error', async ({ page }) => {
-  const fixture = await mockApplication(page, { adminRpcError: 'Fixture RPC failure', adminRpcDelayMs: 250 });
+  let releaseSave;
+  const adminRpcGate = new Promise(resolve => { releaseSave = resolve; });
+  const fixture = await mockApplication(page, { adminRpcError: 'Fixture RPC failure', adminRpcGate });
   await openBookSettings(page);
   const button = page.locator('[data-book-admin-save]');
   await button.click();
   await expect(button).toBeDisabled();
   await expect(button).toHaveText('Saving…');
   await page.locator('#book-admin-form').evaluate(form => form.requestSubmit());
+  releaseSave();
   await expect(button).toBeEnabled();
   await expect(button).toHaveText('Save changes');
   await expect(page.locator('[data-book-admin-feedback]')).toContainText('Fixture RPC failure');

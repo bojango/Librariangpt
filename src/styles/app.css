@@ -2605,5 +2605,6 @@ html:has(body) .profile-page .profile-card { box-shadow: none !important; }
 
 /* Keep collection actions and carousels clear of the floating navigation. */
 main:has(.collections-overview,.collection-detail,.collection-catalogue-detail) { padding-left:max(clamp(18px,4vw,52px),var(--safe-left,env(safe-area-inset-left,0px))); padding-right:max(clamp(18px,4vw,52px),var(--safe-right,env(safe-area-inset-right,0px))); padding-bottom:calc(48px + var(--safe-bottom)); }
+.collection-add-action .btn { scroll-margin-block:calc(var(--user-nav-height,var(--terminal-nav-height,62px)) + var(--safe-bottom) + 24px); }
 
 related-books .series-collection-link { color:inherit; font:inherit; letter-spacing:inherit; text-decoration:none; }

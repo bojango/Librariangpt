@@ -3,7 +3,7 @@ import {readFileSync} from 'node:fs';
 import {collectionArtwork} from '../../src/data/collection-artwork.js';
 import {catalogueWorks,catalogueCollections} from '../../src/data/collection-catalogue.js';
 
-export async function fixture(page,{theme='reading-room',backend=true,fail=false,delay=0,canonicalOnly=false,race=false,realArtwork=false,related=false,unmatchedSeries=false,base='/',onSelectedAdd=null,extraBooks=[]}={}) {
+export async function fixture(page,{theme='reading-room',backend=true,fail=false,delay=0,canonicalOnly=false,race=false,realArtwork=false,related=false,unmatchedSeries=false,base='/',onSelectedAdd=null,extraBooks=[],assessments=[],assessmentJobs=[],metadata={}}={}) {
  const user={id:'10000000-0000-0000-0000-000000000001',aud:'authenticated',role:'authenticated'};
  const jwt=[{alg:'HS256'},{sub:user.id,role:'authenticated',exp:Math.floor(Date.now()/1000)+3600}].map(x=>Buffer.from(JSON.stringify(x)).toString('base64url')).join('.')+'.test';
  await page.addInitScript(({user,jwt,theme})=>{
@@ -29,7 +29,7 @@ export async function fixture(page,{theme='reading-room',backend=true,fail=false
   relatedData.bob.series.books.unshift({...external('We Are Legion','Dennis E. Taylor','OL19123425W'),publication_year:2016});
   relatedData.bob.series.books.push({...external('The Bobiverse','Dennis E. Taylor','OL22116961W',1),publication_year:2016});
  }
- const works=catalogueWorks.map(w=>({...w,book_id:books.find(b=>b.title===w.title)?.id || null}));
+ const works=catalogueWorks.map(w=>({...w,...metadata[w.key],book_id:books.find(b=>b.title===w.title)?.id || null}));
  const collections=catalogueCollections.map(({members,...c})=>c);
  const memberships=catalogueCollections.flatMap(c=>c.members.map(m=>({...m,collection_key:c.key})));
  const recommendations=[{book_id:'thunder',match_score_10:9.3,why_recommended:'Your existing expedition recommendation.',recommendation_status:'Wishlist'}];
@@ -83,6 +83,8 @@ export async function fixture(page,{theme='reading-room',backend=true,fail=false
    return json({collections,collection_catalogue_books:works,collection_memberships:memberships,reading_paths:paths,reading_path_entries:entries}[table]);
   }
   if(table==='reader_profiles') return json(null);
+  if(table==='collection_assessments') return json(assessments);
+  if(table==='collection_assessment_jobs') return json(assessmentJobs);
   if(table==='series') return json(series);
   if(table==='book_series') return json(bookSeries);
   return json([]);

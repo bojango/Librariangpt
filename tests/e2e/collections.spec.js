@@ -120,7 +120,8 @@ test('overview author toggle, embossed cards and consolidated subseries navigati
  await expect(page.locator('.collection-book')).toHaveCount(31);
  await expect(page.locator('.collection-heading')).toContainText('30 published titles');
  await expect(page.locator('.collection-heading')).toContainText('1 forthcoming');
- await expect(page.locator('.collection-statuses').getByText('Recommended',{exact:true})).toHaveCount(0);
+ await expect(page.locator('.collection-statuses .librarian-verdict[data-verdict="recommended"]')).toHaveCount(1);
+ await expect(page.locator('.collection-reason')).toHaveCount(31);
  await expect(page.locator('[data-work-key="pc:dead-mans-journey"]')).toContainText('Forthcoming');
  await page.getByRole('link',{name:'Nora Kelly',exact:true}).click();
  await expect(page.locator('.collection-book')).toHaveCount(6);

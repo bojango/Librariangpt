@@ -26,7 +26,13 @@ export async function loadCollectionData(client=supabase) {
     const [works,memberships,paths,entries]=await Promise.all([
       rows(client,'collection_catalogue_books'),rows(client,'collection_memberships'),rows(client,'reading_paths'),rows(client,'reading_path_entries')
     ]);
-    return {...base,collections,works,memberships,paths,entries,available:collections.length>0&&works.length>0};
+    let assessments=[],assessmentJobs=[];
+    try {
+      [assessments,assessmentJobs]=await Promise.all([rows(client,'collection_assessments'),rows(client,'collection_assessment_jobs')]);
+    } catch(error) {
+      if(!['42P01','PGRST205'].includes(error.code)) return {...base,collections,works,memberships,paths,entries,available:true,error:'Librarian assessments are temporarily unavailable. Try again.'};
+    }
+    return {...base,collections,works,memberships,paths,entries,assessments,assessmentJobs,available:collections.length>0&&works.length>0};
   } catch(error) {
     // An explicitly supported deployment order: verified public catalogue works
     // before the additive backend migration. Other failures remain visible.

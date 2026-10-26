@@ -99,6 +99,9 @@ export function buildCollections(state) {
     });
     return [work.key,{...work,book_id:canonical?.id || work.book_id || null,cover_url:existingCover || artwork?.cover_url,
       artwork_source:existingCover?null:artwork?.source_url,add_payload:artwork?.isbn13 || artwork?.isbn10 ? {title:work.title,authors:work.authors.split(', '),isbn13:artwork.isbn13,isbn10:artwork.isbn10,provider:'Author/publisher catalogue',source_url:artwork.source_url} : null,official_series:officialSeries,
+      synopsis:work.synopsis || owned?.synopsis || canonical?.synopsis || null,
+      assessment:(data.assessments || []).find(a=>a.work_key===work.key) || null,
+      assessment_job:(data.assessmentJobs || []).find(a=>a.work_key===work.key) || null,
       library:owned || null,recommendation:recommendations.get(canonical?.id || work.book_id) || null}];
   }));
   const paths = data.paths || [];
@@ -112,7 +115,7 @@ export function buildCollections(state) {
       : (a.publication_year??Infinity)-(b.publication_year??Infinity) || a.title.localeCompare(b.title));
     // Paths may deliberately cross series boundaries. Resolve against all works.
     const pathWorks = entries.map(entry=>({...workMap.get(entry.work_key),official_number:unique.find(w=>w.key===entry.work_key)?.official_number,...entry})).filter(work=>work.key);
-    const recommended = path ? pathWorks.filter(work=>work.selection!=='skipped') : unique.filter(work=>work.recommendation && !['Dismissed','Not Interested'].includes(work.recommendation.recommendation_status));
+    const recommended = path ? pathWorks.filter(work=>work.selection!=='skipped') : unique.filter(work=>work.assessment?work.assessment.verdict==='recommended':work.recommendation && !['Dismissed','Not Interested'].includes(work.recommendation.recommendation_status));
     const read = unique.filter(work=>work.library?.overall_status==='Read').length;
     const published=unique.filter(isPublished);
     const presentation={...PRESENTATION[collection.presentation_key || collection.key]};
@@ -178,7 +181,7 @@ export function collectionMemberships(state,book) {
 export function catalogueBook(state,id) {
   for (const collection of buildCollections(state)) {
     const work=collection.works.find(work=>workRouteId(work)===id);
-    if(work) return {id:workRouteId(work),work_key:work.key,title:work.title,authors:work.authors,original_publication_year:work.publication_year,cover_url:work.cover_url,artwork_source:work.artwork_source,publication_state:work.publication_state,overall_status:work.library?.overall_status || 'Not in Library',ownership_status:work.library?.ownership_status || 'Not Owned',catalogue_only:!work.library,source_url:work.source_url};
+    if(work) return {id:workRouteId(work),work_key:work.key,title:work.title,authors:work.authors,synopsis:work.synopsis,metadata_sources:work.metadata_sources,original_publication_year:work.publication_year,cover_url:work.cover_url,artwork_source:work.artwork_source,publication_state:work.publication_state,overall_status:work.library?.overall_status || 'Not in Library',ownership_status:work.library?.ownership_status || 'Not Owned',catalogue_only:!work.library,source_url:work.source_url};
   }
   return null;
 }
