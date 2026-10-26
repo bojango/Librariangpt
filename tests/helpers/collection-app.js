@@ -13,7 +13,7 @@ export async function fixture(page,{theme='reading-room',backend=true,fail=false
  const books=[{id:'thunder',title:'Thunderhead',authors:'Douglas Preston, Lincoln Child',ownership_status:'Owned',overall_status:'Currently Reading',synopsis:'A verified expedition synopsis.',current_page:40,total_pages:400,progress_percent:10,cover_url:'/icons/icon-192.png'},
  {id:'jurassic',title:'Jurassic Park',authors:'Michael Crichton',ownership_status:'Owned',overall_status:'Read',synopsis:'A fictional dinosaur park.',cover_url:'/icons/icon-192.png'}];
  if(realArtwork) {books[0].cover_url=collectionArtwork['pc:thunderhead'].cover_url;books[1].cover_url=collectionArtwork['crichton:jurassic-park'].cover_url;}
- if(related) books.push({id:'bob',title:'We Are Legion (We Are Bob)',authors:'Dennis E. Taylor',overall_status:'Read',ownership_status:'Owned',cover_url:'/icons/icon-192.png'},{id:'bob-2',title:'For We Are Many',authors:'Dennis E. Taylor',overall_status:'Owned - Unread',ownership_status:'Owned',cover_url:'/icons/icon-192.png'});
+ if(related) books.push({id:'bob',title:'We Are Legion (We Are Bob)',authors:'Dennis E. Taylor',original_publication_year:2016,overall_status:'Read',ownership_status:'Owned',cover_url:'/icons/icon-192.png'},{id:'bob-2',title:'For We Are Many',authors:'Dennis E. Taylor',overall_status:'Owned - Unread',ownership_status:'Owned',cover_url:'/icons/icon-192.png'});
  const series=related?[{id:'bob-series',name:'Bobiverse'},{id:'jp-series',name:'Jurassic Park'}]:[];
  const bookSeries=related?[{book_id:'bob',series_id:'bob-series',series_order:1},{book_id:'bob-2',series_id:'bob-series',series_order:2},{book_id:'jurassic',series_id:'jp-series',series_order:1}]:[];
  const external=(title,authors,id,series_order=null)=>({kind:'external',title,authors,discovery_id:id,provider_id:`/books/${id.replace('W','M')}`,series_order,cover_url:'/icons/icon-192.png',add_payload:{open_library_work_id:id}});
@@ -24,6 +24,10 @@ export async function fixture(page,{theme='reading-room',backend=true,fail=false
   jurassic:{series:{id:unmatchedSeries?'unmatched-id':'jp-series',name:'Jurassic Park',current_order:1,total_books:2,books:[lost,{...lost,discovery_id:'other-edition',provider_id:'/books/OL998M'}]},author:{name:'Michael Crichton',books:[external('Sphere','Michael Crichton','OL803W')]}},
   thunder:{series:null,author:{name:'Douglas Preston',books:[external('Relic','Douglas Preston, Lincoln Child','OL804W')]}}
  };
+ if(related) {
+  relatedData.bob.series.books.unshift({...external('We Are Legion','Dennis E. Taylor','OL19123425W'),publication_year:2016});
+  relatedData.bob.series.books.push({...external('The Bobiverse','Dennis E. Taylor','OL22116961W',1),publication_year:2016});
+ }
  const works=catalogueWorks.map(w=>({...w,book_id:books.find(b=>b.title===w.title)?.id || null}));
  const collections=catalogueCollections.map(({members,...c})=>c);
  const memberships=catalogueCollections.flatMap(c=>c.members.map(m=>({...m,collection_key:c.key})));

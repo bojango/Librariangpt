@@ -65,7 +65,7 @@ for(const [engine,type] of Object.entries({chromium,webkit})) {
    await expect(page.locator('.collection-catalogue-hero').getByRole('button',{name:'Add to library',exact:true})).toBeVisible();
    await page.screenshot({path:`${folder}/${engine}-${theme}-catalogue-book.png`});
    await page.locator('[data-back]').click();await expect(page).toHaveURL(/series=nora-kelly/);
-   for(const [book,heading,target,rows] of [['bob','Bobiverse','series%3Abob-series',2],['jurassic','Jurassic Park','jurassic-park',1]]) {
+   for(const [book,heading,target,rows] of [['bob','Bobiverse','series%3Abob-series',3],['jurassic','Jurassic Park','jurassic-park',1]]) {
     await page.goto(`${base}#/book/${book}`);
     await expect(page.locator('.book-collections')).toHaveCount(0);
     const related=page.locator('related-books > section').first(),link=related.getByRole('link',{name:heading,exact:true});
@@ -80,6 +80,7 @@ for(const [engine,type] of Object.entries({chromium,webkit})) {
     await page.screenshot({path:`${folder}/${engine}-${theme}-${book}-existing-shelves.png`});
    }
    await page.goto(`${base}#/book/thunder`);
+   await expect(page.locator('.detail-header')).toHaveAttribute('data-book-id','thunder');
    await expect(page.locator('.book-collections')).toHaveCount(0);
    await expect(page.locator('related-books h2')).toHaveText('More by Douglas Preston');
    for(const width of [320,390,430]) {

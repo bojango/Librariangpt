@@ -11,7 +11,7 @@ for(const theme of ['reading-room','terminal']) {
  test(`existing Bobiverse and Jurassic Park shelves link by ID and preserve interactions in ${theme}`,async({page},info)=>{
   const mock=await fixture(page,{theme,related:true,backend:false});
   for(const [book,heading,href,titles,author] of [
-   ['bob','Bobiverse','#/collection/series%3Abob-series',['For We Are Many','All These Worlds'],'More by Dennis E. Taylor'],
+   ['bob','Bobiverse','#/collection/series%3Abob-series',['For We Are Many','All These Worlds','The Bobiverse'],'More by Dennis E. Taylor'],
    ['jurassic','Jurassic Park','#/collection/jurassic-park',['The Lost World'],'More by Michael Crichton']
   ]) {
    await page.goto(`/#/book/${book}`);

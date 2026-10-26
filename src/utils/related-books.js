@@ -39,7 +39,7 @@ function workIdentity(item) {
   return value?String(value).replace(/^\/works\//,''):null;
 }
 
-function sameSeriesWork(a,b) {
+function sameSeriesWork(a,b,allowCurrentAlias=false) {
   const aBook=a.book_id || (a.kind==='library'?a.id:null),bBook=b.book_id || (b.kind==='library'?b.id:null);
   if(aBook&&bBook&&aBook===bBook) return true;
   const aWork=workIdentity(a),bWork=workIdentity(b);
@@ -50,12 +50,17 @@ function sameSeriesWork(a,b) {
   if(a.series_order!=null&&b.series_order!=null&&Number(a.series_order)!==Number(b.series_order)) return false;
   if(a.publication_year&&b.publication_year&&Number(a.publication_year)!==Number(b.publication_year)) return false;
   const authors=item=>(Array.isArray(item.authors)?item.authors:String(item.authors || item.author || '').split(',')).map(normaliseTitle).filter(Boolean).sort().join('|');
-  return Boolean(normaliseTitle(a.title)&&authors(a))&&normaliseTitle(a.title)===normaliseTitle(b.title)&&authors(a)===authors(b);
+  const title=normaliseTitle(a.title),otherTitle=normaliseTitle(b.title);
+  const currentBase=allowCurrentAlias?normaliseTitle(String(a.title || '').replace(/\s*[:(].*$/,'')):null;
+  const corroboratedAlias=currentBase&&currentBase!==title&&currentBase===otherTitle
+    && workIdentity(b)&&a.publication_year&&b.publication_year;
+  return Boolean(title&&authors(a))&&(title===otherTitle||Boolean(corroboratedAlias))&&authors(a)===authors(b);
 }
 
-export function dedupeSeriesBooks(items=[]) {
+export function dedupeSeriesBooks(items=[],currentBook=null) {
   const result=[];
   for(const item of items) {
+    if(currentBook&&sameSeriesWork(currentBook,item,true)) continue;
     const index=result.findIndex(previous=>sameSeriesWork(previous,item));
     if(index<0) result.push(item);
     else if((item.book_id || item.kind==='library')&&!(result[index].book_id || result[index].kind==='library')) result[index]=item;

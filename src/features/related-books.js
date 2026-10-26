@@ -69,7 +69,9 @@ class RelatedBooksElement extends HTMLElement {
   }
 
   #render(data, bookId) {
-    const seriesBooks = dedupeSeriesBooks(data?.series?.books || []);
+    let currentBook={book_id:bookId};
+    try {currentBook={...JSON.parse(this.dataset.currentWork || '{}'),book_id:bookId,series_order:data?.series?.current_order};} catch {}
+    const seriesBooks = dedupeSeriesBooks(data?.series?.books || [],currentBook);
     const authorBooks = excludeSeriesFromAuthor(seriesBooks, data?.author?.books || []);
     const totalSeries = Number(data?.series?.total_books || (seriesBooks.length + 1));
     const currentOrder = data?.series?.current_order;
@@ -125,5 +127,6 @@ if (typeof customElements !== 'undefined' && !customElements.get('related-books'
 
 export function relatedBooksMarkup(book,state={}) {
   const links=Object.fromEntries(Object.entries(seriesCollectionRoutes(state)).map(([id,route])=>[id,routeHash(route)]));
-  return `<related-books data-book-id="${esc(book.id)}" data-series-collections="${esc(JSON.stringify(links))}"></related-books>`;
+  const currentWork={title:book.title,authors:book.authors,publication_year:book.original_publication_year,open_library_work_id:book.open_library_work_id};
+  return `<related-books data-book-id="${esc(book.id)}" data-current-work="${esc(JSON.stringify(currentWork))}" data-series-collections="${esc(JSON.stringify(links))}"></related-books>`;
 }

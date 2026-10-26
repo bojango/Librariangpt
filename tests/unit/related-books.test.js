@@ -62,6 +62,16 @@ test('cache refresh cannot replace a canonical cover with a duplicate edition fr
  assert.equal(second.series.books[0].cover_url,'selected.jpg');assert.deepEqual(second.author,data.author);
 });
 
+test('current-book edition aliases require source work identity, matching author/year and no conflicting official position',()=>{
+ const current={book_id:'bob',title:'We Are Legion (We Are Bob)',authors:'Dennis E. Taylor',series_order:1,publication_year:2016};
+ const alias={kind:'external',title:'We Are Legion',authors:'Dennis E. Taylor',discovery_id:'OL19123425W',series_order:null,publication_year:2016};
+ const omnibus={...alias,title:'The Bobiverse'};
+ assert.deepEqual(dedupeSeriesBooks([alias,{...current,book_id:'bob'},omnibus],current),[omnibus]);
+ for(const changed of [{series_order:2},{publication_year:2017},{authors:'Other Author'},{publication_year:null},{book_id:'distinct-canonical'},{discovery_id:null}]) {
+  const distinct={...alias,...changed};assert.deepEqual(dedupeSeriesBooks([distinct],current),[distinct]);
+ }
+});
+
 test('author shelf excludes books already represented by the series shelf', () => {
   const series = [
     { book_id: 'wool', title: 'Wool' },
