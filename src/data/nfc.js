@@ -24,7 +24,7 @@ export async function saveBookmark({ id, name, enabled, pinnedBookId, rotate = f
 }
 export async function loadTimeSession(id) {
   const session = unwrap(await supabase.from('reading_time_sessions').select('*').eq('id', id).single());
-  const book = unwrap(await supabase.from('v_library').select('id,title,authors,current_page,total_pages').eq('id', session.book_id).single());
+  const book = unwrap(await supabase.from('v_library').select('id,title,authors,cover_url,current_page,total_pages').eq('id', session.book_id).single());
   return { ...session, book };
 }
 export async function loadNfcDestination(includeBook = false) {

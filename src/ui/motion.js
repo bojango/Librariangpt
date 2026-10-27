@@ -5,6 +5,27 @@ const NAV_INDEX = { home: 0, library: 1, wishlist: 2, profile: 3 };
 
 const reducedMotion = (win = window) => win.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+// Consumed by the first paint, never by refresh, navigation or foregrounding.
+// There is no readiness timer and cover downloads are independent of this handoff.
+export function createStartupReveal(splash, { win = window, doc = document, onComplete = () => {} } = {}) {
+  return root => {
+    if (!splash) return;
+    const screen = splash;
+    splash = null;
+    const finish = () => { screen.remove(); doc.documentElement.classList.remove('booting'); onComplete(); };
+    if (reducedMotion(win) || !screen.animate) { finish(); return; }
+    doc.body.append(screen);
+    screen.setAttribute('aria-hidden', 'true');
+    screen.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: 'ease-out', fill: 'forwards' }).finished.then(finish, finish);
+    const main = root.dataset?.routeView === 'home' ? root.querySelector('main') : null;
+    // Only major, initially visible groups; never individual cards or covers.
+    const groups = [...(main?.children || [])].filter(node => node.getBoundingClientRect().top < win.innerHeight).slice(0, 4);
+    groups.forEach((node, index) => node.animate([
+      { opacity: .15, transform: 'translateY(4px)' }, { opacity: 1, transform: 'translateY(0)' }
+    ], { duration: 210, delay: index * 30, easing: 'ease-out', fill: 'backwards' }));
+  };
+}
+
 export function installMotionController({ getRoute, goBack, win = window, doc = document }) {
   let lastY = win.scrollY;
   let direction = 0;

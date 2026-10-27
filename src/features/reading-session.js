@@ -8,7 +8,7 @@ export function durationHms(seconds) {
   return [Math.floor(value / 3600), Math.floor(value / 60) % 60, value % 60].map(n => String(n).padStart(2, '0')).join(':');
 }
 export function localSessionTime(value) {
-  return value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+  return value ? new Date(value).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '—';
 }
 export function sessionStats(session, input) {
   const page = input === '' ? NaN : Number(input);
@@ -40,6 +40,24 @@ export function createNfcLifecycleCheck({ load, allowed, identity, navigate, onE
 }
 
 export function attachSessionDisplay(root, session) {
+  const layout = root.querySelector('.layout');
+  const nav = root.querySelector('.bottom-nav');
+  const actions = root.querySelector('.session-submit-area');
+  const viewport = window.visualViewport;
+  const positionActions = () => {
+    if (!layout || !actions) return;
+    const keyboardOpen = viewport && window.innerHeight - viewport.height > 120;
+    layout.classList.toggle('session-keyboard-open', Boolean(keyboardOpen));
+    layout.style.setProperty('--session-action-height', `${actions.getBoundingClientRect().height}px`);
+    if (nav) layout.style.setProperty('--session-dock-clearance', `${Math.max(0, window.innerHeight - nav.getBoundingClientRect().top) + 12}px`);
+  };
+  let disposed = false;
+  nav?.addEventListener('transitionend', positionActions);
+  document.fonts?.ready.then(() => { if (!disposed) positionActions(); });
+  window.addEventListener('resize', positionActions);
+  viewport?.addEventListener('resize', positionActions);
+  viewport?.addEventListener('scroll', positionActions);
+  positionActions();
   let timer = null;
   const tick = () => {
     const display = root.querySelector('[data-session-timer]');
@@ -58,5 +76,11 @@ export function attachSessionDisplay(root, session) {
   };
   if (input) { input.addEventListener('input', update); update(); }
   document.addEventListener('visibilitychange', visibility); visibility();
-  return () => { clearInterval(timer); document.removeEventListener('visibilitychange', visibility); input?.removeEventListener('input', update); };
+  return () => {
+    clearInterval(timer); document.removeEventListener('visibilitychange', visibility); input?.removeEventListener('input', update);
+    disposed = true; nav?.removeEventListener('transitionend', positionActions); window.removeEventListener('resize', positionActions);
+    viewport?.removeEventListener('resize', positionActions); viewport?.removeEventListener('scroll', positionActions);
+    layout?.classList.remove('session-keyboard-open');
+    layout?.style.removeProperty('--session-action-height'); layout?.style.removeProperty('--session-dock-clearance');
+  };
 }

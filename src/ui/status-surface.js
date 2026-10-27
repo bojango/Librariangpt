@@ -1,10 +1,10 @@
 // iOS paints the unsafe status-bar inset from the document canvas. Keep that
 // canvas in step with the header without placing a fixed layer over the page.
-export function syncStatusSurface(doc = document) {
+export function syncStatusSurface(doc = document, { force = false } = {}) {
   const header = doc.querySelector('#app .topbar');
-  const offscreen = !header || header.getBoundingClientRect().bottom <= 0;
+  const offscreen = doc.documentElement.classList.contains('booting') || !header || header.getBoundingClientRect().bottom <= 0;
   const root = doc.documentElement;
-  if (root.classList.contains('header-offscreen') === offscreen) return;
+  if (!force && root.classList.contains('header-offscreen') === offscreen) return;
   root.classList.toggle('header-offscreen', offscreen);
   if (root.dataset.theme === 'reading-room') {
     const pageColor = doc.defaultView.getComputedStyle(doc.querySelector('.layout') || doc.body).backgroundColor;
