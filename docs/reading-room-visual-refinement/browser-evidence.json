@@ -1,0 +1,94 @@
+{
+  "backend": "isolated fixtures",
+  "physicalIphone": false,
+  "checks": [
+    {
+      "engine": "chromium",
+      "theme": "reading-room",
+      "geometry": {
+        "save": {
+          "top": 670,
+          "bottom": 722
+        },
+        "nav": {
+          "top": 778,
+          "bottom": 832
+        },
+        "kind": {
+          "top": 593.9375,
+          "bottom": 637.9375
+        },
+        "height": 844,
+        "scroll": 0,
+        "overflow": false
+      },
+      "timerAdvanced": true
+    },
+    {
+      "engine": "chromium",
+      "theme": "terminal",
+      "geometry": {
+        "save": {
+          "top": 681,
+          "bottom": 733
+        },
+        "nav": {
+          "top": 789,
+          "bottom": 844
+        },
+        "kind": {
+          "top": 587.09375,
+          "bottom": 631.09375
+        },
+        "height": 844,
+        "scroll": 0,
+        "overflow": false
+      },
+      "timerAdvanced": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "reading-room",
+      "geometry": {
+        "save": {
+          "top": 670,
+          "bottom": 722
+        },
+        "nav": {
+          "top": 778,
+          "bottom": 832
+        },
+        "kind": {
+          "top": 593.9375,
+          "bottom": 640.9375
+        },
+        "height": 844,
+        "scroll": 0,
+        "overflow": false
+      },
+      "timerAdvanced": true
+    },
+    {
+      "engine": "webkit",
+      "theme": "terminal",
+      "geometry": {
+        "save": {
+          "top": 681,
+          "bottom": 733
+        },
+        "nav": {
+          "top": 789,
+          "bottom": 844
+        },
+        "kind": {
+          "top": 587.09375,
+          "bottom": 633.09375
+        },
+        "height": 844,
+        "scroll": 0,
+        "overflow": false
+      },
+      "timerAdvanced": true
+    }
+  ]
+}

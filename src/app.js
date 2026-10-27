@@ -31,7 +31,7 @@ import { openEditionBrowser } from './features/editions.js';
 import { handleExactCopyAction } from './features/exact-copy.js';
 import { handleQuoteAction } from './features/quotes.js';
 import { activateCovers, collectCoverImages, reuseCoverImages, setCoverDiagnosticHook } from './ui/cover.js';
-import { animateProgress, installMotionController, progressSnapshot } from './ui/motion.js';
+import { animateProgress, createStartupReveal, installMotionController, progressSnapshot } from './ui/motion.js';
 import { installScrollLifecycle } from './scroll-lifecycle.js';
 import { createSupabaseDiagnosticUploader, diagnostics } from './diagnostics/diagnostics.js';
 import { connectServiceWorkerDiagnostics, diagnosticScrollTo, installDiagnosticsInstrumentation, recordCurrentTitleState, requestServiceWorkerDiagnosticSnapshot } from './diagnostics/instrumentation.js';
@@ -50,6 +50,7 @@ import { activityTime, feedTab, handleFeedDisclosure } from './features/activity
 import { editProfileIdentity } from './features/profile-identity-editor.js';
 
 const app = document.querySelector('#app');
+const revealStartup = createStartupReveal(app.querySelector('.boot-screen'), { onComplete: () => syncStatusSurface(document, { force: true }) });
 installHeaderGreetingClock();
 installStatusSurface();
 initialiseTheme();
@@ -171,6 +172,7 @@ function cancelScrollRestore() {
 }
 
 function currentBook(id = store.value.route.bookId) {
+  if (!id) return null;
   return store.value.detail?.book?.id === id ? store.value.detail.book : store.value.books.find(book => book.id === id);
 }
 
@@ -245,6 +247,11 @@ function paint(html, { restore = false, restoreY: requestedRestoreY = null, pres
   if (currentLayout && nextLayout) {
     const currentMain = currentLayout.querySelector(':scope > main');
     const nextMain = nextLayout.querySelector(':scope > main');
+    const openEditionDetails = currentMain.querySelector('.metadata-accordion[open] [data-cover-picker]');
+    if (renderMode === 'refresh' && openEditionDetails
+      && currentMain.querySelector('.detail-header')?.dataset.bookId === nextMain.querySelector('.detail-header')?.dataset.bookId) {
+      nextMain.querySelector('.metadata-accordion')?.setAttribute('open', '');
+    }
     if (coverPool) reusedCoverCount = reuseCoverImages(nextMain, coverPool, { activate: false });
     if (transition) markRouteEntry(nextMain);
     currentMain.replaceWith(nextMain);
@@ -257,7 +264,8 @@ function paint(html, { restore = false, restoreY: requestedRestoreY = null, pres
     app.replaceChildren(template.content);
   }
   app.dataset.routeView = store.value.route.name;
-  syncStatusSurface();
+  revealStartup(app);
+  syncStatusSurface(document, { force: true });
   activateCovers(activationRoot);
   activateAwardLogos(activationRoot);
   animateProgress(activationRoot, previousProgress);
@@ -330,7 +338,6 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
       }
       paint(session.ended_at ? readingSessionFinishView(session) : readingSessionActiveView(session), { positionY: 0, renderMode: mode });
       disposeSessionDisplay = attachSessionDisplay(app, session);
-      app.querySelector('#nfc-current-page')?.focus();
     } catch { if (store.isCurrent(version)) paint(errorView('This reading session is unavailable. Sign in as its owner.'), { renderMode: mode }); }
     return;
   }

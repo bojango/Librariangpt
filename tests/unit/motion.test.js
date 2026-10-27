@@ -1,7 +1,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { installMotionController } from '../../src/ui/motion.js';
+import { createStartupReveal, installMotionController } from '../../src/ui/motion.js';
+
+test('startup reveal is consumed once, caps major groups and does not wait for animations', async () => {
+  const options = []; let removed = 0, completed = 0, appended = 0;
+  const classes = new Set(['booting']);
+  let settle;
+  const splash = { remove: () => removed++, setAttribute() {}, animate: (_, config) => { options.push(config); return { finished: new Promise(resolve => { settle = resolve; }) }; } };
+  const groups = Array.from({ length: 100 }, () => ({ getBoundingClientRect: () => ({ top: 20 }), animate: (_, config) => options.push(config) }));
+  const root = { dataset: { routeView: 'home' }, querySelector: () => ({ children: groups }) };
+  const reveal = createStartupReveal(splash, { win: { innerHeight: 844, matchMedia: () => ({ matches: false }) }, doc: { body: { append: () => appended++ }, documentElement: { classList: { remove: name => classes.delete(name) } } }, onComplete: () => completed++ });
+  assert.equal(reveal(root), undefined);
+  reveal(root);
+  assert.equal(options.length, 5); assert.equal(appended, 1); assert.equal(removed, 0);
+  assert.ok(options.every(option => option.duration + (option.delay || 0) <= 300));
+  settle(); await Promise.resolve();
+  assert.equal(removed, 1); assert.equal(completed, 1); assert.equal(classes.has('booting'), false);
+});
+
+test('reduced motion removes the startup screen synchronously without animation', () => {
+  let removed = 0;
+  const reveal = createStartupReveal({ remove: () => removed++, animate: () => assert.fail('unexpected motion') }, { win: { matchMedia: () => ({ matches: true }) }, doc: { documentElement: { classList: { remove() {} } } } });
+  reveal({}); reveal({}); assert.equal(removed, 1);
+});
 
 function target(properties = {}) {
   const events = new EventTarget();

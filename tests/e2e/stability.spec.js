@@ -30,7 +30,7 @@ async function isolatedApp(page,{edition=false,discoverySuccess=false}={}) {
   if(path.includes('/rest/v1/book_cover_candidates'))return json({id:'manual-url'});
   if(path.includes('/rest/v1/v_library'))return json(url.searchParams.has('id')?book():books());
   if(path.includes('/rest/v1/editions'))return json(editions);
-  if(path.includes('/rest/v1/books'))return json({editions_status:discovered?'ready':'failed',editions_error:discovered?null:'Providers temporarily unavailable',editions_last_refreshed_at:new Date().toISOString(),metadata_status:'complete'});
+  if(path.includes('/rest/v1/books'))return json({editions_status:discovered?'ready':'failed',editions_error:discovered?null:'Providers temporarily unavailable',editions_last_refreshed_at:'2026-10-01T10:00:00Z',metadata_status:'complete'});
   if(path.includes('/rest/v1/reader_profiles'))return json(null);
   if(path.includes('/rest/v1/rpc/'))return json(null);
   return json([]);
@@ -39,7 +39,12 @@ async function isolatedApp(page,{edition=false,discoverySuccess=false}={}) {
  await page.goto('/#/book/yeti');await expect(page.locator('.detail-header[data-book-id="yeti"]')).toBeVisible();
  return {uploads,errors,get discoveryCalls(){return discoveryCalls;},failUpload(value){uploadFailure=value;}};
 }
-async function coverForm(page){await page.locator('[data-cover-picker]').click();await expect(page.locator('#custom-cover')).toBeVisible();}
+async function coverForm(page){
+ await page.waitForLoadState('networkidle');
+ const accordion=page.locator('.metadata-accordion');
+ if(await accordion.locator('[data-cover-picker]').count() && !await accordion.evaluate(node=>node.open)) await accordion.locator('summary').click();
+ await page.locator('[data-cover-picker]').click();await expect(page.locator('#custom-cover')).toBeVisible();
+}
 async function imageUpload(page){await page.locator('[name="file"]').setInputFiles({name:'cover.png',mimeType:'image/png',buffer:png});await page.getByRole('button',{name:'Save cover',exact:true}).click();}
 async function assertBrowserErrors(page,mock){
  expect(await page.evaluate(()=>window.__stabilityRejections)).toEqual([]);

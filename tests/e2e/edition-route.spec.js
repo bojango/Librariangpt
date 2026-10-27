@@ -127,6 +127,7 @@ test('shared header follows every route and leaves only one menu visible while s
   await page.goto('/#/home');
   const title = page.locator('.header-title');
   await expect(title).toHaveText('Home');
+  await expect(page.locator('.boot-screen')).toHaveCount(0);
   const header = page.locator('.topbar');
   const menu = page.locator('[data-menu]');
   await expect(menu).toHaveCount(1);
