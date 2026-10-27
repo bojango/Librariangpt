@@ -1,5 +1,6 @@
 import { chrome } from '../ui/chrome.js';
 import { cover, esc } from '../ui/format.js';
+import { libraryTabs } from './collections.js';
 
 export const FILTERS = ['All', 'Owned', 'Unread', 'Read', 'Wishlist', 'Recommended'];
 
@@ -28,5 +29,5 @@ export function libraryView(state, routeName) {
   const books = filteredBooks(state, routeName);
   const filter = routeName === 'wishlist' ? 'Wishlist' : state.filters.library === 'Recommended' ? 'All' : state.filters.library;
   const cards = books.map(card).join('');
-  return chrome(`<div class="toolbar"><button class="btn btn-primary" data-add-book type="button">Add book</button><input id="library-search" class="input search" data-library-search="${routeName}" type="search" placeholder="Search title, author, genre or series" value="${esc(state.queries[routeName] || '')}">${routeName === 'library' ? `<div class="filters">${FILTERS.map(item => item === 'Recommended' ? `<button class="filter" data-route="recommendations" type="button">${item}</button>` : `<button class="filter ${filter === item ? 'active' : ''}" data-filter="${item}" type="button">${item}</button>`).join('')}</div>` : ''}</div><div class="library-grid">${cards}</div>`, routeName, { wishlistCount: books.length });
+  return chrome(`${routeName === 'library' ? libraryTabs('books') : ''}<div class="toolbar"><button class="btn btn-primary" data-add-book type="button">Add book</button><input id="library-search" class="input search" data-library-search="${routeName}" type="search" placeholder="Search title, author, genre or series" value="${esc(state.queries[routeName] || '')}">${routeName === 'library' ? `<div class="filters">${FILTERS.map(item => item === 'Recommended' ? `<button class="filter" data-route="recommendations" type="button">${item}</button>` : `<button class="filter ${filter === item ? 'active' : ''}" data-filter="${item}" type="button">${item}</button>`).join('')}</div>` : ''}</div><div class="library-grid">${cards}</div>`, routeName, { wishlistCount: books.length });
 }

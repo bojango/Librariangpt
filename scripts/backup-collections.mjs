@@ -1,0 +1,32 @@
+// Fresh private logical archive. Never print temporary CLI login credentials.
+import {spawnSync} from 'node:child_process';
+import {mkdir,readFile,writeFile,stat} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
+import {resolve,join} from 'node:path';
+const args=process.argv.slice(2),arg=name=>args[args.indexOf(name)+1];
+if(!args.includes('--directory')||!args.includes('--tools')) throw new Error('--directory <private backup directory> --tools <PostgreSQL bin directory> required');
+const directory=resolve(arg('--directory')),bin=resolve(arg('--tools'));
+await mkdir(directory,{recursive:true});
+const stamp=new Date().toISOString().replaceAll(/[-:]/g,'').replace(/\.\d+Z$/,'Z');
+const dump=join(directory,`reading-room-${stamp}.dump`),decoded=join(directory,`verified-${stamp}.sql`);
+const plan=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command','npx --yes supabase db dump --project-ref fbbpovieqfsjunmqtxvf --dry-run'],{encoding:'utf8',windowsHide:true});
+if(plan.status!==0) throw new Error('Supabase backup credential planning failed; output withheld to protect credentials.');
+const certificate=join(directory,'backup-trust-roots.pem');
+await writeFile(certificate,(await readFile('output/postgresql-tools/cacert.pem','utf8'))+'\n'+(await readFile('output/postgresql-tools/supabase-ca.crt','utf8')));
+const env={...process.env,PGSSLMODE:'verify-full',PGSSLROOTCERT:certificate};
+for(const [,key,value] of (plan.stdout || '').matchAll(/^export (PG\w+)="([^"]*)"/gm)) env[key]=value;
+if(!env.PGPASSWORD||env.PGHOST!=='aws-1-eu-west-1.pooler.supabase.com') throw new Error('Unexpected backup connection plan.');
+const run=(exe,options)=>{
+ const result=spawnSync(join(bin,`${exe}.exe`),options,{env,encoding:'utf8',windowsHide:true,maxBuffer:20*1024*1024});
+ if(result.status!==0) throw new Error(`${exe} failed: ${String(result.stderr || result.error || '').replaceAll(env.PGPASSWORD,'[redacted]').slice(0,2000)}`);
+ return result.stdout;
+};
+run('pg_dump',['--format=custom','--role=postgres','--file',dump]);
+const list=run('pg_restore',['--list',dump]);
+await writeFile(join(directory,`archive-${stamp}.txt`),list);
+run('pg_restore',['--file',decoded,dump]);
+const bytes=(await stat(dump)).size,sha256=createHash('sha256').update(await readFile(dump)).digest('hex');
+if(bytes<1000||!list.includes('TABLE DATA')||!(await stat(decoded)).size) throw new Error('Archive failed validation.');
+const evidence={created_at:new Date().toISOString(),database_file:dump.split(/[\\/]/).at(-1),bytes,sha256,table_data_entries:list.split('\n').filter(line=>line.includes('TABLE DATA')).length,archive_decode:'passed',tls:'verify-full',backup_location:directory,hosted_restore:'not performed',storage_bytes:'Not included; existing media objects preserved'};
+await writeFile('docs/collections-backend-backup-evidence.json',JSON.stringify(evidence,null,2)+'\n');
+console.log(JSON.stringify(evidence,null,2));

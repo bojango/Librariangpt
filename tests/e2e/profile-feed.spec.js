@@ -101,8 +101,7 @@ test('iPhone profile feed, timestamp, filters, pagination, all tabs and back nav
   const stamp=page.locator('.activity-time').first(); const exact=await stamp.getAttribute('data-exact-time');await stamp.click();await expect(stamp).toHaveText(exact);
   await page.locator('[data-feed-more]').click();await expect(page.locator('.activity-card')).toHaveCount(25);
   const ids=await page.locator('.activity-card').evaluateAll(nodes=>nodes.map(n=>n.dataset.activityId));expect(new Set(ids).size).toBe(25);
-  await page.locator('.activity-tags [data-feed-filter="wishlist"]').first().click();
-  await expect(page.locator('.feed-filters [data-feed-filter="wishlist"]')).toHaveAttribute('aria-pressed','true');
+  await page.locator('.activity-tags [data-feed-filter="hashtag:wishlist"]').first().click();
   await expect(page.locator('.activity-card')).toHaveCount(11);
   await page.locator('.feed-filters [data-feed-filter="librarian"]').click();await expect(page.locator('.activity-meta strong')).toHaveText('Librarian');
   await page.locator('.feed-filters [data-feed-filter="quotes"]').click();await expect(page.locator('.feed-state')).toContainText('No activity here yet');
@@ -218,8 +217,8 @@ test('Sessions filter, duration, exact timestamp and book links work; filter row
   mock.events.unshift({id:'70000000-0000-0000-0000-000000000001',event_type:'sessions',book_id:mock.events[0].book_id,occurred_at:new Date(Date.now()-30*60000).toISOString(),metadata:{duration_seconds:4320.75,pages_read:41},hashtags:['sessions']});
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('reading-room:refresh')));
   await expect(page.locator('.activity-card').first()).toContainText('@calum finished a 1h 12m reading session of Thunderhead.');
-  await page.locator('.activity-tags [data-feed-filter="sessions"]').click();
-  await expect(page.locator('.activity-card')).toHaveCount(1);await expect(page.locator('.feed-filters [data-feed-filter="sessions"]')).toHaveAttribute('aria-pressed','true');
+  await page.locator('.activity-tags [data-feed-filter="hashtag:sessions"]').click();
+  await expect(page.locator('.activity-card')).toHaveCount(1);
   await expect(page.locator('.activity-book')).toContainText('41 pages read');await expect(page.locator('.activity-book')).toContainText('Frederik Pohl');
   const stamp=page.locator('.activity-time');const exact=await stamp.getAttribute('data-exact-time');await expect(stamp).toHaveText('30m');await stamp.click();await expect(stamp).toHaveText(exact);
   for(const width of [320,375,390,430,800]){
@@ -248,7 +247,11 @@ for(const theme of ['reading-room','terminal']) test(`library name edit persists
   await page.locator('.profile-inline-form button[type="submit"]').click();await expect(page.locator('.profile-inline-form')).toHaveCount(0);
   expect(mock.profile().library_name).toBe('Alder Creek Reading Library');expect(mock.profile().handle).toBe('@calum');expect(mock.profile().short_bio).toBe('An obsolete biography.');
   await page.locator('[data-route="home"]').last().click();await page.locator('[data-route="profile"]').last().click();await expect(page.locator('[data-library-name-edit]')).toHaveText('Alder Creek Reading Library');
+  // Finish the owner-scoped feed read before destroying its document. WebKit
+  // reports an interrupted mocked fetch as a page error during reload.
+  await expect(page.locator('.activity-card')).toHaveCount(20);
   await page.reload();await expect(page.locator('[data-library-name-edit]')).toHaveText('Alder Creek Reading Library');
+  await expect(page.locator('.activity-card')).toHaveCount(20);
   // A new document also exercises the persisted profile retrieval, rather than in-memory paint.
   for(const width of [320,375,390,430]){
     await page.setViewportSize({width,height:844});

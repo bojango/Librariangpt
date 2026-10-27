@@ -1,4 +1,94 @@
 /* Consolidated from styles.css */
+/* Collections use the same materials, buttons and safe areas as the Library. */
+.collection-tabs { display:flex; gap:6px; margin:16px 0 20px; border-bottom:1px solid var(--line); }
+.library-view-tabs { margin-top:0; }
+.collection-tabs > a,.collection-tabs > button { flex:1; display:block; min-height:44px; padding:12px 8px; border:0; border-bottom:2px solid transparent; background:transparent; color:var(--muted); text-align:center; text-decoration:none; font-size:13px; }
+.collection-tabs > .active { border-bottom-color:var(--accent); color:var(--text); font-weight:700; }
+.collections-tools { display:grid; gap:14px; }
+.collections-tools .input { width:100%; min-width:0; }
+.author-collections-toggle { display:flex; align-items:center; gap:9px; min-height:30px; color:var(--muted); font-size:12px; }
+.author-collections-toggle input { width:17px; height:17px; accent-color:var(--accent); }
+.collections-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr)); gap:18px; margin-top:20px; }
+.collection-card { display:grid; grid-template-columns:106px minmax(0,1fr); gap:20px; align-items:center; padding:22px; border:1px solid var(--line); border-radius:var(--radius); background:var(--panel); color:var(--text); }
+.collection-card-copy { min-width:0; }
+.collection-card h2 { margin:4px 0 14px; font:500 23px/1.2 Georgia,serif; overflow-wrap:anywhere; }
+.collection-card h2 a { color:inherit; text-decoration:none; }
+.collection-covers { display:block; position:relative; height:148px; }
+.collection-covers > .cover { position:absolute; width:82px; height:123px; top:8px; left:0; transform:rotate(-8deg); box-shadow:0 6px 16px #0003; }
+.collection-covers > .cover:nth-child(2) { left:10px; top:4px; transform:rotate(1deg); }
+.collection-covers > .cover:nth-child(3) { left:20px; top:12px; transform:rotate(9deg); }
+.collection-counts { display:flex; flex-wrap:wrap; gap:5px 12px; color:var(--muted); font-size:12px; margin:10px 0; }
+.collection-progress { display:block; width:100%; height:5px; border:0; border-radius:3px; background:var(--line); accent-color:var(--accent); }
+.collection-progress::-webkit-progress-bar { background:var(--line); border-radius:3px; }
+.collection-progress::-webkit-progress-value { background:var(--accent); border-radius:3px; }
+.collection-progress::-moz-progress-bar { background:var(--accent); border-radius:3px; }
+.collection-card .collection-explore { margin-top:16px; }
+.collection-explore { display:inline-flex; align-items:center; justify-content:center; text-decoration:none; text-align:center; }
+.collection-detail { max-width:940px; margin:0 auto; min-width:0; }
+.collection-heading { margin:22px 0; max-width:780px; }
+.collection-heading h1,.collection-catalogue-hero h1 { font:500 clamp(30px,5vw,46px)/1.12 Georgia,serif; margin:8px 0 14px; letter-spacing:-.025em; overflow-wrap:anywhere; }
+.collection-heading > p:not(.eyebrow),.collection-explanation { color:var(--muted); font-size:14px; line-height:1.65; }
+.collection-progress-pair { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; margin:20px 0; }
+.collection-progress-label { display:flex; flex-wrap:wrap; justify-content:space-between; gap:4px 12px; font-size:11px; color:var(--muted); margin-bottom:9px; }
+.collection-progress-label span:first-child { color:var(--text); font-weight:600; }
+.collection-cover-shelf { display:flex; gap:14px; max-width:100%; overflow-x:auto; overscroll-behavior-x:contain; scroll-snap-type:x mandatory; scroll-padding-inline:2px; padding:12px 2px 18px; margin:12px 0 0; scrollbar-width:thin; -webkit-overflow-scrolling:touch; }
+.collection-cover-shelf.shelf-centred { justify-content:center; }
+.collection-cover-shelf:focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.collection-shelf-book { display:block; flex:0 0 calc((100% - 42px)/4.15); min-width:0; scroll-snap-align:start; text-decoration:none; color:var(--muted); }
+.collection-shelf-book .cover { width:100%; aspect-ratio:2/3; height:auto; box-shadow:0 4px 10px #0002; }
+.collection-shelf-book > span { display:block; margin-top:8px; font-size:10px; line-height:1.4; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.collection-subseries { display:flex; flex-wrap:wrap; gap:8px; margin:20px 0; }
+.collection-subseries a { display:inline-flex; align-items:center; min-height:40px; text-decoration:none; }
+.collection-parent-link { display:inline-block; font-size:12px; margin:12px 0; }
+.collection-subseries-group > h2 { font:500 25px/1.25 Georgia,serif; margin:26px 0 8px; }
+.collection-book-list { padding:0; margin:12px 0 24px; list-style:none; }
+.collection-book { display:grid; grid-template-columns:86px minmax(0,1fr); gap:18px; padding:16px 0; border-bottom:1px solid var(--line); }
+.collection-book-cover .cover { width:86px; aspect-ratio:2/3; }
+.collection-book-copy { min-width:0; }
+.collection-book-copy h3 { font:500 21px/1.25 Georgia,serif; margin:3px 0 5px; overflow-wrap:anywhere; }
+.collection-book-copy h3 a { text-decoration:none; }
+.collection-book-order,.collection-author { font-size:12px; color:var(--muted); margin:0 0 6px; line-height:1.5; }
+.collection-statuses { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin:8px 0; }
+.selection-optional { color:var(--muted); }
+.selection-skipped { color:var(--muted); border-style:dashed; }
+.collection-reason { margin-top:8px; font-size:13px; line-height:1.65; }
+.collection-reason summary { cursor:pointer; color:var(--muted); min-height:32px; padding:5px 0; }
+.collection-reason p { white-space:pre-wrap; overflow-wrap:anywhere; }
+.collection-add-action { display:flex; flex-wrap:wrap; align-items:center; gap:5px 10px; margin-top:10px; }
+.collection-add-action .btn { min-height:44px; }
+.collection-add-action > span { font-size:10px; color:var(--muted); }
+.collection-add-error { color:var(--danger); line-height:1.5; }
+.collection-next { font-size:13px; line-height:1.6; }
+.collection-next a { text-underline-offset:3px; }
+.collection-source { display:flex; flex-wrap:wrap; gap:10px 24px; padding:24px 0; color:var(--muted); font-size:12px; }
+.collection-state { padding:40px 12px; text-align:center; color:var(--muted); }
+.path-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:18px 0; }
+.path-actions p { flex-basis:100%; font-size:12px; line-height:1.6; color:var(--muted); margin:0; }
+.path-edit-controls { display:flex; flex-wrap:wrap; gap:8px 14px; align-items:center; font-size:12px; }
+.path-edit-controls label { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.path-edit-controls select { max-width:100%; padding:8px; background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:6px; }
+.path-edit-controls button { min-height:44px; }
+.collection-catalogue-detail { max-width:940px; margin:20px auto; }
+.collection-catalogue-hero { display:grid; grid-template-columns:120px minmax(0,1fr); gap:24px; margin:25px 0; }
+.collection-catalogue-hero > .cover { width:120px; aspect-ratio:2/3; }
+.collection-catalogue-hero p { line-height:1.6; color:var(--muted); }
+.collection-artwork-source { font-size:11px; }
+html[data-theme="terminal"] .collection-card { border-radius:var(--terminal-radius); box-shadow:none; }
+html[data-theme="terminal"] :is(.collection-heading h1,.collection-card h2,.collection-book-copy h3,.collection-catalogue-hero h1,.collection-subseries-group > h2) { font-family:var(--font-terminal); }
+@media(max-width:480px) {
+ .collection-card { padding:18px 16px; grid-template-columns:88px minmax(0,1fr); gap:15px; }
+ .collection-covers > .cover { width:68px; height:102px; }
+ .collection-covers { height:124px; }
+ .collection-card h2 { font-size:21px; }
+ .collection-book { grid-template-columns:76px minmax(0,1fr); gap:14px; }
+ .collection-book-cover .cover { width:76px; }
+ .collection-catalogue-hero { grid-template-columns:85px minmax(0,1fr); gap:18px; }
+ .collection-catalogue-hero > .cover { width:85px; }
+ .collection-catalogue-hero h1 { font-size:27px; }
+ .collection-cover-shelf { gap:10px; }
+ .collection-shelf-book { flex-basis:calc((100% - 30px)/4.1); }
+ .collection-progress-pair { gap:14px; }
+}
 :root {
   color-scheme: dark;
   --bg: #11100f;
@@ -313,7 +403,7 @@ main{color:#171613!important}
 .back-btn{color:#171613!important;text-decoration:underline;text-underline-offset:3px}
 
 @media(max-width:700px){
- .hero{grid-template-columns:128px minmax(0,1fr)!important;gap:18px!important;padding:18px!important}.hero-actions{gap:6px!important}.hero-actions .btn{font-size:12px!important;padding:8px 7px!important}
+ .hero{grid-template-columns:128px minmax(0,1fr)!important;gap:18px!important;padding:18px!important}.hero-actions{gap:6px!important}:is(.hero-actions .btn,.collection-card .collection-explore){font-size:12px!important;padding:8px 7px!important}
  .detail-header[data-library-detail="ready"]{grid-template-columns:1fr;gap:22px}.detail-header[data-library-detail="ready"]>.cover{width:min(46vw,205px);position:relative!important;top:auto!important;transform:none!important;z-index:1!important}
  .detail-copy-v4{width:100%}.rating-primary-row{grid-template-columns:1fr 1fr;gap:7px}.rating-card{padding:9px 8px;gap:7px}.rating-card img,.rating-fallback,.rating-user-mark{width:30px;height:30px;flex-basis:30px}.rating-copy strong{font-size:20px}.rating-copy span{font-size:9px}
  .book-synopsis p{font-size:15px;line-height:1.62}.reading-dates{grid-template-columns:repeat(2,minmax(0,1fr))}.reading-dates>div:last-child{grid-column:1/-1}
@@ -1007,7 +1097,8 @@ html[style*="--user-nav-label-size"] .nav-label { font-size:var(--user-nav-label
   html[data-theme="terminal"] .hero, html[data-theme="terminal"] .current-reading-track-v36 > .hero.current-reading-card-v36 { grid-template-columns: minmax(104px, 31vw) minmax(0, 1fr) !important; min-height: 0 !important; }
   html[data-theme="terminal"] .hero-copy h1, html[data-theme="terminal"] .detail-copy-v4 h1 { font-size: clamp(25px, 7.6vw, 40px) !important; }
   html[data-theme="terminal"] .hero-actions { display: grid !important; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); width: 100%; }
-  html[data-theme="terminal"] .hero-actions .btn { min-width: 0 !important; width: 100%; padding-inline: 4px !important; font-size: 9px !important; letter-spacing: .01em; }
+  html[data-theme="terminal"] .hero-actions .btn { min-width: 0 !important; width: 100%; }
+  html[data-theme="terminal"] :is(.hero-actions .btn,.collection-card .collection-explore) { padding-inline: 4px !important; font-size: 9px !important; letter-spacing: .01em; }
 }
 
 /* Terminal correction v69: compact Cyberspace-inspired skin tokens. */
@@ -1580,7 +1671,7 @@ html[data-theme="terminal"] .profile-avatar-action-icon { display: none; }
   html[data-theme="reading-room"] .current-reading-card-v36 .hero-author { line-height: 1.2; }
   html[data-theme="reading-room"] .current-reading-card-v36 .progress-meta { margin-bottom: 5px; }
   html[data-theme="reading-room"] .current-reading-card-v36 .chapter-progress-line { margin: 2px 0 3px; font-size: 11px; line-height: 1.3; }
-  html[data-theme="reading-room"] .current-reading-card-v36 .hero-actions .btn { padding-block: 11px !important; }
+  html[data-theme="reading-room"] :is(.current-reading-card-v36 .hero-actions .btn,.collection-card .collection-explore) { padding-block: 11px !important; }
   html[data-theme="terminal"] .current-reading-card-v36 .current-reading-bottom > .progress-block { margin: 0 !important; }
   html[data-theme="reading-room"] .profile-card {
     grid-template-columns: 1fr;
@@ -1790,7 +1881,7 @@ html[data-theme="reading-room"]{
  --rr-glass-border-light:rgba(255,255,255,.34);--rr-glass-blur:16px;
  --rr-glass-saturation:185%;--rr-glass-contrast:1.08;--rr-card-material-radius:18px
 }
-html[data-theme="reading-room"] :is(.hero,.stat,.info,.review-panel,.recommendation-panel,.metadata-accordion,.reading-dates>div,.reading-stats-grid>div,.visible-metadata-list,.rating-card,.award-tile,.upnext-card,.recommended-card,.recommendation-editorial-card,.recommended-list-card,.profile-card,.taste-signals section){
+html[data-theme="reading-room"] :is(.hero,.stat,.info,.review-panel,.recommendation-panel,.metadata-accordion,.reading-dates>div,.reading-stats-grid>div,.visible-metadata-list,.rating-card,.award-tile,.upnext-card,.recommended-card,.recommendation-editorial-card,.recommended-list-card,.profile-card,.taste-signals section,.collection-card){
  border-radius:max(var(--radius),var(--rr-card-material-radius))!important;
  border-color:rgba(23,22,19,.12)!important;
  background:linear-gradient(145deg,rgba(255,255,255,.36),rgba(255,255,255,.10) 40%,rgba(23,22,19,.025) 100%),rgba(247,244,236,.58)!important;
@@ -1914,6 +2005,7 @@ html[data-theme="reading-room"] body {
 /* Primary actions: beat the older component-level !important rules. */
 html[data-theme="reading-room"] body .layout .btn.btn-primary,
 html[data-theme="reading-room"] body .layout button.btn.btn-primary,
+html[data-theme="reading-room"] body .layout a.btn.btn-primary.collection-explore,
 html[data-theme="reading-room"] body .modal .btn.btn-primary,
 html[data-theme="reading-room"] body .book-admin-modal .btn.btn-primary {
   background: #28292a !important;
@@ -1938,7 +2030,7 @@ html[data-theme="reading-room"] :is(
   .metadata-accordion,.reading-dates>div,.reading-stats-grid>div,
   .visible-metadata-list,.rating-card,.award-tile,.upnext-card,
   .recommended-card,.recommendation-editorial-card,.recommended-list-card,
-  .profile-card,.taste-signals section
+  .profile-card,.taste-signals section,.collection-card
 ) {
   border-color: rgba(23,22,19,.075) !important;
   background:
@@ -2510,3 +2602,9 @@ html[data-theme="terminal"] .profile-card .profile-inline-identity { color: var(
 
 .profile-inline-identity[hidden] { display: none !important; }
 html:has(body) .profile-page .profile-card { box-shadow: none !important; }
+
+/* Keep collection actions and carousels clear of the floating navigation. */
+main:has(.collections-overview,.collection-detail,.collection-catalogue-detail) { padding-left:max(clamp(18px,4vw,52px),var(--safe-left,env(safe-area-inset-left,0px))); padding-right:max(clamp(18px,4vw,52px),var(--safe-right,env(safe-area-inset-right,0px))); padding-bottom:calc(48px + var(--safe-bottom)); }
+.collection-add-action .btn { scroll-margin-block:calc(var(--user-nav-height,var(--terminal-nav-height,62px)) + var(--safe-bottom) + 24px); }
+
+related-books .series-collection-link { color:inherit; font:inherit; letter-spacing:inherit; text-decoration:none; }

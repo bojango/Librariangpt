@@ -1,16 +1,22 @@
-const ROUTES = new Set(['home', 'library', 'wishlist', 'profile', 'recommendations']);
+const ROUTES = new Set(['home', 'library', 'wishlist', 'profile', 'recommendations', 'collections']);
 
 export function parseRoute(hash = location.hash) {
   const path = String(hash || '').replace(/^#\/?/, '');
   const [name, bookId] = path.split('/');
   if (name === 'reading-session' && bookId && ['finish','active','choose'].includes(path.split('/')[2])) return { name: `reading-session-${path.split('/')[2]}`, sessionId: decodeURIComponent(bookId), bookId: null };
   if (name === 'book' && bookId) return { name: 'book', bookId: decodeURIComponent(bookId) };
+  if (name === 'collection' && bookId) {
+    const [key, query] = bookId.split('?');
+    const collectionFilter = new URLSearchParams(query || '').get('series');
+    return { name: 'collection', collectionKey: decodeURIComponent(key), bookId: null, ...(collectionFilter ? { collectionFilter } : {}) };
+  }
   // Keep bookmarked Stage 1 Stats links working without retaining a second page.
   if (name === 'stats') return { name: 'profile', bookId: null };
   return { name: ROUTES.has(name) ? name : 'home', bookId: null };
 }
 
 export function routeHash(route) {
+  if (route.name === 'collection') return `#/collection/${encodeURIComponent(route.collectionKey)}${route.collectionFilter ? `?series=${encodeURIComponent(route.collectionFilter)}` : ''}`;
   if (route.name.startsWith('reading-session-')) return `#/reading-session/${encodeURIComponent(route.sessionId)}/${route.name.replace('reading-session-', '')}`;
   return route.name === 'book' ? `#/book/${encodeURIComponent(route.bookId)}` : `#/${route.name}`;
 }
@@ -21,6 +27,7 @@ export function createRouter(onChange, hooks = null) {
     const context = pendingContext || { source: 'hashchange' };
     pendingContext = null;
     const route = parseRoute();
+    if (context.returnHash) history.replaceState({ ...history.state, readingRoomReturnHash: context.returnHash }, '', location.href);
     hooks?.event('hashchange', { route: route.name, book_id: route.bookId || null, source: context.source });
     onChange(route, context);
   };
@@ -32,14 +39,14 @@ export function createRouter(onChange, hooks = null) {
       hooks?.event('router_start', { route: route.name, book_id: route.bookId || null });
       onChange(route, { source: 'start' });
     },
-    navigate(route, { replace = false, restoreY = null } = {}) {
+    navigate(route, { replace = false, restoreY = null, preserveReturn = false } = {}) {
       const hash = routeHash(route);
       hooks?.event('route_navigation_requested', { to: route.name, book_id: route.bookId || null, source: replace ? 'replace' : location.hash === hash ? 'same-route' : 'navigation' });
       if (replace) {
-        history.replaceState(null, '', hash);
+        history.replaceState(preserveReturn ? history.state : null, '', hash);
         onChange(route, { source: 'navigation', restoreY });
       } else if (location.hash !== hash) {
-        pendingContext = { source: 'navigation', restoreY };
+        pendingContext = { source: 'navigation', restoreY, returnHash: location.hash };
         location.hash = hash;
       } else onChange(route, { source: 'same-route', restoreY });
     },

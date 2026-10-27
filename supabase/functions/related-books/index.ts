@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.4';
+import { catalogueRelatedItems } from '../_shared/collection-related.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -169,14 +170,27 @@ Deno.serve(async (req: Request) => {
       .filter((item: any) => item.title);
 
     const knownAuthorTitles = new Set(authorBookIds.map((id: string) => norm(baseMap.get(id)?.title)).filter(Boolean));
-    const knownSeriesTitles = new Set(seriesBookIds.map((id: string) => norm(baseMap.get(id)?.title)).filter(Boolean));
+    // Verified catalogue rows augment the retained shelf with the full sequence.
+    // Canonical series UUIDs remain the heading/navigation identity.
+    let catalogueItems:any[]=[],completeCatalogue=false;
+    let serialized=norm(bookQuery.data.title)==='beacon 23'&&norm(authorName)==='hugh howey';
+    if(seriesId) {
+      const collection=await admin.from('collections').select('key,complete,catalogue_type').eq('series_id',seriesId).maybeSingle();
+      serialized ||= collection.data?.catalogue_type==='serialized_novel';
+      if(collection.data?.key&&!serialized) {
+        const members=await admin.from('collection_memberships').select('official_number,collection_catalogue_books(*)').eq('collection_key',collection.data.key);
+        if(members.error) console.error('Could not read collection shelf',members.error.message);
+        else {catalogueItems=catalogueRelatedItems(members.data || [],seriesItems,bookId,seriesName);completeCatalogue=collection.data.complete===true;}
+      } else if(collection.error&&!['42P01','PGRST205'].includes(collection.error.code)) console.error('Could not read collection mapping',collection.error.message);
+    }
+    const knownSeriesTitles = new Set([...seriesBookIds.map((id: string) => norm(baseMap.get(id)?.title)),...catalogueItems.map(item=>norm(item.title))].filter(Boolean));
     const externalSeries: any[] = [];
     const externalAuthor: any[] = [];
 
     if (authorName) {
       const [authorDocs, seriesDocs] = await Promise.all([
         openLibrarySearch(authorName, '', 40),
-        seriesName ? openLibrarySearch(authorName, seriesName, 16) : Promise.resolve([])
+        seriesName&&!serialized&&!completeCatalogue ? openLibrarySearch(authorName, seriesName, 16) : Promise.resolve([])
       ]);
       const seen = new Set<string>();
       if (seriesName && seriesDocs.length) {
@@ -195,6 +209,7 @@ Deno.serve(async (req: Request) => {
       const seriesExternalTitles = new Set(externalSeries.map(item => norm(item.title)));
       for (const doc of authorDocs) {
         const key = norm(doc.title);
+        if(serialized&&/^beacon 23(?:\s|$)/.test(key)) continue;
         if (!key || knownAuthorTitles.has(key) || knownSeriesTitles.has(key) || seriesExternalTitles.has(key) || seen.has(key)) continue;
         const item = externalFromDoc(doc, 'author', authorName, null, null);
         if (!item) continue;
@@ -205,17 +220,17 @@ Deno.serve(async (req: Request) => {
       await Promise.all([...externalSeries, ...externalAuthor].slice(0, 12).map(addSynopsis));
     }
 
-    const seriesBooks = [...seriesItems, ...externalSeries].sort((a: any, b: any) => {
-      const ao = Number.isFinite(Number(a.series_order)) ? Number(a.series_order) : 9999;
-      const bo = Number.isFinite(Number(b.series_order)) ? Number(b.series_order) : 9999;
+    const seriesBooks = [...seriesItems, ...catalogueItems, ...externalSeries].sort((a: any, b: any) => {
+      const ao = a.series_order!=null&&Number.isFinite(Number(a.series_order)) ? Number(a.series_order) : 9999;
+      const bo = b.series_order!=null&&Number.isFinite(Number(b.series_order)) ? Number(b.series_order) : 9999;
       return ao - bo || (a.publication_year || 9999) - (b.publication_year || 9999) || String(a.title).localeCompare(String(b.title));
     });
     const authorBooks = [...authorItems, ...externalAuthor];
 
     return json({
-      series: seriesName ? {
+      series: seriesName&&!serialized ? {
         id: seriesId, name: seriesName, current_order: seriesLink.data?.series_order == null ? null : Number(seriesLink.data.series_order),
-        total_books: seriesBookIds.length + externalSeries.length, books: seriesBooks
+        total_books: seriesBookIds.length + catalogueItems.length + externalSeries.length, books: seriesBooks
       } : null,
       author: authorName ? { id: authorId, name: authorName, books: authorBooks } : null,
       generated_at: new Date().toISOString()

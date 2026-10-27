@@ -5,3 +5,8 @@ debug.log
 supabase/.temp/
 *.log
 output/
+
+# Private production audit/backup evidence; never publish to the public repo.
+docs/collections-backend-audit/
+docs/collections-backend-backup-evidence.json
+docs/collections-backend.md
