@@ -115,6 +115,7 @@ for (const status of ['Owned - Unread', 'Paused', 'Read', 'Wishlist', 'Currently
     await expect(page.locator('.metadata-accordion [data-cover-picker]')).toHaveCount(reading ? 0 : 1);
     const startable = ['Owned - Unread', 'Paused'].includes(status);
     await expect(page.locator('[data-start]')).toHaveCount(startable ? 1 : 0);
+    await expect(page.locator('[data-add-up-next]')).toHaveCount(startable || status === 'Wishlist' ? 1 : 0);
     if (startable) {
       const order = await page.evaluate(() => {
         const start = document.querySelector('[data-start]');

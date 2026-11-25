@@ -16,6 +16,39 @@ test('contextual next-read planner executes its real PostgreSQL migration and RP
     await db.query("insert into public.recommendations(user_id,book_id,match_score_10,recommendation_strength) values($1,$2,$3,'Strong')", [owner, bookId(n), score]);
   };
 
+  await scenario('interactive edits promote atomically, preserve reserves, reject stale writes and return owner rows', async () => {
+    await rpc(db, 'refresh_up_next');
+    const initial = await queue(db);
+    const outsideQueue = Array.from({ length: 12 }, (_, i) => bookId(i + 1))
+      .find(id => !initial.some(row => row.book_id === id));
+    await db.exec('set local role authenticated');
+    const edit = (action, args) => rpc(db, 'edit_up_next', [action, args]);
+    const added = await edit('add_first', { book_id: outsideQueue });
+    assert.equal(added.length, 9);
+    assert.deepEqual(added.map(row => row.id), [outsideQueue, ...initial.map(row => row.book_id)]);
+    assert.equal(added[0].position, 1);
+    assert.equal(added[0].locked, true);
+    assert.equal(added[0].source, 'Manual');
+    const repeated = await edit('add_first', { book_id: outsideQueue });
+    assert.deepEqual(repeated.map(row => row.queue_id), added.map(row => row.queue_id));
+    const promoted = await edit('add_first', { book_id: added[3].id });
+    assert.equal(promoted[0].queue_id, added[3].queue_id);
+    assert.deepEqual(promoted.slice(1).map(row => row.queue_id), added.filter(row => row !== added[3]).map(row => row.queue_id));
+    await assert.rejects(edit('reorder', {
+      expected_queue_ids: added.map(row => row.queue_id),
+      queue_ids: added.map(row => row.queue_id).reverse()
+    }), { code: '40001' });
+    await rpc(db, 'refresh_up_next', ['library_snapshot', false]);
+    const refreshed = await queue(db);
+    assert.equal(refreshed[0].id, promoted[0].queue_id);
+    assert.equal(refreshed[1].id, added[0].queue_id);
+    assert.ok(refreshed.slice(0, 2).every(row => row.locked));
+    await db.exec('set constraints public.up_next_unique_position immediate');
+    await assert.rejects(edit('add_first', { book_id: bookId(99) }), /not eligible/);
+    await db.query("select set_config('request.jwt.claim.sub',$1,true)", [other]);
+    await assert.rejects(edit('add_first', { book_id: outsideQueue }), /Not authorized/);
+  });
+
   await scenario('eight candidates, no duplicates, deterministic refresh and reserve promotion', async () => {
     await rpc(db, 'refresh_up_next');
     const first = await queue(db);

@@ -28,6 +28,7 @@ export function memoryAdmin(seed = {}) {
     const builder = {
       select(_columns, opts = {}) { options = { ...options, ...opts }; return this; },
       eq(key, value) { filters.push(row => row[key] === value); return this; },
+      is(key, value) { filters.push(row => (row[key] ?? null) === value); return this; },
       in(key, values) { filters.push(row => values.includes(row[key])); return this; },
       neq(key, value) { filters.push(row => row[key] !== value); return this; },
       ilike(key, value) { filters.push(row => String(row[key]).toLowerCase() === value.toLowerCase()); return this; },

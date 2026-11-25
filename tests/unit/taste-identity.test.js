@@ -78,5 +78,5 @@ test('card and details share escaped complete summary; History exposes two disti
   for (const profileTab of ['feed','taste']) assert.match(profileView({...state,profileTab}),/I enjoy &lt;unusual&gt; worlds\./);
   const history=profileView({...state,profileTab:'history'});
   assert.match(history,/class="profile-history-dates">Started not recorded · Finished 7 Oct 2026<\/small>/);
-  assert.match(history,/class="profile-history-details">Duration not recorded · 3.8\/5 · Science Fiction<\/small>/);
+  assert.match(history,/class="profile-history-details">Duration not recorded · 3.8\/5<\/small>/);
 });

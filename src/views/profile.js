@@ -86,8 +86,22 @@ function historyItem(event) {
   const rating = event.user_rating_5 != null ? Number(event.user_rating_5) : NaN;
   const validDates = event.started_at && event.completion && new Date(event.completion) >= new Date(event.started_at);
   const dates = [`Started ${formatDate(event.started_at, 'not recorded')}`, `Finished ${formatDate(event.completion, 'not recorded')}`];
-  const details = [validDates ? readingDurationText(event.started_at, event.completion).replace(/^Read in /, '') : 'Duration not recorded', Number.isFinite(rating) ? `${rating.toFixed(1)}/5` : 'Unrated', book.primary_genre || 'Genre not recorded'];
+  const pages = historyPageCount(event);
+  const details = [validDates ? readingDurationText(event.started_at, event.completion).replace(/^Read in /, '') : 'Duration not recorded', Number.isFinite(rating) ? `${rating.toFixed(1)}/5` : 'Unrated'];
+  if (pages) details.push(`${pages.toLocaleString('en-GB')} pages`);
   return `<button class="profile-history-item" data-open-book="${escapeHtml(book.id)}" aria-label="Open ${escapeHtml(book.title)}"><span class="profile-history-cover">${cover}</span><span class="profile-history-copy"><strong>${escapeHtml(book.title)}</strong><span>${escapeHtml(book.authors || 'Author not recorded')}</span><small class="profile-history-dates">${escapeHtml(dates.join(' · '))}</small><small class="profile-history-details">${escapeHtml(details.join(' · '))}</small></span></button>`;
+}
+
+function historyPageCount(event) {
+  const { book, edition } = event;
+  const positivePages = value => Number.isInteger(Number(value)) && Number(value) > 0 ? Number(value) : null;
+  const displayEdition = book.current_edition_id || book.display_edition_id || book.reference_edition_id;
+  const sameEdition = event.edition_id && event.edition_id === displayEdition;
+  const sameLegacyReading = !event.edition_id && !displayEdition && event.completion &&
+    event.completion === book.completed_at && book.overall_status === 'Read';
+  const verifiedPages = edition?.page_count_verified && edition.book_id === event.book_id ? positivePages(edition.page_count) : null;
+  const libraryPages = event.eventType === 'fallback' || sameEdition || sameLegacyReading ? positivePages(book.total_pages) : null;
+  return positivePages(event.total_pages) || verifiedPages || libraryPages;
 }
 
 function historyTab(state) {

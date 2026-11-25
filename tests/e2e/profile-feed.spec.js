@@ -193,7 +193,7 @@ for (const theme of ['reading-room','terminal']) test(`profile polish aligns at 
   await page.getByRole('tab',{name:'History',exact:true}).click();
   await expect(page.locator('.profile-history-item')).toHaveCount(2);
   await expect(page.locator('.profile-history-dates')).toHaveText(['Started 1 Mar 2026 · Finished 3 Mar 2026','Started 1 Jan 2026 · Finished 5 Jan 2026']);
-  await expect(page.locator('.profile-history-details')).toHaveText(['2 days · 4.0/5 · Science Fiction','4 days · 3.8/5 · Science Fiction']);
+  await expect(page.locator('.profile-history-details')).toHaveText(['2 days · 4.0/5 · 280 pages','4 days · 3.8/5 · 280 pages']);
   const metadata=await page.locator('.profile-history-copy small').evaluateAll(nodes=>nodes.map(x=>({whiteSpace:getComputedStyle(x).whiteSpace,overflow:getComputedStyle(x).overflow,clipped:x.scrollWidth>x.clientWidth+1})));
   expect(metadata.every(x=>x.whiteSpace==='normal'&&x.overflow==='visible'&&!x.clipped)).toBe(true);
   await page.setViewportSize({width:320,height:844});await page.screenshot({path:info.outputPath(`profile-polish-${theme}-history.png`)});

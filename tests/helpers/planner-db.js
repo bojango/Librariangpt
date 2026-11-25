@@ -38,12 +38,14 @@ export async function plannerDb() {
     select set_config('request.jwt.claim.sub','${owner}',false);
     grant usage on schema private to authenticated;
     grant execute on function private.is_owner() to authenticated;
+    grant select on public.v_library to authenticated;
   `);
   await db.exec(await readFile(migrationPath, 'utf8'));
   await db.exec(await readFile('supabase/migrations/20260929120108_harden_next_read_transition_claim.sql', 'utf8'));
   await db.exec(await readFile('supabase/migrations/20260929172145_strengthen_next_read_queue.sql', 'utf8'));
   await db.exec(await readFile('supabase/migrations/20260929172447_specific_next_read_reasons.sql', 'utf8'));
   await db.exec(await readFile('supabase/migrations/20260929172647_precise_next_read_evidence.sql', 'utf8'));
+  await db.exec(await readFile('supabase/migrations/20261125192120_up_next_interactive_edits.sql', 'utf8'));
   return db;
 }
 

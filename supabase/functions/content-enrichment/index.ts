@@ -379,9 +379,13 @@ Deno.serve(async (request: Request) => {
     if (!coreResult.data.primary_genre && Array.isArray(volume.categories) && volume.categories[0]) bookPatch.primary_genre = volume.categories[0];
     if (!coreResult.data.language && (volume.language || fallback.language)) bookPatch.language = volume.language || fallback.language;
     const originalYear = publicationYear(work?.first_publish_date || work?.first_publish_year);
-    if (!coreResult.data.original_publication_year && originalYear) bookPatch.original_publication_year = originalYear;
     const bookUpdate = await admin.from('books').update(bookPatch).eq('id', bookId);
     if (bookUpdate.error) throw bookUpdate.error;
+    if (!coreResult.data.original_publication_year && originalYear) {
+      const yearUpdate = await admin.from('books').update({ original_publication_year: originalYear })
+        .eq('id', bookId).is('original_publication_year', null);
+      if (yearUpdate.error) throw yearUpdate.error;
+    }
 
     if (volume.averageRating != null) {
       await upsertRating(admin, bookId, {

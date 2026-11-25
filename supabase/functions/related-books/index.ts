@@ -71,7 +71,7 @@ function externalFromDoc(doc: any, relationship: 'series' | 'author', authorName
     series_name: relationship === 'series' ? seriesName : null, series_order: seriesOrder,
     overall_status: null, ownership_status: null, provider_id: providerId,
     add_payload: {
-      title, subtitle: null, authors, isbn10, isbn13, publisher, publication_year: publicationYear,
+      title, subtitle: null, authors, isbn10, isbn13, publisher, original_publication_year: publicationYear,
       page_count: pageCount, format: 'Book', cover_url: coverId ? `https://covers.openlibrary.org/b/id/${coverId}-L.jpg?default=false` : null,
       synopsis: null, primary_genre: null, language: null, open_library_work_id: workId,
       provider: 'Open Library discovery', provider_id: providerId, score: 1
