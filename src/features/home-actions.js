@@ -2,6 +2,7 @@ import { rpc } from '../data/library.js';
 import { cover, esc } from '../ui/format.js';
 import { closeModal, showModal, toast } from '../ui/feedback.js';
 import { upNextManagerRows } from './up-next-markup.js';
+import { canQueueBook } from './up-next.js';
 import { upNextMetadata } from './up-next-metadata.js';
 
 export function openUpNextDetails(item, books) {
@@ -10,32 +11,96 @@ export function openUpNextDetails(item, books) {
   root.querySelector('[data-read-now]').addEventListener('click', async event => { event.currentTarget.disabled = true; try { const book = books.find(row => row.id === item.id) || item; await rpc('start_reading', { p_book_id: item.id, p_edition_id: book.current_edition_id || book.display_edition_id || null, p_total_pages: book.total_pages ? Number(book.total_pages) : null }); closeModal(); toast(`${item.title} is now your current read.`); window.dispatchEvent(new CustomEvent('reading-room:refresh')); } catch (error) { toast(error.message || 'Could not start this book', true); event.currentTarget.disabled = false; } });
 }
 
-export function openUpNextManager(queue, books) {
-  const ids = new Set(queue.map(item => item.id));
-  const remaining = books.filter(book => !ids.has(book.id) && !['Currently Reading', 'Read', 'DNF', 'Not Interested'].includes(book.overall_status));
-  const root = showModal(`<div class="upnext-manager-head"><div><p class="eyebrow">Reading queue</p><h2>Manage Up Next</h2></div><button class="btn" type="button" data-close>Done</button></div><p class="upnext-manager-note">Locked items are protected from future librarian reshuffles.</p><div id="queue-manager-list">${upNextManagerRows(queue)}</div><form id="upnext-add-form" class="upnext-add-form"><label for="upnext-add-book">Add a book manually</label><select id="upnext-add-book" name="book" class="input" ${remaining.length ? '' : 'disabled'}><option value="">${remaining.length ? 'Choose a book…' : 'No eligible books available'}</option>${remaining.map(book => `<option value="${book.id}">${esc(book.title)} — ${esc(book.authors || '')}</option>`).join('')}</select><button class="btn btn-primary" type="submit" ${remaining.length ? '' : 'disabled'}>Add to queue</button></form>`);
-  root.querySelector('[data-close]').addEventListener('click', closeModal);
-  const refresh = document.createElement('button');
-  refresh.className = 'btn';
-  refresh.type = 'button';
-  refresh.textContent = 'Reconsider unlocked picks';
-  refresh.addEventListener('click', () => {
-    refresh.disabled = true;
-    mutateQueue('refresh_up_next', { p_reason: 'manual_refresh', p_force: true })
-      .finally(() => { refresh.disabled = false; });
-  });
-  root.querySelector('.upnext-manager-note').after(refresh);
-  root.querySelectorAll('[data-queue-id]').forEach((row, index) => {
-    row.querySelectorAll('[data-queue-move]').forEach(button => button.addEventListener('click', async () => { const delta = button.dataset.queueMove === 'up' ? -1 : 1; const reordered = [...queue]; [reordered[index], reordered[index + delta]] = [reordered[index + delta], reordered[index]]; await mutateQueue('up_next_reorder', { p_queue_ids: reordered.map(item => item.queue_id) }); }));
-    row.querySelector('[data-queue-lock]').addEventListener('click', buttonEvent => mutateQueue('up_next_set_locked', { p_queue_id: row.dataset.queueId, p_locked: buttonEvent.currentTarget.dataset.queueLock === '1' }));
-    row.querySelector('[data-queue-remove]').addEventListener('click', () => mutateQueue('up_next_remove', { p_queue_id: row.dataset.queueId }));
-  });
-  root.querySelector('#upnext-add-form').addEventListener('submit', event => { event.preventDefault(); if (event.currentTarget.book.value) mutateQueue('up_next_add', { p_book_id: event.currentTarget.book.value, p_source: 'Manual', p_reason: 'Added manually from Library.', p_locked: true, p_ai_score: null, p_confidence: null }); });
-}
+export function openUpNextManager(mutate) {
+  const root = showModal(`<div class="upnext-manager-head"><div><p class="eyebrow">Reading queue</p><h2 id="upnext-manager-title">Manage Up Next</h2></div><button class="btn" type="button" data-close>Done</button></div><p class="upnext-manager-note">Locked items are protected from future librarian reshuffles.</p><button class="btn" type="button" data-queue-refresh>Reconsider unlocked picks</button><div id="queue-manager-list"></div><form id="upnext-add-form" class="upnext-add-form"><label for="upnext-add-book">Add a book manually</label><select id="upnext-add-book" name="book" class="input"></select><button class="btn btn-primary" type="submit">Add to queue</button></form>`);
+  const modal = root.querySelector('.modal');
+  modal.classList.add('upnext-manager-modal');
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'upnext-manager-title');
 
-async function mutateQueue(name, args) {
-  try { await rpc(name, args); closeModal(); toast('Reading queue updated.'); window.dispatchEvent(new CustomEvent('reading-room:refresh')); }
-  catch (error) { toast(error.message || 'Could not update queue', true); }
+  const list = modal.querySelector('#queue-manager-list');
+  const form = modal.querySelector('#upnext-add-form');
+  const select = form.elements.book;
+  const add = form.querySelector('[type="submit"]');
+  const refresh = modal.querySelector('[data-queue-refresh]');
+  let queue = [];
+  let busy = false;
+  let rowsMarkup;
+  let selectorMarkup;
+
+  modal.addEventListener('keydown', event => {
+    if (event.key === 'Escape') closeModal();
+  });
+  list.addEventListener('click', event => {
+    const button = event.target.closest('button');
+    const row = button?.closest('[data-queue-id]');
+    if (busy || !row || button.disabled) return;
+    const queue_id = row.dataset.queueId;
+    if (button.hasAttribute('data-queue-lock')) {
+      void mutate('lock', { queue_id, locked: button.dataset.queueLock === '1' });
+    } else if (button.hasAttribute('data-queue-remove')) {
+      void mutate('remove', { queue_id });
+    } else if (button.hasAttribute('data-queue-move')) {
+      const expected_queue_ids = queue.map(item => item.queue_id);
+      const queue_ids = [...expected_queue_ids];
+      const index = queue_ids.indexOf(queue_id);
+      const next = index + (button.dataset.queueMove === 'up' ? -1 : 1);
+      [queue_ids[index], queue_ids[next]] = [queue_ids[next], queue_ids[index]];
+      void mutate('reorder', { queue_ids, expected_queue_ids });
+    }
+  });
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    if (!busy && select.value) {
+      const selected = select.value;
+      void mutate('add', { book_id: selected }).then(success => {
+        if (!success && !select.disabled) select.value = selected;
+      });
+    }
+  });
+  refresh.addEventListener('click', () => { if (!busy) void mutate('refresh', {}); });
+
+  return {
+    get isOpen() { return modal.isConnected; },
+    update(items, books, pending) {
+      if (!modal.isConnected) return;
+      queue = items;
+      busy = pending;
+      const scrollTop = modal.scrollTop;
+      const backdrop = modal.parentElement;
+      const backdropTop = backdrop.scrollTop;
+      const rows = upNextManagerRows(queue);
+      if (rows !== rowsMarkup) {
+        const active = document.activeElement;
+        const activeRow = active?.closest('[data-queue-id]');
+        const action = ['data-queue-move', 'data-queue-lock', 'data-queue-remove'].find(name => active?.hasAttribute(name));
+        list.innerHTML = rows;
+        rowsMarkup = rows;
+        if (activeRow && action) {
+          const replacement = [...list.children].find(row => row.dataset.queueId === activeRow.dataset.queueId);
+          const target = [...(replacement?.querySelectorAll(`[${action}]`) || [])].find(button => !button.disabled &&
+            (action !== 'data-queue-move' || button.dataset.queueMove === active.dataset.queueMove));
+          target?.focus({ preventScroll: true });
+        }
+      }
+      list.querySelectorAll('button:not(:disabled)').forEach(button => button.setAttribute('aria-disabled', String(busy)));
+      const ids = new Set(queue.map(item => item.id));
+      const remaining = books.filter(book => canQueueBook(book) && !ids.has(book.id));
+      const options = `<option value="">${remaining.length ? 'Choose a book…' : 'No eligible books available'}</option>${remaining.map(book => `<option value="${esc(book.id)}">${esc(book.title)} — ${esc(book.authors || '')}</option>`).join('')}`;
+      if (options !== selectorMarkup) {
+        const selection = select.value;
+        select.innerHTML = options;
+        select.value = remaining.some(book => book.id === selection) ? selection : '';
+        selectorMarkup = options;
+      }
+      add.disabled = select.disabled = busy || !remaining.length;
+      refresh.disabled = busy;
+      modal.setAttribute('aria-busy', String(busy));
+      backdrop.scrollTop = backdropTop;
+      modal.scrollTop = scrollTop;
+    }
+  };
 }
 
 export function openRecommendation(item) {

@@ -31,6 +31,32 @@ test('Nonfiction comes from detail data and Awards is placed after Synopsis befo
   assert.ok(html.indexOf('data-detail-slot="awards"') < html.indexOf('data-detail-slot="quotes"'));
 });
 
+test('the Book eyebrow uses the original year only when present', () => {
+  assert.match(bookDetailView(state({ fiction_nonfiction: 'Fiction', original_publication_year: 2004, edition_year: 2021 })),
+    /<p class="eyebrow">Fiction • 2004<\/p>/);
+  assert.match(bookDetailView(state({ original_publication_year: null, edition_year: 2021 })),
+    /<p class="eyebrow">Nonfiction<\/p>/);
+});
+
+test('the queue button follows Start or Resume reading and respects queue eligibility', () => {
+  for (const [overall_status, ownership_status, start, queue] of [
+    ['Owned - Unread', 'Owned', 'Start reading', true],
+    ['Paused', 'Borrowed', 'Resume reading', true],
+    ['Wishlist', 'Not Owned', null, true],
+    ['Recommended', 'On Order', null, true],
+    ['Currently Reading', 'Owned', null, false],
+    ['Read', 'Owned', null, false],
+    ['DNF', 'Owned', 'Start reading', false],
+    ['Not Interested', 'Not Owned', null, false],
+    ['Not in Library', 'Not Owned', null, false]
+  ]) {
+    const html = bookDetailView(state({ overall_status, ownership_status }));
+    assert.equal(html.includes('data-add-up-next'), queue, overall_status);
+    assert.equal(html.includes('data-start='), Boolean(start), overall_status);
+    if (start && queue) assert.match(html, new RegExp(`>${start}</button><button class="btn"[^>]*data-add-up-next`));
+  }
+});
+
 test('detail source keeps BOOK as fallback and loads fiction_nonfiction through v_library', async () => {
   const [detail, library, css, metadata] = await Promise.all([readFile('src/views/book-detail.js', 'utf8'), readFile('src/data/library.js', 'utf8'), readFile('src/styles/app.css', 'utf8'), readFile('supabase/functions/book-metadata/index.ts', 'utf8')]);
   assert.match(detail, /book\.fiction_nonfiction/);

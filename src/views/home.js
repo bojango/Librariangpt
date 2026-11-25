@@ -63,9 +63,13 @@ function upNextCard(item) {
   return `<article class="upnext-card" data-upnext-id="${item.queue_id || item.id}" tabindex="0" role="button">${cover(item, 'upnext-cover')}<div class="upnext-copy"><div class="upnext-card-top"><span class="upnext-position">${item.position}</span><p class="upnext-source ${item.source === 'Manual' ? 'manual' : 'ai'}">${item.source === 'Manual' ? 'Your pick' : 'Librarian pick'}${item.locked ? ' · locked' : ''}</p></div><h3>${esc(item.title)}</h3><p class="upnext-author">${esc(item.authors || 'Unknown author')}</p>${upNextMetadata(item)}<p class="upnext-reason">${esc(item.reason || item.why_recommended || 'Queued for later.')}</p></div></article>`;
 }
 
+export function upNextShelf(queue) {
+  const visible = queue.slice(0, VISIBLE_UP_NEXT_COUNT);
+  return visible.length ? `<div class="upnext-row">${visible.map(upNextCard).join('')}</div>` : '<div class="empty-shelf">Nothing queued yet.</div>';
+}
+
 function upNext(state) {
-  const visible = state.upNext.slice(0, VISIBLE_UP_NEXT_COUNT);
-  return `<section class="section up-next-section" id="up-next-section"><div class="section-header"><h2>${uiCopyHtml('home.upNext')}</h2><button class="upnext-manage" data-manage-upnext type="button">${uiCopyHtml('home.manage')}</button></div>${visible.length ? `<div class="upnext-row">${visible.map(upNextCard).join('')}</div>` : '<div class="empty-shelf">Nothing queued yet.</div>'}</section>`;
+  return `<section class="section up-next-section" id="up-next-section"><div class="section-header"><h2>${uiCopyHtml('home.upNext')}</h2><button class="upnext-manage" data-manage-upnext type="button">${uiCopyHtml('home.manage')}</button></div>${upNextShelf(state.upNext)}</section>`;
 }
 
 function recommendationCard(item) {

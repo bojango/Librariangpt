@@ -2633,6 +2633,19 @@ html:has(body) .profile-page .profile-card { box-shadow: none !important; }
 main:has(.collections-overview,.collection-detail,.collection-catalogue-detail) { padding-left:max(clamp(18px,4vw,52px),var(--safe-left,env(safe-area-inset-left,0px))); padding-right:max(clamp(18px,4vw,52px),var(--safe-right,env(safe-area-inset-right,0px))); padding-bottom:calc(48px + var(--safe-bottom)); }
 .collection-add-action .btn { scroll-margin-block:calc(var(--user-nav-height,var(--terminal-nav-height,62px)) + var(--safe-bottom) + 24px); }
 
+.detail-actions.book-start-actions {
+  display: inline-grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 100%;
+}
+.book-start-actions .btn { min-width: 0; width: 100%; justify-content: center; }
+html[data-theme="terminal"] .btn[data-add-up-next] {
+  background: var(--terminal-surface-alt) !important;
+  color: var(--terminal-text) !important;
+}
+.upnext-manager-modal { overflow-anchor: none; }
+.queue-manager-actions button[aria-disabled="true"] { opacity: .55; cursor: default; }
+
 related-books .series-collection-link { color:inherit; font:inherit; letter-spacing:inherit; text-decoration:none; }
 
 /* Keep edition controls in their established vertical stack at every width. */

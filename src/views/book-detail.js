@@ -6,6 +6,7 @@ import { librarianNoteMarkup } from './librarian-note.js';
 import { awardsSection } from '../features/accolades.js';
 import { uiCopyHtml } from '../ui/copy.js';
 import { bookReadingTime, durationHms } from '../utils/reading-time.js';
+import { canQueueBook } from '../features/up-next.js';
 
 const cover = book => baseCover(book, '', { eager: true, high: true });
 
@@ -45,7 +46,11 @@ function shortSynopsis(text, max = 390) {
 
 function startReadingAction(book) {
   const canStart = ['Owned - Unread', 'Paused'].includes(book.overall_status) || (book.ownership_status === 'Owned' && !['Currently Reading', 'Read'].includes(book.overall_status));
-  return canStart ? `<div class="detail-actions"><button class="btn btn-primary" data-start="${book.id}">${book.overall_status === 'Paused' ? 'Resume reading' : 'Start reading'}</button></div>` : '';
+  const canQueue = canQueueBook(book);
+  if (!canStart && !canQueue) return '';
+  const start = canStart ? `<button class="btn btn-primary" type="button" data-start="${book.id}">${book.overall_status === 'Paused' ? 'Resume reading' : 'Start reading'}</button>` : '';
+  const queue = canQueue ? `<button class="btn" type="button" data-add-up-next="${book.id}">Add to Up Next</button>` : '';
+  return `<div class="detail-actions${canStart && canQueue ? ' book-start-actions' : ''}">${start}${queue}</div>`;
 }
 
 function actions(book) {
@@ -123,7 +128,9 @@ export function bookDetailView(state) {
   const chapterRow = state.chapters.find(row => row.id === book.id);
   const chapter = chapterRow?.current_chapter_title || (chapterRow?.current_chapter_number ? `Chapter ${chapterRow.current_chapter_number}` : '');
   const review = book.review_notes || book.user_review || '';
-  const fictionNonfictionLabel = String(book.fiction_nonfiction || '').trim() || 'Book';
+  const classification = String(book.fiction_nonfiction || '').trim() || 'Book';
+  const originalYear = Number(book.original_publication_year);
+  const fictionNonfictionLabel = Number.isInteger(originalYear) && originalYear > 0 ? `${classification} • ${originalYear}` : classification;
   const content = `<button class="back-btn" data-back><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14.5 5-7 7 7 7M8 12h9"/></svg><span>Back</span></button><section class="detail-header" data-book-id="${book.id}" data-library-detail="ready">${cover(book)}<div class="detail-copy detail-copy-v4"><p class="eyebrow">${esc(fictionNonfictionLabel)}</p><h1>${esc(book.title)}</h1><div class="hero-author">${esc(book.authors || 'Unknown author')}</div><div class="meta"><span class="status-group">${bookStatusPills(book)}</span>${tags.map(tag => `<span class="badge">${esc(tag)}</span>`).join('')}${recommendation?.match_score_10 != null ? `<span class="badge accent">Predicted fit ${Number(recommendation.match_score_10).toFixed(1)}/10</span>` : ''}</div><div class="rating-strip rating-primary-row">${goodreads ? ratingCard(goodreads) : goodreadsUnavailableCard()}${userRatingCard(book)}</div>${startReadingAction(book)}${librarianNoteMarkup(book, detail.latestReadingNote)}<section class="book-synopsis"><h2>Synopsis</h2><p><span class="synopsis-text">${esc(synopsis.short)}</span>${synopsis.truncated ? ` <button class="read-more" type="button" data-synopsis data-short="${esc(synopsis.short)}" data-full="${esc(synopsis.full)}">Read more</button>` : ''}</p></section>${awardsSection(detail.accolades)}${quotesSection(detail)}${progressSection(book, chapter)}${book.overall_status !== 'Currently Reading' ? actions(book) : ''}${review ? `<section class="review-panel"><p class="eyebrow">Your review</p><p>${esc(review)}</p><button class="text-action" type="button" data-review="${book.id}">Edit rating & review</button></section>` : ''}${readingStats(book, detail.readingTimeSessions)}${visibleMetadata(book)}${recommendation?.why_recommended ? `<section class="recommendation-panel"><p class="eyebrow">Librarian note</p><h2>Why it was recommended</h2><p>${esc(recommendation.why_recommended)}</p>${recommendation.outcome ? `<span class="badge">Prediction: ${esc(recommendation.outcome)}</span>` : ''}</section>` : ''}${metadata(detail)}${relatedBooksMarkup(book,state)}</div></section>`;
   const labelled = content
     .replace('>Back<', `>${uiCopyHtml('book.back')}<`)

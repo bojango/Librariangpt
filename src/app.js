@@ -6,12 +6,12 @@ import { attachSessionDisplay, createNfcLifecycleCheck } from './features/readin
 import { attachSessionBookPicker, sessionBookPickerMarkup } from './features/session-book-picker.js';
 import { chrome } from './ui/chrome.js';
 import { openNfcBookmarks } from './features/nfc-bookmark.js';
-import { clearRequestDedupe, invoke, loadBookDetail, refreshLibrary, rpc, setDataDiagnosticHook, updateReaderProfile, uploadProfileAvatar } from './data/library.js';
+import { clearRequestDedupe, editUpNext, invoke, loadBookDetail, loadUpNext, refreshLibrary, rpc, setDataDiagnosticHook, updateReaderProfile, uploadProfileAvatar } from './data/library.js';
 import { createAppState } from './state.js';
 import { createRouter, parseRoute, routeHash } from './router.js';
 import { detailFingerprint, sameRoute, snapshotFingerprint } from './lifecycle.js';
 import { authView, claimView, errorView } from './views/auth.js';
-import { homeView } from './views/home.js';
+import { homeView, upNextShelf, VISIBLE_UP_NEXT_COUNT } from './views/home.js';
 import { libraryView } from './views/library.js';
 import { collectionsView, collectionDetailView, catalogueBookView } from './views/collections.js';
 import { buildCollections, catalogueBook, workRouteId } from './features/collections.js';
@@ -24,6 +24,7 @@ import { closeModal, showModal, toast } from './ui/feedback.js';
 import { openAddBook } from './features/add-book.js';
 import { addToWishlist, confirmPause, openCollectionStatus, openCoverPicker, openDnf, openFinish, openPageCount, openProgress, openReview, openStart, refreshMetadata } from './features/reading-actions.js';
 import { openRecommendation, openUpNextDetails, openUpNextManager } from './features/home-actions.js';
+import { canQueueBook, previewQueueEdit } from './features/up-next.js';
 import { initialiseCarousel } from './features/current-reading-carousel.js';
 import { openBookAdmin } from './features/book-admin.js';
 import { copyNfcBookId } from './features/nfc-book-link.js';
@@ -60,6 +61,11 @@ const store = createAppState();
 let router;
 let previousRoute = 'home';
 let dataLoad = null;
+let queueManager = null;
+let queueEdit = null;
+let queueGeneration = 0;
+let queueReadVersion = 0;
+let queueNeedsRead = false;
 let libraryLoaded = false;
 let scrollRestoreFrame = null;
 let sessionBootstrapUser = null;
@@ -264,6 +270,7 @@ function paint(html, { restore = false, restoreY: requestedRestoreY = null, pres
     app.replaceChildren(template.content);
   }
   app.dataset.routeView = store.value.route.name;
+  syncQueueControls();
   revealStartup(app);
   syncStatusSurface(document, { force: true });
   activateCovers(activationRoot);
@@ -390,15 +397,107 @@ async function renderRoute(route, { mode = 'navigation', detail = null, restoreY
   diagnostics.event('route_render_complete', { route: route.name, mode, render_generation: version });
 }
 
+function syncQueueControls() {
+  queueManager?.update(store.value.upNext, store.value.books, Boolean(queueEdit));
+  const button = app.querySelector('[data-add-up-next]');
+  if (button) {
+    button.disabled = Boolean(queueEdit);
+    button.textContent = queueEdit?.bookId === button.dataset.addUpNext ? 'Adding…' : 'Add to Up Next';
+  }
+}
+
+function setUpNext(queue) {
+  const previous = store.value.upNext;
+  store.update({ upNext: queue });
+  syncQueueControls();
+  if (store.value.route.name !== 'home') return;
+  const current = app.querySelector('#up-next-section > :last-child');
+  const visible = items => JSON.stringify(items.slice(0, VISIBLE_UP_NEXT_COUNT), (key, value) =>
+    key === 'queue_updated_at' ? undefined : value);
+  if (!current || visible(previous) === visible(queue)) return;
+  const template = document.createElement('template');
+  template.innerHTML = upNextShelf(queue);
+  const next = template.content.firstElementChild;
+  const scrollLeft = current.scrollLeft;
+  reuseCoverImages(next, collectCoverImages(current), { activate: false });
+  current.replaceWith(next);
+  next.scrollLeft = scrollLeft;
+  activateCovers(next);
+}
+
+async function reconcileUpNext() {
+  if (!queueNeedsRead || queueEdit || !store.value.session) return;
+  queueNeedsRead = false;
+  const generation = queueGeneration;
+  const readVersion = ++queueReadVersion;
+  const user = store.value.session.user.id;
+  try {
+    const queue = await loadUpNext();
+    if (store.value.session?.user?.id === user && queueGeneration === generation && readVersion === queueReadVersion) setUpNext(queue);
+  } catch {
+    diagnostics.event('queue_reconcile_failed');
+  }
+}
+
+async function mutateUpNext(action, args) {
+  if (queueEdit || !store.value.session) return false;
+  const user = store.value.session.user.id;
+  const previous = store.value.upNext;
+  const edit = { bookId: action === 'add_first' ? args.book_id : null };
+  const isCurrent = () => queueEdit === edit && store.value.session?.user?.id === user;
+  const started = performance.now();
+  queueEdit = edit;
+  queueGeneration += 1;
+  diagnostics.event('queue_mutation_start', { action, queue_count: previous.length });
+  setUpNext(previewQueueEdit(previous, action, args, store.value.books));
+  try {
+    const queue = await editUpNext(action, args);
+    if (!isCurrent()) return false;
+    setUpNext(queue);
+    diagnostics.event('queue_mutation_complete', { action, duration_ms: Math.round(performance.now() - started), queue_count: queue.length });
+    const added = queue.find(item => item.id === args.book_id);
+    toast(added ? `Added to Up Next at position ${added.position}.` : 'Reading queue updated.');
+    return true;
+  } catch (error) {
+    if (!isCurrent()) return false;
+    setUpNext(previous);
+    const code = /^[A-Z0-9]{5}$/.test(error?.code || '') ? error.code : null;
+    diagnostics.event('queue_mutation_failed', { action, duration_ms: Math.round(performance.now() - started), error_code: code });
+    const message = code === '40001' ? 'The queue changed. Check its order and try again.'
+      : error?.message === 'Book is not eligible for Up Next' ? 'This book is no longer eligible for Up Next.'
+      : 'Could not update Up Next. Check your queue and try again.';
+    toast(message, true);
+    queueNeedsRead = true;
+    return false;
+  } finally {
+    if (isCurrent()) {
+      queueEdit = null;
+      syncQueueControls();
+      void reconcileUpNext();
+    }
+  }
+}
+
 async function loadSnapshot() {
   if (!store.value.session) { diagnostics.event('snapshot_load_skipped', { reason: 'no_session' }); return; }
   if (dataLoad) { diagnostics.event('request_deduped', { request_key: 'app-library-snapshot' }); return dataLoad; }
   const started = performance.now();
   diagnostics.event('snapshot_load_start');
   const snapshotUser = store.value.session.user.id;
+  const snapshotQueueGeneration = queueGeneration;
+  const snapshotDuringEdit = Boolean(queueEdit);
   dataLoad = refreshLibrary().then(snapshot => {
     if (store.value.session?.user?.id !== snapshotUser) return snapshot;
-    store.update(snapshot);
+    const { upNext, ...library } = snapshot;
+    store.update(library);
+    if (snapshotDuringEdit || queueEdit || snapshotQueueGeneration !== queueGeneration) {
+      queueNeedsRead = true;
+      void reconcileUpNext();
+    } else if (upNext) {
+      queueReadVersion += 1;
+      setUpNext(upNext);
+    }
+    syncQueueControls();
     libraryLoaded = true;
     diagnostics.event('snapshot_load_complete', { duration_ms: Math.round(performance.now() - started), book_count: snapshot.books.length });
     void maybeMapCurrentChapters(snapshot, {
@@ -425,10 +524,10 @@ async function refresh({ quiet = false, scope = 'library', bookId = null } = {})
       if (before !== detailFingerprint(detail)) { diagnostics.event('snapshot_changed', { scope: 'book', book_id: bookId }); await renderRoute(routeAtStart, { mode: 'refresh', detail }); }
       else diagnostics.event('snapshot_unchanged', { scope: 'book', book_id: bookId });
     } else {
-      const before = snapshotFingerprint(store.value);
+      const before = snapshotFingerprint({ ...store.value, upNext: [] });
       await loadSnapshot();
       if (!sameRoute(store.value.route, routeAtStart)) { diagnostics.event('refresh_skipped', { reason: 'route_changed', scope }); return; }
-      if (before !== snapshotFingerprint(store.value)) { diagnostics.event('snapshot_changed', { scope: 'library' }); await renderRoute(routeAtStart, { mode: 'refresh' }); }
+      if (before !== snapshotFingerprint({ ...store.value, upNext: [] })) { diagnostics.event('snapshot_changed', { scope: 'library' }); await renderRoute(routeAtStart, { mode: 'refresh' }); }
       else {
         diagnostics.event('snapshot_unchanged', { scope: 'library' });
         if (routeAtStart.name === 'profile') void refreshActivity({ background: true });
@@ -777,12 +876,17 @@ app.addEventListener('click', async event => {
   if (target.closest('[data-signout]')) { supabase.auth.signOut(); return; }
   if (target.closest('[data-add-book]')) { openAddBook(); return; }
   if (target.closest('[data-upnext-id]')) { openUpNextDetails(store.value.upNext.find(item => String(item.queue_id || item.id) === target.closest('[data-upnext-id]').dataset.upnextId), store.value.books); return; }
-  if (target.closest('[data-manage-upnext]')) { openUpNextManager(store.value.upNext, store.value.books); return; }
+  if (target.closest('[data-manage-upnext]')) {
+    queueManager = openUpNextManager(mutateUpNext);
+    syncQueueControls();
+    return;
+  }
   if (target.closest('[data-recommendation-id]')) { openRecommendation(store.value.aiRecommendations.find(item => item.recommendation_id === target.closest('[data-recommendation-id]').dataset.recommendationId)); return; }
   const book = currentBook();
   if (target.closest('[data-progress]')) { openProgress(currentBook(target.closest('[data-progress]').dataset.progress)); return; }
   if (!book) return;
-  if (target.closest('[data-start]')) openStart(book);
+  if (target.closest('[data-add-up-next]') && canQueueBook(book)) void mutateUpNext('add_first', { book_id: book.id });
+  else if (target.closest('[data-start]')) openStart(book);
   else if (target.closest('[data-finish]')) openFinish(book);
   else if (target.closest('[data-pause]')) confirmPause(book);
   else if (target.closest('[data-dnf]')) openDnf(book);
@@ -1103,6 +1207,12 @@ async function init() {
     diagnostics.event('auth_state_change', { event_name: authEvent, previous_user_equals_new: previousUserId === nextUserId, had_user: Boolean(previousUserId), has_user: Boolean(nextUserId) });
     const enteringSession = !store.value.session && Boolean(nextSession);
     store.value.session = nextSession;
+    if (previousUserId !== nextUserId) {
+      if (queueManager?.isOpen) closeModal();
+      queueManager = queueEdit = null;
+      queueGeneration += 1;
+      queueNeedsRead = false;
+    }
     if (previousUserId && nextUserId && previousUserId !== nextUserId) {
       activityLoadVersion += 1;
       store.value.profileTab = 'feed';

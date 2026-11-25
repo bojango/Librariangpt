@@ -70,3 +70,23 @@ test('History preserves completed session events and links to book detail', () =
   assert.match(html, /data-open-book="book-1"/);
   assert.doesNotMatch(html, /fallback-book-1/);
 });
+
+test('History uses session totals, then its verified edition and only matching library metadata', () => {
+  const book = { ...state.books[0], current_edition_id: 'new', total_pages: 410, primary_genre: 'Exploration' };
+  const completed = { book_id: book.id, started_at: '2026-09-08', user_rating_5: 4.8 };
+  const verified = { book_id: book.id, page_count: 326, page_count_verified: true };
+  const readingHistory = [
+    { ...completed, id: 'reread', completed_at: '2026-09-18', edition_id: 'new' },
+    { ...completed, id: 'first', completed_at: '2025-09-18', edition_id: 'old', total_pages: 300, edition: verified },
+    { ...completed, id: 'verified', completed_at: '2024-09-18', edition_id: 'old', edition: verified },
+    { ...completed, id: 'unknown', completed_at: '2023-09-18', edition_id: 'another-old', edition: { ...verified, page_count_verified: false } }
+  ];
+  const html = profileView({ ...state, profileTab: 'history', books: [book], readingHistory });
+  const details = [...html.matchAll(/class="profile-history-details">([^<]*)</g)].map(match => match[1]);
+  assert.equal(details.length, 4);
+  assert.match(details[0], /4\.8\/5 · 410 pages$/);
+  assert.match(details[1], /4\.8\/5 · 300 pages$/);
+  assert.match(details[2], /4\.8\/5 · 326 pages$/);
+  assert.match(details[3], /4\.8\/5$/);
+  assert.doesNotMatch(html, /Exploration/);
+});

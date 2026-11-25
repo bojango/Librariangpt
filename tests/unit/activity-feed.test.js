@@ -73,9 +73,9 @@ test('profile defaults to Feed, keeps summary sourced and history retains sessio
   assert.match(profileView(state),/id="profile-tab-feed"[^>]*aria-selected="true"/);
   assert.match(profileView({...state,profile:{...state.profile,short_bio:'Old generic bio'}}),/still discovering what works/);
   assert.doesNotMatch(profileView(state),/data-profile-edit|data-nfc-bookmarks|profile-avatar-action-icon/);
-  const html = profileView({...state,profileTab:'history',readingHistory:[{id:'one',book_id:'book',started_at:'2026-01-01',completed_at:'2026-01-05',user_rating_5:3.8},{id:'two',book_id:'book',started_at:'2026-02-01',completed_at:'2026-02-03',user_rating_5:null}]});
+  const html = profileView({...state,profileTab:'history',readingHistory:[{id:'one',book_id:'book',started_at:'2026-01-01',completed_at:'2026-01-05',user_rating_5:3.8,total_pages:281},{id:'two',book_id:'book',started_at:'2026-02-01',completed_at:'2026-02-03',user_rating_5:null}]});
   assert.equal((html.match(/class="profile-history-item"/g)||[]).length,2);
-  assert.match(html,/4 days/); assert.match(html,/2 days/); assert.match(html,/Unrated/); assert.match(html,/Science Fiction/);
+  assert.match(html,/4 days · 3.8\/5 · 281 pages/); assert.match(html,/2 days · Unrated</); assert.doesNotMatch(html,/Science Fiction/);
   assert.match(html,/id="profile-panel-history"[^>]*><section class="history-year"><h3>2026/);
 });
 test('activity repository uses stable keyset pagination and owner RLS without hiding query errors', async () => {

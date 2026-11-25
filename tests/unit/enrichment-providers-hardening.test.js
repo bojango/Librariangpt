@@ -77,6 +77,31 @@ networkTest('confirmed Goodreads identity persists when rating is missing and la
   assert.equal(admin.tables.public_ratings[0].review_count,10);
 });
 
+networkTest('ISBN search carries the work first-publication year separately from the edition date', async () => {
+  const admin = memoryAdmin();
+  admin.auth = { getUser: async () => ({ data: { user: { id: 'fixture-owner' } } }) };
+  const search = await edgeHandler('book-search', admin);
+  let originalYear = '2013';
+  globalThis.fetch = async input => {
+    const url = String(input);
+    if (url.includes('googleapis')) return Response.json({ items: [] });
+    if (url.includes('/isbn/')) return Response.json({
+      key: '/books/OL123M', title: 'Fixture work', isbn_13: ['9781234567897'],
+      publish_date: '2016', works: [{ key: '/works/OL123W' }]
+    });
+    if (url.includes('/works/OL123W.json')) return Response.json({ first_publish_date: originalYear });
+    throw new Error(`Unexpected URL: ${url}`);
+  };
+  const known = await search({ query: '9781234567897' });
+  assert.equal(known.status, 200);
+  assert.equal(known.data.results[0].publication_year, 2016);
+  assert.equal(known.data.results[0].original_publication_year, 2013);
+  originalYear = null;
+  const unknown = await search({ query: '9781234567897' });
+  assert.equal(unknown.data.results[0].publication_year, 2016);
+  assert.equal(unknown.data.results[0].original_publication_year, null);
+});
+
 networkTest('Google 429 in edition discovery prevents Google calls in content and Open Library still enriches',async()=>{
   const admin=seed();
   admin.tables.books[0].reference_edition_id='edition';
@@ -90,7 +115,7 @@ networkTest('Google 429 in edition discovery prevents Google calls in content an
     if(url.includes('/editions.json'))return Response.json({entries:[]});
     if(url.includes('/isbn/'))return Response.json({key:'/books/OL123M',works:[{key:'/works/OL123W'}],number_of_pages:342,publishers:['Crown'],publish_date:'2016',physical_format:'Paperback',covers:[10]});
     if(url.includes('/ratings.json'))return Response.json({summary:{average:4,count:10}});
-    if(url.includes('/works/OL123W.json'))return Response.json({description:'An Open Library synopsis',covers:[10]});
+    if(url.includes('/works/OL123W.json'))return Response.json({description:'An Open Library synopsis',first_publish_date:'2013',covers:[10]});
     throw new Error(`Unexpected URL: ${url}`);
   };
   const first=await discovery({book_id:book.id,enrichment:true});
@@ -103,8 +128,12 @@ networkTest('Google 429 in edition discovery prevents Google calls in content an
   assert.equal(admin.tables.editions[0].page_count,342);
   assert.equal(admin.tables.editions[0].publisher,'Crown');
   assert.equal(admin.tables.editions[0].publication_year,2016);
+  assert.equal(admin.tables.books[0].original_publication_year,2013);
   assert.equal(calls.filter(url=>url.includes('googleapis')).length,1);
   assert.ok(second.data.provider_diagnostics.google_books.skipped_due_to_rate_limit > 0);
+  admin.tables.books[0].original_publication_year=2012;
+  assert.equal((await content({book_id:book.id})).status,200);
+  assert.equal(admin.tables.books[0].original_publication_year,2012);
 });
 
 networkTest('a stage loaded before another invocation trips Google backoff also skips the request',async()=>{

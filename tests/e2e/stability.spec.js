@@ -6,6 +6,7 @@ const png=readFileSync('icons/icon-192.png');
 
 async function isolatedApp(page,{edition=false,discoverySuccess=false}={}) {
  const user={id:'test-owner',aud:'authenticated',role:'authenticated',email:'fixture@example.test'};
+ const editionCheckedAt=new Date().toISOString();
  const jwt=[{alg:'HS256',typ:'JWT'},{sub:user.id,role:'authenticated',aud:'authenticated',exp:Math.floor(Date.now()/1000)+3600}].map(x=>Buffer.from(JSON.stringify(x)).toString('base64url')).join('.')+'.test';
  await page.addInitScript(({project,user,jwt})=>{window.__stabilityRejections=[];window.addEventListener('unhandledrejection',e=>window.__stabilityRejections.push(String(e.reason)));Object.defineProperty(navigator,'standalone',{value:true});if(!localStorage.getItem(`sb-127-auth-token`))localStorage.setItem(`sb-127-auth-token`,JSON.stringify({access_token:jwt,refresh_token:'test',expires_at:Math.floor(Date.now()/1000)+3600,user}));},{project,user,jwt});
  let selected=edition?'edition-1':null,cover='',uploadFailure=false,discoveryCalls=0,discovered=false;const uploads=[],editions=edition?[{id:'edition-1',book_id:'yeti',isbn13:'9780008279493',publisher:'William Collins',publication_year:2018,page_count:320}]:[];
@@ -30,7 +31,7 @@ async function isolatedApp(page,{edition=false,discoverySuccess=false}={}) {
   if(path.includes('/rest/v1/book_cover_candidates'))return json({id:'manual-url'});
   if(path.includes('/rest/v1/v_library'))return json(url.searchParams.has('id')?book():books());
   if(path.includes('/rest/v1/editions'))return json(editions);
-  if(path.includes('/rest/v1/books'))return json({editions_status:discovered?'ready':'failed',editions_error:discovered?null:'Providers temporarily unavailable',editions_last_refreshed_at:'2026-10-01T10:00:00Z',metadata_status:'complete'});
+  if(path.includes('/rest/v1/books'))return json({editions_status:discovered?'ready':'failed',editions_error:discovered?null:'Providers temporarily unavailable',editions_last_refreshed_at:editionCheckedAt,metadata_status:'complete'});
   if(path.includes('/rest/v1/reader_profiles'))return json(null);
   if(path.includes('/rest/v1/rpc/'))return json(null);
   return json([]);
